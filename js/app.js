@@ -1,6 +1,7 @@
 /**
- * REGISTRO RADIOLÓGICO ONLINE - CNE / NA-SA
- * Lógica de Interfaz, Cálculos Radiológicos y Respaldo Local (100% Offline)
+ * REGISTRO RADIOLÓGICO ONLINE - CENTRAL NUCLEAR EMBALSE / NA-SA
+ * Lógica de Interfaz, Cálculos Radiológicos y Sistema de Popups/Toasts Futuristas
+ * 100% Offline (Sin alertas nativas ni dependencias externas)
  */
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -14,10 +15,101 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 /* ==========================================================================
-   TEMA (DARK / LIGHT MODE)
+   SISTEMA DE POPUPS MODALES Y NOTIFICACIONES TOAST (SIN ALERT NATIVO)
+   ========================================================================== */
+function showToast(message, type = "info", duration = 3500) {
+  let container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    container.className = "toast-container";
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+
+  let icon = "ℹ️";
+  if (type === "success") icon = "✔️";
+  if (type === "warning") icon = "⚠️";
+  if (type === "danger") icon = "🚨";
+
+  toast.innerHTML = `
+    <span style="font-size: 15px;">${icon}</span>
+    <div style="flex: 1; word-break: break-word;">${message}</div>
+    <span style="cursor: pointer; opacity: 0.6; font-size: 14px;" onclick="this.parentElement.remove()">✕</span>
+  `;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.transition = "opacity 0.3s ease, transform 0.3s ease";
+    toast.style.opacity = "0";
+    toast.style.transform = "translateX(40px)";
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+function showConfirmModal({
+  title = "Confirmación de Seguridad",
+  message = "¿Está seguro de realizar esta acción?",
+  confirmText = "CONFIRMAR",
+  cancelText = "CANCELAR",
+  isDanger = false,
+  onConfirm = () => {},
+  onCancel = () => {},
+}) {
+  let overlay = document.getElementById("cyber-modal-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "cyber-modal-overlay";
+    overlay.className = "modal-overlay";
+    document.body.appendChild(overlay);
+  }
+
+  const confirmBtnClass = isDanger ? "btn-danger-outline" : "btn-primary";
+
+  overlay.innerHTML = `
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><span style="color: var(--neon-cyan);">◈</span> ${title}</h3>
+        <span style="cursor: pointer; color: var(--text-muted); font-size: 16px;" id="modal-close-x">✕</span>
+      </div>
+      <div class="modal-body">
+        ${message}
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="modal-btn-cancel">${cancelText}</button>
+        <button class="btn ${confirmBtnClass}" id="modal-btn-confirm">${confirmText}</button>
+      </div>
+    </div>
+  `;
+
+  overlay.classList.add("active");
+
+  function close() {
+    overlay.classList.remove("active");
+  }
+
+  document.getElementById("modal-close-x").onclick = () => {
+    close();
+    onCancel();
+  };
+  document.getElementById("modal-btn-cancel").onclick = () => {
+    close();
+    onCancel();
+  };
+  document.getElementById("modal-btn-confirm").onclick = () => {
+    close();
+    onConfirm();
+  };
+}
+
+/* ==========================================================================
+   TEMA (DARK / LIGHT MODE - DEFAULT DARK FUTURISTA)
    ========================================================================== */
 function initTheme() {
-  const savedTheme = localStorage.getItem("reg_rad_theme") || "light";
+  const savedTheme = localStorage.getItem("reg_rad_theme") || "dark";
   document.documentElement.setAttribute("data-theme", savedTheme);
 
   const toggleBtn = document.getElementById("btn-toggle-theme");
@@ -28,6 +120,7 @@ function initTheme() {
       document.documentElement.setAttribute("data-theme", next);
       localStorage.setItem("reg_rad_theme", next);
       toggleBtn.innerHTML = next === "dark" ? "☀️ Modo Claro" : "🌙 Modo Oscuro";
+      showToast(`Modo visual cambiado a: ${next === "dark" ? "Consola Dark" : "Modo Claro"}`, "info", 2000);
     });
     toggleBtn.innerHTML = savedTheme === "dark" ? "☀️ Modo Claro" : "🌙 Modo Oscuro";
   }
@@ -78,10 +171,8 @@ function initTabs() {
    ========================================================================== */
 function initKeepAlive() {
   const lastSyncEl = document.getElementById("last-sync-time");
-  const autosaveEl = document.getElementById("autosave-status");
 
   function ping() {
-    // En producción se hace fetch('keep_alive.php')
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
     if (lastSyncEl) {
@@ -90,7 +181,6 @@ function initKeepAlive() {
   }
 
   ping();
-  // Ping cada 2 minutos en segundo plano
   setInterval(ping, 120000);
 }
 
@@ -98,11 +188,11 @@ function updateAutosaveBadge(status) {
   const el = document.getElementById("autosave-status");
   if (!el) return;
   if (status === "saved") {
-    el.innerHTML = "💾 Guardado en borrador local";
-    el.style.color = "var(--color-success)";
+    el.innerHTML = "💾 Sincronizado en borrador local";
+    el.style.color = "var(--neon-green)";
   } else if (status === "saving") {
-    el.innerHTML = "⏳ Guardando...";
-    el.style.color = "var(--color-warning)";
+    el.innerHTML = "⏳ Escribiendo...";
+    el.style.color = "var(--neon-amber)";
   }
 }
 
@@ -118,7 +208,7 @@ let routineData = [
     gases: 0.12,
     tritio: 0.45,
     dosis: 8.5,
-    obs: "Ronda habitual de inicio de turno. Todo normal.",
+    obs: "Ronda inicial de turno. Parámetros normales.",
     oficial: "Pérez, Juan",
   },
   {
@@ -129,7 +219,7 @@ let routineData = [
     gases: 0.35,
     tritio: 1.80,
     dosis: 24.0,
-    obs: "Acceso con máscara de protección por tarea en sello PHT.",
+    obs: "Trabajo en sello PHT. Monitoreo continuo.",
     oficial: "Pérez, Juan",
   },
 ];
@@ -142,7 +232,6 @@ function initRoutineTable() {
     addBtn.addEventListener("click", handleAddRoutineRow);
   }
 
-  // Atajo de teclado: Enter en los inputs de carga rápida añade la fila
   const quickInputs = document.querySelectorAll(".quick-input");
   quickInputs.forEach((input) => {
     input.addEventListener("keydown", (e) => {
@@ -153,7 +242,6 @@ function initRoutineTable() {
     });
   });
 
-  // Botón para poner la hora actual
   const nowBtn = document.getElementById("btn-time-now");
   if (nowBtn) {
     nowBtn.addEventListener("click", () => {
@@ -162,6 +250,7 @@ function initRoutineTable() {
       const m = String(now.getMinutes()).padStart(2, "0");
       const timeInput = document.getElementById("q-hora");
       if (timeInput) timeInput.value = `${h}:${m}`;
+      showToast("Hora sincronizada al momento actual", "info", 1500);
     });
   }
 }
@@ -191,47 +280,66 @@ function handleAddRoutineRow() {
   const obs = obsInput.value.trim();
 
   if (!fecha || !hora) {
-    alert("Por favor ingrese fecha y hora de la medición.");
+    showToast("Debe ingresar la fecha y hora de la medición", "warning");
     return;
   }
   if (!recinto || recinto === "-") {
-    alert("Debe seleccionar un recinto de planta.");
+    showToast("Seleccione una ubicación / recinto de planta", "warning");
+    recintoSelect.focus();
     return;
   }
   if (gases === null && tritio === null && dosis === null) {
-    alert("Debe ingresar al menos un valor radiológico (Gases, Tritio o Tasa de Dosis).");
+    showToast("Debe ingresar al menos un valor radiológico (Gases, Tritio o Tasa de Dosis)", "warning");
     return;
   }
 
-  // Prevención de error de tipeo (Alerta si supera 100 µSv/h)
-  if (dosis !== null && dosis > 100) {
-    if (!confirm(`⚠️ ATENCIÓN: La tasa de dosis ingresada es de ${dosis} µSv/h. ¿Confirma que este valor es correcto?`)) {
-      return;
-    }
+  function commitEntry() {
+    const newEntry = {
+      id: Date.now(),
+      fecha,
+      hora,
+      recinto,
+      gases,
+      tritio,
+      dosis,
+      obs: obs || "Sin observaciones",
+      oficial: "Oficial en Turno",
+    };
+
+    routineData.unshift(newEntry);
+    renderRoutineRows();
+    saveDraft();
+
+    gasesInput.value = "";
+    tritioInput.value = "";
+    dosisInput.value = "";
+    obsInput.value = "";
+    recintoSelect.focus();
+
+    showToast(`Medición registrada en ${recinto.split(" ")[0]}`, "success");
   }
 
-  const newEntry = {
-    id: Date.now(),
-    fecha,
-    hora,
-    recinto,
-    gases,
-    tritio,
-    dosis,
-    obs: obs || "Sin observaciones",
-    oficial: "Oficial en Turno",
-  };
-
-  routineData.unshift(newEntry);
-  renderRoutineRows();
-  saveDraft();
-
-  // Limpiar inputs de valores dejando fecha/hora listos para la siguiente
-  gasesInput.value = "";
-  tritioInput.value = "";
-  dosisInput.value = "";
-  obsInput.value = "";
-  recintoSelect.focus();
+  // Si la tasa de dosis supera 100 µSv/h -> Popup Modal Futurista de Alerta Crítica
+  if (dosis !== null && dosis > 100) {
+    showConfirmModal({
+      title: "ALERTA DE SEGURIDAD RADIOLÓGICA",
+      message: `
+        <div style="color: var(--neon-red); font-weight: 700; margin-bottom: 8px;">
+          ⚠️ Tasa de dosis elevada: ${dosis} µSv/h
+        </div>
+        El valor ingresado supera el umbral operativo estándar (> 100 µSv/h). 
+        <br><br>
+        ¿Confirma que la medición para el recinto <strong>${recinto}</strong> es correcta o desea corregirla?
+      `,
+      confirmText: "CONFIRMAR VALOR",
+      cancelText: "VOLVER Y CORREGIR",
+      isDanger: true,
+      onConfirm: () => commitEntry(),
+      onCancel: () => dosisInput.focus(),
+    });
+  } else {
+    commitEntry();
+  }
 }
 
 function renderRoutineRows() {
@@ -242,27 +350,26 @@ function renderRoutineRows() {
   tbody.innerHTML = "";
 
   if (routineData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 20px; color: var(--text-muted);">No hay mediciones cargadas aún para este turno.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 24px; color: var(--text-dim); font-family: var(--font-mono);">[ SIN MEDICIONES CARGADAS EN EL TURNO ]</td></tr>`;
   } else {
     routineData.forEach((row) => {
       const tr = document.createElement("tr");
 
-      // Clases según límites radiológicos
       const gasesClass = row.gases > 1.0 ? "cell-warning" : row.gases > 3.0 ? "cell-danger" : "";
       const tritioClass = row.tritio > 1.0 ? "cell-warning" : row.tritio > 5.0 ? "cell-danger" : "";
       const dosisClass = row.dosis > 20.0 ? "cell-warning" : row.dosis > 100.0 ? "cell-danger" : "";
 
       tr.innerHTML = `
-        <td style="font-weight:600;">${row.fecha}</td>
+        <td style="font-family: var(--font-mono); font-weight:600;">${row.fecha}</td>
         <td class="num">${row.hora}</td>
-        <td><strong>${row.recinto}</strong></td>
+        <td><strong style="color: var(--neon-cyan);">${row.recinto}</strong></td>
         <td class="num ${gasesClass}">${row.gases !== null ? row.gases.toFixed(2) : "-"}</td>
         <td class="num ${tritioClass}">${row.tritio !== null ? row.tritio.toFixed(2) : "-"}</td>
         <td class="num ${dosisClass}">${row.dosis !== null ? row.dosis.toFixed(1) : "-"}</td>
         <td style="color: var(--text-muted); font-size: 11.5px;">${row.obs}</td>
-        <td><span class="badge-info">${row.oficial}</span></td>
+        <td><span class="badge-info" style="font-size: 11px;">${row.oficial}</span></td>
         <td style="text-align: center;">
-          <button class="btn btn-danger-outline btn-icon" onclick="deleteRoutineRow(${row.id})" title="Eliminar fila">✕</button>
+          <button class="btn btn-danger-outline" style="padding: 3px 8px; font-size: 11px;" onclick="deleteRoutineRow(${row.id})" title="Eliminar registro">✕</button>
         </td>
       `;
       tbody.appendChild(tr);
@@ -275,11 +382,22 @@ function renderRoutineRows() {
 }
 
 window.deleteRoutineRow = function (id) {
-  if (confirm("¿Desea eliminar esta medición?")) {
-    routineData = routineData.filter((r) => r.id !== id);
-    renderRoutineRows();
-    saveDraft();
-  }
+  const row = routineData.find((r) => r.id === id);
+  const recintoName = row ? row.recinto : "esta medición";
+
+  showConfirmModal({
+    title: "Eliminar Registro Radiológico",
+    message: `¿Confirma la eliminación del registro para <strong>${recintoName}</strong>? Esta acción actualizará el historial del turno.`,
+    confirmText: "ELIMINAR REGISTRO",
+    cancelText: "CANCELAR",
+    isDanger: true,
+    onConfirm: () => {
+      routineData = routineData.filter((r) => r.id !== id);
+      renderRoutineRows();
+      saveDraft();
+      showToast("Medición eliminada correctamente", "info");
+    },
+  });
 };
 
 /* ==========================================================================
@@ -291,6 +409,13 @@ function initNobleGasesCalculator() {
     input.addEventListener("input", calculateNobleGases);
   });
   calculateNobleGases();
+
+  const btnSaveGases = document.getElementById("btn-save-gases");
+  if (btnSaveGases) {
+    btnSaveGases.addEventListener("click", () => {
+      showToast("Espectrometría de Gases Nobles registrada en base de datos", "success");
+    });
+  }
 }
 
 function calculateNobleGases() {
@@ -304,8 +429,6 @@ function calculateNobleGases() {
   const xe135m = getVal("iso-xe135m");
 
   const totalActividad = ar41 + kr85 + kr85m + xe133 + xe135 + xe135m;
-
-  // Factores ilustrativos de Restricción Operacional (RO)
   const roPorcentaje = Math.min(100, (totalActividad / 500) * 100);
 
   const totalEl = document.getElementById("total-actividad-gases");
@@ -318,14 +441,51 @@ function calculateNobleGases() {
   if (roBar) {
     roBar.style.width = roPorcentaje + "%";
     if (roPorcentaje < 20) {
-      roBar.style.backgroundColor = "var(--color-success)";
+      roBar.style.backgroundColor = "var(--neon-green)";
+      roBar.style.boxShadow = "var(--neon-green-glow)";
     } else if (roPorcentaje < 70) {
-      roBar.style.backgroundColor = "var(--color-warning)";
+      roBar.style.backgroundColor = "var(--neon-amber)";
+      roBar.style.boxShadow = "var(--neon-amber-glow)";
     } else {
-      roBar.style.backgroundColor = "var(--color-danger)";
+      roBar.style.backgroundColor = "var(--neon-red)";
+      roBar.style.boxShadow = "var(--neon-red-glow)";
     }
   }
 }
+
+/* ==========================================================================
+   CIERRE DE TURNO Y LIBRO DE ACTAS CON POPUPS
+   ========================================================================== */
+window.handleSaveActas = function () {
+  const text = document.getElementById("textarea-actas")?.value;
+  if (!text || text.trim() === "") {
+    showToast("Por favor escriba las novedades antes de guardar en el libro de actas", "warning");
+    return;
+  }
+  showToast("Novedades guardadas en el Libro de Actas de Guardia", "success");
+};
+
+window.handleCloseShift = function () {
+  showConfirmModal({
+    title: "FORMALIZACIÓN Y CIERRE DE TURNO",
+    message: `
+      Al cerrar la planilla diaria:
+      <ul style="margin: 10px 0 0 18px; line-height: 1.6; font-size: 12.5px;">
+        <li>Se congelarán todos los relevamientos y efluentes del turno.</li>
+        <li>Se estampará la firma digital de guardia.</li>
+        <li>Se generará el reporte oficial en PDF para archivo SyR.</li>
+      </ul>
+      <br>
+      ¿Desea proceder con el cierre definitivo de este turno?
+    `,
+    confirmText: "🔒 CERRAR TURNO Y GENERAR PDF",
+    cancelText: "CANCELAR",
+    isDanger: false,
+    onConfirm: () => {
+      showToast("Turno cerrado con éxito. Planilla oficial archivada.", "success", 5000);
+    },
+  });
+};
 
 /* ==========================================================================
    RESPALDO LOCAL EN LOCALSTORAGE

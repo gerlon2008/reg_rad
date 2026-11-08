@@ -1,72 +1,88 @@
 /* ==========================================================================
-   REGISTRO RADIOLÓGICO ONLINE - CNE / NA-SA
-   Estilos base 100% Offline (Sin dependencias externas ni CDNs)
+   REGISTRO RADIOLÓGICO ONLINE - CENTRAL NUCLEAR EMBALSE / NA-SA
+   Interfaz Consola Táctica Nuclear (Futurista / High-Tech SCADA)
+   100% Offline (Sin dependencias externas ni CDNs)
    ========================================================================== */
 
 :root {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "Segoe UI Mono", Menlo, Consolas, monospace;
+  --font-mono: "Consolas", "Courier New", "Segoe UI Mono", monospace;
 
-  /* Modo Claro */
-  --bg-app: #f1f5f9;
-  --bg-card: #ffffff;
-  --bg-card-subtle: #f8fafc;
-  --border-color: #cbd5e1;
-  --border-focus: #0284c7;
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --text-light: #94a3b8;
+  /* Paleta Futurista Dark (Deep Reactor) */
+  --bg-app: #080c16;
+  --bg-pattern: radial-gradient(circle at 50% 0%, rgba(0, 240, 255, 0.08) 0%, transparent 60%),
+                linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+  --bg-pattern-size: 100% 100%, 32px 32px, 32px 32px;
 
-  /* Estados y Severidad Radiológica */
-  --color-primary: #0284c7;
-  --color-primary-hover: #0369a1;
-  --color-primary-light: #e0f2fe;
+  --bg-card: rgba(14, 23, 42, 0.82);
+  --bg-card-subtle: rgba(20, 32, 58, 0.7);
+  --bg-input: #0b1220;
 
-  --color-success: #16a34a;
-  --color-success-bg: #dcfce7;
-  --color-success-border: #86efac;
+  --border-card: rgba(0, 240, 255, 0.22);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-glow: #00f0ff;
 
-  --color-warning: #d97706;
-  --color-warning-bg: #fef3c7;
-  --color-warning-border: #fcd34d;
+  --text-main: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --text-cyan: #00f0ff;
+  --text-glow: 0 0 10px rgba(0, 240, 255, 0.5);
 
-  --color-danger: #dc2626;
-  --color-danger-bg: #fee2e2;
-  --color-danger-border: #fca5a5;
+  /* Acentos Sci-Fi / Radiológicos */
+  --neon-cyan: #00f0ff;
+  --neon-cyan-glow: 0 0 14px rgba(0, 240, 255, 0.45);
+  --neon-cyan-bg: rgba(0, 240, 255, 0.1);
 
-  /* Sombras técnicas sutiles */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+  --neon-green: #00ff88;
+  --neon-green-glow: 0 0 14px rgba(0, 255, 136, 0.45);
+  --neon-green-bg: rgba(0, 255, 136, 0.12);
+
+  --neon-amber: #ffb703;
+  --neon-amber-glow: 0 0 14px rgba(255, 183, 3, 0.45);
+  --neon-amber-bg: rgba(255, 183, 3, 0.12);
+
+  --neon-red: #ff3366;
+  --neon-red-glow: 0 0 16px rgba(255, 51, 102, 0.55);
+  --neon-red-bg: rgba(255, 51, 102, 0.14);
+
+  --shadow-futuristic: 0 8px 32px 0 rgba(0, 0, 0, 0.65), 0 0 1px 1px var(--border-card);
 }
 
-[data-theme="dark"] {
-  --bg-app: #090d16;
-  --bg-card: #131b2e;
-  --bg-card-subtle: #1a243b;
-  --border-color: #273553;
-  --border-focus: #38bdf8;
-  --text-main: #f1f5f9;
-  --text-muted: #94a3b8;
-  --text-light: #64748b;
+[data-theme="light"] {
+  --bg-app: #f1f6fc;
+  --bg-pattern: radial-gradient(circle at 50% 0%, rgba(2, 132, 199, 0.08) 0%, transparent 60%),
+                linear-gradient(rgba(2, 132, 199, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(2, 132, 199, 0.04) 1px, transparent 1px);
+  --bg-card: rgba(255, 255, 255, 0.92);
+  --bg-card-subtle: #f8fafc;
+  --bg-input: #ffffff;
+  --border-card: #cbd5e1;
+  --border-subtle: #e2e8f0;
+  --border-glow: #0284c7;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+  --text-cyan: #0284c7;
+  --text-glow: none;
 
-  --color-primary: #38bdf8;
-  --color-primary-hover: #7dd3fc;
-  --color-primary-light: #0c2847;
+  --neon-cyan: #0284c7;
+  --neon-cyan-glow: none;
+  --neon-cyan-bg: #e0f2fe;
 
-  --color-success: #4ade80;
-  --color-success-bg: #052e16;
-  --color-success-border: #166534;
+  --neon-green: #16a34a;
+  --neon-green-glow: none;
+  --neon-green-bg: #dcfce7;
 
-  --color-warning: #fbbf24;
-  --color-warning-bg: #451a03;
-  --color-warning-border: #92400e;
+  --neon-amber: #d97706;
+  --neon-amber-glow: none;
+  --neon-amber-bg: #fef3c7;
 
-  --color-danger: #f87171;
-  --color-danger-bg: #450a0a;
-  --color-danger-border: #991b1b;
+  --neon-red: #dc2626;
+  --neon-red-glow: none;
+  --neon-red-bg: #fee2e2;
 
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5);
+  --shadow-futuristic: 0 4px 16px rgba(0, 0, 0, 0.06), 0 0 0 1px #e2e8f0;
 }
 
 * {
@@ -78,93 +94,126 @@
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-app);
+  background-image: var(--bg-pattern);
+  background-size: var(--bg-pattern-size);
   color: var(--text-main);
   font-size: 13px;
   line-height: 1.45;
+  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
 
 /* ==========================================================================
-   CABECERA SUPERIOR
+   CABECERA TÁCTICA SUPERIOR (FUTURISTA)
    ========================================================================== */
 .header-bar {
-  background-color: var(--bg-card);
-  border-bottom: 1px solid var(--border-color);
-  padding: 8px 18px;
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-card);
+  padding: 10px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: sticky;
   top: 0;
   z-index: 50;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 
 .brand-badge {
-  background: linear-gradient(135deg, #1e3a8a, #0284c7);
+  background: linear-gradient(135deg, #0052cc, #00d4ff);
   color: #ffffff;
-  font-weight: 800;
+  font-family: var(--font-mono);
+  font-weight: 900;
   font-size: 14px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  letter-spacing: 0.5px;
+  padding: 5px 12px;
+  border-radius: 4px;
+  letter-spacing: 1.5px;
+  box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+.brand-badge::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent);
+  transform: rotate(45deg);
+  animation: shine 4s infinite linear;
+}
+
+@keyframes shine {
+  0% { transform: translate(-100%, -100%) rotate(45deg); }
+  100% { transform: translate(100%, 100%) rotate(45deg); }
 }
 
 .header-title h1 {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.5px;
   color: var(--text-main);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.header-title span {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.header-center {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
+.header-title .tagline {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--neon-cyan);
+  text-shadow: var(--text-glow);
+  letter-spacing: 1px;
+}
+
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .badge-info {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   background-color: var(--bg-card-subtle);
-  border: 1px solid var(--border-color);
-  padding: 4px 10px;
-  border-radius: 6px;
+  border: 1px solid var(--border-card);
+  padding: 5px 12px;
+  border-radius: 5px;
   font-size: 12px;
+  font-family: var(--font-mono);
   font-weight: 600;
+  letter-spacing: 0.5px;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.08);
 }
 
 .badge-info.status-online {
-  border-color: var(--color-success-border);
-  background-color: var(--color-success-bg);
-  color: var(--color-success);
+  border-color: var(--neon-green);
+  background-color: var(--neon-green-bg);
+  color: var(--neon-green);
+  box-shadow: var(--neon-green-glow);
 }
 
 .badge-info.status-warning {
-  border-color: var(--color-warning-border);
-  background-color: var(--color-warning-bg);
-  color: var(--color-warning);
+  border-color: var(--neon-amber);
+  background-color: var(--neon-amber-bg);
+  color: var(--neon-amber);
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .user-profile {
@@ -173,124 +222,173 @@ body {
 }
 
 .user-name {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-main);
+  letter-spacing: 0.3px;
 }
 
 .user-role {
-  font-size: 11px;
-  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--neon-cyan);
 }
 
 /* ==========================================================================
-   ESTRUCTURA GENERAL & TABS
+   ESTRUCTURA & TABS
    ========================================================================== */
 .main-wrapper {
-  max-width: 1500px;
+  max-width: 1550px;
   margin: 0 auto;
-  padding: 16px 20px 40px;
+  padding: 20px 24px 60px;
 }
 
-/* Barra de Pestañas */
 .tabs-navigation {
   display: flex;
   align-items: center;
-  gap: 6px;
-  border-bottom: 2px solid var(--border-color);
-  margin-bottom: 16px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-card);
+  margin-bottom: 20px;
   overflow-x: auto;
   padding-bottom: 2px;
 }
 
 .tab-btn {
-  background: transparent;
-  border: none;
-  border-radius: 8px 8px 0 0;
-  padding: 9px 15px;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  padding: 10px 18px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
   color: var(--text-muted);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  transition: all 0.15s ease;
+  gap: 9px;
+  transition: all 0.2s ease;
   position: relative;
-  white-space: nowrap;
+  letter-spacing: 0.5px;
 }
 
 .tab-btn:hover {
-  color: var(--text-main);
-  background-color: var(--bg-card-subtle);
+  color: var(--neon-cyan);
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
 }
 
 .tab-btn.active {
-  color: var(--color-primary);
-  background-color: var(--bg-card);
-  box-shadow: 0 -2px 0 0 var(--color-primary) inset;
+  color: var(--neon-cyan);
+  background: var(--bg-card-subtle);
+  border-color: var(--neon-cyan);
+  box-shadow: 0 -2px 10px rgba(0, 240, 255, 0.35);
+}
+
+.tab-btn.active::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--neon-cyan);
+  box-shadow: 0 0 8px var(--neon-cyan);
 }
 
 .tab-badge {
-  background-color: var(--bg-card-subtle);
-  border: 1px solid var(--border-color);
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 1px 6px;
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  color: var(--neon-cyan);
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 1px 7px;
   border-radius: 10px;
-}
-
-.tab-btn.active .tab-badge {
-  background-color: var(--color-primary-light);
-  color: var(--color-primary);
-  border-color: transparent;
+  font-family: var(--font-mono);
 }
 
 .tab-content {
   display: none;
+  animation: fadeIn 0.25s ease-out;
 }
 
 .tab-content.active {
   display: block;
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* ==========================================================================
-   TARJETAS Y PANELES
+   CARDS & PANELES CYBER-INDUSTRIAL
    ========================================================================== */
 .card {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border-card);
   border-radius: 8px;
-  box-shadow: var(--shadow-sm);
-  margin-bottom: 16px;
+  box-shadow: var(--shadow-futuristic);
+  margin-bottom: 20px;
+  position: relative;
   overflow: hidden;
 }
 
+/* Esquinas decorativas futuristas (Cyber corners) */
+.card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border-top: 2px solid var(--neon-cyan);
+  border-left: 2px solid var(--neon-cyan);
+  pointer-events: none;
+}
+.card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  border-top: 2px solid var(--neon-cyan);
+  border-right: 2px solid var(--neon-cyan);
+  pointer-events: none;
+}
+
 .card-header {
-  padding: 10px 16px;
-  background-color: var(--bg-card-subtle);
-  border-bottom: 1px solid var(--border-color);
+  padding: 12px 20px;
+  background: var(--bg-card-subtle);
+  border-bottom: 1px solid var(--border-card);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
 .card-title {
-  font-size: 13.5px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 800;
   color: var(--text-main);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  letter-spacing: 0.5px;
+}
+
+.card-title .icon-glow {
+  color: var(--neon-cyan);
+  text-shadow: var(--text-glow);
 }
 
 .card-body {
-  padding: 14px 16px;
+  padding: 16px 20px;
 }
 
 /* ==========================================================================
-   TABLAS Y FORMULARIOS COMPACTOS
+   TABLAS Y FORMULARIOS DE PRECISIÓN
    ========================================================================== */
 .table-responsive {
   width: 100%;
@@ -305,15 +403,16 @@ body {
 }
 
 .table-tech th {
-  background-color: var(--bg-card-subtle);
-  color: var(--text-muted);
+  background: rgba(11, 18, 32, 0.85);
+  color: var(--neon-cyan);
+  font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 11.5px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 7px 10px;
-  border-bottom: 2px solid var(--border-color);
-  border-right: 1px solid var(--border-color);
+  letter-spacing: 0.8px;
+  padding: 9px 12px;
+  border-bottom: 2px solid var(--border-card);
+  border-right: 1px solid var(--border-subtle);
 }
 
 .table-tech th:last-child {
@@ -321,9 +420,9 @@ body {
 }
 
 .table-tech td {
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--border-color);
-  border-right: 1px solid var(--border-color);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
   vertical-align: middle;
 }
 
@@ -331,138 +430,338 @@ body {
   border-right: none;
 }
 
+.table-tech tbody tr {
+  transition: background-color 0.15s ease;
+}
+
 .table-tech tbody tr:hover {
-  background-color: var(--bg-card-subtle);
+  background-color: rgba(0, 240, 255, 0.04);
 }
 
 .table-tech td.num {
   font-family: var(--font-mono);
   text-align: right;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 
 /* Fila de Carga Rápida */
 .quick-entry-row {
-  background-color: var(--color-primary-light);
-  border-bottom: 2px solid var(--color-primary);
+  background: rgba(0, 240, 255, 0.07);
+  border-bottom: 2px solid var(--neon-cyan);
 }
 
 .quick-entry-row td {
-  padding: 6px 8px;
+  padding: 8px 10px;
 }
 
-/* Inputs Compactos */
+/* Inputs Futuristas */
 .input-tech {
   width: 100%;
-  padding: 5px 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
-  background-color: var(--bg-card);
+  padding: 7px 10px;
+  border: 1px solid var(--border-card);
+  border-radius: 4px;
+  background-color: var(--bg-input);
   color: var(--text-main);
   font-family: inherit;
   font-size: 12.5px;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .input-tech:focus {
   outline: none;
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 2px var(--color-primary-light);
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.35);
+  background-color: var(--bg-card);
 }
 
 .input-tech.mono {
   font-family: var(--font-mono);
-  font-weight: 600;
+  font-weight: 700;
 }
 
-/* Botones */
+/* Botones Futuristas */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 5px 12px;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 6px;
+  gap: 7px;
+  padding: 7px 14px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border-radius: 4px;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
 }
 
 .btn-primary {
-  background-color: var(--color-primary);
-  color: #ffffff;
+  background: linear-gradient(135deg, #0284c7, #00f0ff);
+  color: #04101e;
+  font-weight: 800;
+  border-color: #00f0ff;
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
 }
 .btn-primary:hover {
-  background-color: var(--color-primary-hover);
-}
-
-.btn-success {
-  background-color: var(--color-success);
-  color: #ffffff;
+  box-shadow: 0 0 25px rgba(0, 240, 255, 0.7);
+  transform: translateY(-1px);
 }
 
 .btn-outline {
-  background-color: transparent;
-  border-color: var(--border-color);
+  background: rgba(0, 240, 255, 0.05);
+  border-color: var(--border-card);
   color: var(--text-main);
 }
 .btn-outline:hover {
-  background-color: var(--bg-card-subtle);
-}
-
-.btn-icon {
-  padding: 4px;
-  border-radius: 4px;
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
 }
 
 .btn-danger-outline {
-  background: transparent;
-  border: 1px solid var(--color-danger-border);
-  color: var(--color-danger);
+  background: rgba(255, 51, 102, 0.08);
+  border-color: rgba(255, 51, 102, 0.3);
+  color: var(--neon-red);
 }
 .btn-danger-outline:hover {
-  background-color: var(--color-danger-bg);
+  background: var(--neon-red);
+  color: #ffffff;
+  box-shadow: var(--neon-red-glow);
 }
 
-/* Indicadores de advertencia en celdas */
+/* Estados en celdas de radiación */
 .cell-normal {
   color: var(--text-main);
 }
 .cell-warning {
-  background-color: var(--color-warning-bg) !important;
-  color: var(--color-warning);
-  font-weight: 700;
+  background-color: var(--neon-amber-bg) !important;
+  color: var(--neon-amber) !important;
+  text-shadow: 0 0 8px rgba(255, 183, 3, 0.5);
+  font-weight: 800;
 }
 .cell-danger {
-  background-color: var(--color-danger-bg) !important;
-  color: var(--color-danger);
-  font-weight: 700;
+  background-color: var(--neon-red-bg) !important;
+  color: var(--neon-red) !important;
+  text-shadow: 0 0 10px rgba(255, 51, 102, 0.6);
+  font-weight: 800;
+  animation: pulse-danger 1.5s infinite;
 }
 
-/* Barra inferior de estado (Keep-Alive & Autosave) */
+@keyframes pulse-danger {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* ==========================================================================
+   POPUP MODAL & TOASTS FUTURISTAS (SIN ALERT NATIVO)
+   ========================================================================== */
+/* Overlay Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(4, 7, 15, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-box {
+  background: var(--bg-card);
+  border: 1px solid var(--neon-cyan);
+  border-radius: 8px;
+  box-shadow: 0 0 35px rgba(0, 240, 255, 0.35), 0 20px 40px rgba(0, 0, 0, 0.8);
+  width: 90%;
+  max-width: 480px;
+  overflow: hidden;
+  transform: scale(0.92);
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+}
+
+.modal-overlay.active .modal-box {
+  transform: scale(1);
+}
+
+.modal-box::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+  box-shadow: 0 0 10px var(--neon-cyan);
+}
+
+.modal-header {
+  padding: 14px 20px;
+  background: var(--bg-card-subtle);
+  border-bottom: 1px solid var(--border-card);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-header h3 {
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-body {
+  padding: 20px;
+  font-size: 13.5px;
+  color: var(--text-main);
+  line-height: 1.5;
+}
+
+.modal-footer {
+  padding: 12px 20px;
+  background: var(--bg-card-subtle);
+  border-top: 1px solid var(--border-card);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Toast Container Futurista */
+.toast-container {
+  position: fixed;
+  bottom: 45px;
+  right: 24px;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  min-width: 300px;
+  max-width: 420px;
+  padding: 12px 18px;
+  background: var(--bg-card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12.5px;
+  font-family: var(--font-mono);
+  animation: slideInRight 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  position: relative;
+  overflow: hidden;
+}
+
+.toast.toast-success {
+  border-color: var(--neon-green);
+  box-shadow: 0 0 18px rgba(0, 255, 136, 0.3);
+}
+.toast.toast-success::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--neon-green);
+  box-shadow: 0 0 8px var(--neon-green);
+}
+
+.toast.toast-warning {
+  border-color: var(--neon-amber);
+  box-shadow: 0 0 18px rgba(255, 183, 3, 0.3);
+}
+.toast.toast-warning::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--neon-amber);
+  box-shadow: 0 0 8px var(--neon-amber);
+}
+
+.toast.toast-danger {
+  border-color: var(--neon-red);
+  box-shadow: 0 0 20px rgba(255, 51, 102, 0.4);
+}
+.toast.toast-danger::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--neon-red);
+  box-shadow: 0 0 8px var(--neon-red);
+}
+
+.toast.toast-info {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.3);
+}
+.toast.toast-info::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--neon-cyan);
+  box-shadow: 0 0 8px var(--neon-cyan);
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(50px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ==========================================================================
+   BARRA INFERIOR DE ESTADO
+   ========================================================================== */
 .status-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background-color: var(--bg-card);
-  border-top: 1px solid var(--border-color);
-  padding: 6px 18px;
+  background: var(--bg-card);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border-card);
+  padding: 7px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  font-family: var(--font-mono);
   font-size: 11.5px;
   color: var(--text-muted);
   z-index: 40;
-}
-
-.status-left, .status-right {
-  display: flex;
-  align-items: center;
-  gap: 14px;
 }
 
 .status-indicator {
@@ -470,15 +769,6 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: var(--color-success);
-}
-
-.status-indicator.pulse {
-  animation: pulse-ring 2s infinite;
-}
-
-@keyframes pulse-ring {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(22, 163, 74, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+  background-color: var(--neon-green);
+  box-shadow: 0 0 8px var(--neon-green);
 }
