@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Opción B: Dashboard Táctico con KPIs (Estilo Grafana) - NA-SA CNE</title>
+  <style>
+    :root {
+      --bg-page: #090d16;
+      --bg-card: #111827;
+      --bg-card-subtle: #1f2937;
+      --bg-input: #0c1220;
+      --border-card: #374151;
+      --border-subtle: #242f42;
+
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+
+      --accent-blue: #3b82f6;
+      --accent-cyan: #06b6d4;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "Consolas", "Courier New", monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 0 0 40px;
+    }
+
+    /* ================= HEADER SUPERIOR ================= */
+    .navbar {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-card);
+      padding: 12px 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .badge-nasa {
+      background: linear-gradient(135deg, #1d4ed8, #06b6d4);
+      color: #ffffff;
+      font-family: var(--font-mono);
+      font-weight: 900;
+      font-size: 14px;
+      padding: 5px 10px;
+      border-radius: 6px;
+    }
+
+    .nav-title h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .nav-title span {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .nav-metrics {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: var(--accent-green);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 6px var(--accent-green);
+    }
+
+    .nav-user {
+      text-align: right;
+      font-size: 11.5px;
+    }
+
+    .nav-user strong { color: #ffffff; display: block; }
+
+    /* ================= MAIN WRAPPER ================= */
+    .container {
+      max-width: 1600px;
+      margin: 24px auto 0;
+      padding: 0 30px;
+    }
+
+    /* ================= TARJETAS KPI (METRICS) ================= */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      padding: 16px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--card-accent, var(--accent-blue));
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .kpi-value-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .kpi-value {
+      font-size: 26px;
+      font-family: var(--font-mono);
+      font-weight: 900;
+      color: #ffffff;
+    }
+
+    .kpi-unit {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .kpi-footer {
+      margin-top: 8px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ================= PESTAÑAS HORIZONTALES ================= */
+    .tabs-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--border-card);
+      padding-bottom: 8px;
+    }
+
+    .tab-item {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 8px 16px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+    }
+
+    .tab-item:hover {
+      background: var(--bg-card);
+      color: #ffffff;
+    }
+
+    .tab-item.active {
+      background: var(--bg-card);
+      border-color: var(--border-card);
+      color: var(--accent-cyan);
+    }
+
+    /* ================= PANEL DE TABLA & CARGA ================= */
+    .main-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .panel-top {
+      padding: 16px 20px;
+      background: var(--bg-card-subtle);
+      border-bottom: 1px solid var(--border-card);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    /* Barra de Carga de Datos */
+    .entry-bar {
+      padding: 16px 20px;
+      background: rgba(17, 24, 39, 0.7);
+      border-bottom: 1px solid var(--border-card);
+      display: grid;
+      grid-template-columns: 130px 110px 2fr 110px 110px 120px 2fr 120px;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .form-label {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .form-control {
+      width: 100%;
+      height: 34px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-card);
+      border-radius: 5px;
+      color: #ffffff;
+      padding: 0 10px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .form-control:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+
+    .form-control.mono {
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+
+    .btn-submit {
+      height: 34px;
+      background: var(--accent-blue);
+      color: #ffffff;
+      border: none;
+      border-radius: 5px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: background 0.15s ease;
+    }
+
+    .btn-submit:hover {
+      background: #2563eb;
+    }
+
+    /* Tabla */
+    .table-custom {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .table-custom th {
+      background: var(--bg-card-subtle);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      padding: 10px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-card);
+      border-right: 1px solid var(--border-subtle);
+    }
+
+    .table-custom th:last-child { border-right: none; }
+
+    .table-custom td {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      border-right: 1px solid var(--border-subtle);
+      vertical-align: middle;
+    }
+
+    .table-custom td:last-child { border-right: none; }
+
+    .table-custom tbody tr:hover {
+      background: rgba(31, 41, 55, 0.5);
+    }
+
+    .table-custom td.num {
+      font-family: var(--font-mono);
+      text-align: right;
+      font-weight: 700;
+    }
+
+    .badge-amber {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: var(--accent-amber);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .btn-del {
+      background: transparent;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--accent-red);
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+    }
+
+    .btn-del:hover {
+      background: var(--accent-red);
+      color: #ffffff;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <div class="badge-nasa">NA-SA</div>
+      <div class="nav-title">
+        <h1>Registro Radiológico Online</h1>
+        <span>Central Nuclear Embalse • Telemetría SyR</span>
+      </div>
+    </div>
+
+    <div class="nav-metrics">
+      <div class="status-badge">
+        <span class="status-dot"></span>
+        <span>PLANTA AL 100% (EN SERVICIO)</span>
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">
+        Turno 2 (14:00 - 22:00) • <strong id="clock" style="color: #ffffff;">14:30:00 hs</strong>
+      </div>
+      <div class="nav-user">
+        <strong>Pérez, Juan</strong>
+        <span style="color: var(--text-dim);">Oficial de Radioprotección</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENIDO -->
+  <main class="container">
+
+    <!-- FILA DE KPIS SUPERIORES -->
+    <div class="kpi-grid">
+      
+      <!-- KPI 1 -->
+      <div class="kpi-card" style="--card-accent: var(--accent-amber);">
+        <div class="kpi-label">Dosis Pico del Turno</div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" style="color: var(--accent-amber);">24.0</span>
+          <span class="kpi-unit">µSv/h</span>
+        </div>
+        <div class="kpi-footer">
+          <span>📍 R-024 (Sala de Bombas PHT)</span>
+        </div>
+      </div>
+
+      <!-- KPI 2 -->
+      <div class="kpi-card" style="--card-accent: var(--accent-cyan);">
+        <div class="kpi-label">Tritio Ambiental Promedio</div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" style="color: var(--accent-cyan);">1.12</span>
+          <span class="kpi-unit">DAC</span>
+        </div>
+        <div class="kpi-footer">
+          <span>Promedio sobre 2 recintos relevados</span>
+        </div>
+      </div>
+
+      <!-- KPI 3 -->
+      <div class="kpi-card" style="--card-accent: var(--accent-green);">
+        <div class="kpi-label">Restricción Operacional (RO)</div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" style="color: var(--accent-green);">8.42</span>
+          <span class="kpi-unit">% del límite</span>
+        </div>
+        <div class="kpi-footer">
+          <span>Efluentes gaseosos en rango normal</span>
+        </div>
+      </div>
+
+      <!-- KPI 4 -->
+      <div class="kpi-card" style="--card-accent: var(--accent-blue);">
+        <div class="kpi-label">Estado de la Guardia</div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" style="color: var(--accent-blue);">Activa</span>
+        </div>
+        <div class="kpi-footer">
+          <span>Jefe de Turno: Gómez, Carlos</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- PESTAÑAS -->
+    <div class="tabs-bar">
+      <button class="tab-item active">📋 Relevamiento de Rutina (2)</button>
+      <button class="tab-item">💨 Efluentes Gaseosos (Chimenea)</button>
+      <button class="tab-item">💧 Efluentes Líquidos (Tanques)</button>
+      <button class="tab-item">⚠️ Tareas de Campo &amp; PTR</button>
+      <button class="tab-item">📖 Libro de Actas</button>
+    </div>
+
+    <!-- PANEL PRINCIPAL -->
+    <div class="main-panel">
+      <div class="panel-top">
+        <div class="panel-title">Telemetría de Recintos Relevados</div>
+        <span style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">
+          Borrador sincronizado localmente
+        </span>
+      </div>
+
+      <!-- FORMULARIO DE CARGA HORIZONTAL -->
+      <div class="entry-bar">
+        <div class="form-group">
+          <label class="form-label">Fecha</label>
+          <input type="date" id="b-fecha" class="form-control" value="2026-11-08">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Hora</label>
+          <input type="time" id="b-hora" class="form-control mono" value="14:30">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ubicación / Recinto</label>
+          <select id="b-recinto" class="form-control" style="font-weight: 700;">
+            <option value="">-- Seleccionar Recinto --</option>
+            <option value="R-001 (Edificio de Contención +15m)">R-001 (Edificio de Contención +15m)</option>
+            <option value="R-004 (Blindaje Fuera del Núcleo)">R-004 (Blindaje Fuera del Núcleo)</option>
+            <option value="R-024 (Sala de Bombas PHT)">R-024 (Sala de Bombas PHT)</option>
+            <option value="R-045 (Bóveda de Calandria)">R-045 (Bóveda de Calandria)</option>
+            <option value="R-080 (Área Tanques D2O)">R-080 (Área Tanques D2O)</option>
+            <option value="R-110 (Muestreador de Efluentes)">R-110 (Muestreador de Efluentes)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Gases (DAC)</label>
+          <input type="text" id="b-gases" class="form-control mono" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tritio (DAC)</label>
+          <input type="text" id="b-tritio" class="form-control mono" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Dosis (µSv/h)</label>
+          <input type="text" id="b-dosis" class="form-control mono" placeholder="0.0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Observaciones</label>
+          <input type="text" id="b-obs" class="form-control" placeholder="Condición operativa...">
+        </div>
+        <div>
+          <button class="btn-submit" style="width: 100%;" id="btn-add-b">
+            + AGREGAR
+          </button>
+        </div>
+      </div>
+
+      <!-- TABLA -->
+      <table class="table-custom">
+        <thead>
+          <tr>
+            <th style="width: 110px;">Fecha</th>
+            <th style="width: 90px; text-align: right;">Hora</th>
+            <th>Ubicación / Recinto</th>
+            <th style="width: 120px; text-align: right;">G. Nobles (DAC)</th>
+            <th style="width: 120px; text-align: right;">Tritio (DAC)</th>
+            <th style="width: 130px; text-align: right;">T. Dosis (µSv/h)</th>
+            <th>Observaciones</th>
+            <th style="width: 130px;">Oficial</th>
+            <th style="width: 70px; text-align: center;">Acción</th>
+          </tr>
+        </thead>
+        <tbody id="b-tbody">
+          <tr>
+            <td>2026-11-08</td>
+            <td class="num">10:15</td>
+            <td style="font-weight: 700; color: #ffffff;">R-001 (Edificio de Contención +15m)</td>
+            <td class="num">0.12</td>
+            <td class="num">0.45</td>
+            <td class="num">8.5</td>
+            <td style="color: var(--text-muted);">Ronda matutina de rutina. Parámetros normales.</td>
+            <td>Pérez, Juan</td>
+            <td style="text-align: center;"><button class="btn-del" onclick="this.closest('tr').remove();">✕</button></td>
+          </tr>
+          <tr>
+            <td>2026-11-08</td>
+            <td class="num">11:30</td>
+            <td style="font-weight: 700; color: #ffffff;">R-024 (Sala de Bombas PHT)</td>
+            <td class="num">0.35</td>
+            <td class="num"><span class="badge-amber">1.80</span></td>
+            <td class="num"><span class="badge-amber">24.0</span></td>
+            <td style="color: var(--text-muted);">Prensa de bomba PHT. Máscara de protección.</td>
+            <td>Pérez, Juan</td>
+            <td style="text-align: center;"><button class="btn-del" onclick="this.closest('tr').remove();">✕</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+
+  <script>
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').textContent = now.toTimeString().split(' ')[0] + ' hs';
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    document.getElementById('btn-add-b').addEventListener('click', () => {
+      const fecha = document.getElementById('b-fecha').value;
+      const hora = document.getElementById('b-hora').value;
+      const recinto = document.getElementById('b-recinto').value;
+      const gases = document.getElementById('b-gases').value || '-';
+      const tritio = document.getElementById('b-tritio').value || '-';
+      const dosis = document.getElementById('b-dosis').value || '-';
+      const obs = document.getElementById('b-obs').value || 'Sin observaciones';
+
+      if (!recinto) {
+        alert('Seleccione un recinto');
+        return;
+      }
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${fecha}</td>
+        <td class="num">${hora}</td>
+        <td style="font-weight: 700; color: #ffffff;">${recinto}</td>
+        <td class="num">${gases}</td>
+        <td class="num">${tritio}</td>
+        <td class="num">${dosis}</td>
+        <td style="color: var(--text-muted);">${obs}</td>
+        <td>Pérez, Juan</td>
+        <td style="text-align: center;"><button class="btn-del" onclick="this.closest('tr').remove();">✕</button></td>
+      `;
+
+      document.getElementById('b-tbody').prepend(tr);
+      document.getElementById('b-gases').value = '';
+      document.getElementById('b-tritio').value = '';
+      document.getElementById('b-dosis').value = '';
+      document.getElementById('b-obs').value = '';
+      document.getElementById('b-recinto').focus();
+    });
+  </script>
+</body>
+</html>
