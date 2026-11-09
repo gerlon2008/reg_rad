@@ -256,6 +256,8 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
+      zoom: 0.9; /* Escala global al 90% para monitores estándar */
+
       background-color: var(--bg-page);
       color: var(--text-main);
       font-family: var(--font-ui);
@@ -695,57 +697,105 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
 
     .section-content.active {
       display: flex;
-      animation: hud-panel-reveal 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation: cyber-hologram-assemble 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       position: relative;
+      perspective: 1000px;
     }
 
-    @keyframes hud-panel-reveal {
+    /* Ensamblaje holográfico con barrido de matriz cuántica */
+    @keyframes cyber-hologram-assemble {
       0% {
         opacity: 0;
-        transform: translateY(12px) scale(0.994);
-        filter: blur(4px) brightness(1.25);
+        transform: perspective(900px) rotateX(5deg) translateY(20px) scale(0.98);
+        filter: blur(8px) brightness(1.7) contrast(1.3);
+        box-shadow: 0 0 40px rgba(16, 185, 129, 0.55);
       }
-      50% {
-        filter: blur(0.5px) brightness(1.08);
+      30% {
+        opacity: 0.75;
+        filter: blur(2.5px) brightness(1.35) contrast(1.15);
+      }
+      65% {
+        transform: perspective(900px) rotateX(-1deg) translateY(-2px) scale(1.002);
+        filter: blur(0.5px) brightness(1.1);
+        box-shadow: 0 0 20px rgba(16, 185, 129, 0.25);
       }
       100% {
         opacity: 1;
-        transform: translateY(0) scale(1);
+        transform: perspective(900px) rotateX(0deg) translateY(0) scale(1);
         filter: none;
+        box-shadow: none;
       }
     }
 
-    /* Haz de barrido láser cian en el borde superior del panel activo */
+    /* Haz de barrido doble láser cian ultrabrillante en el borde superior */
     .section-content.active .panel-box::before {
       content: '';
       position: absolute;
       top: 0;
-      left: -100%;
-      width: 100%;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--accent-cyan), #ffffff, var(--accent-cyan), transparent);
-      animation: hud-laser-scan 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      left: -120%;
+      width: 120%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent 0%, rgba(16, 185, 129, 0.4) 20%, var(--accent-cyan) 50%, #ffffff 70%, var(--accent-cyan) 85%, transparent 100%);
+      animation: cyber-laser-sweep 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      box-shadow: 0 0 12px var(--accent-cyan), 0 0 24px var(--accent-cyan);
       z-index: 10;
       pointer-events: none;
     }
 
-    @keyframes hud-laser-scan {
-      0% { left: -100%; opacity: 1; }
-      100% { left: 100%; opacity: 0; }
+    @keyframes cyber-laser-sweep {
+      0% { left: -120%; opacity: 1; }
+      70% { opacity: 1; }
+      100% { left: 120%; opacity: 0; }
     }
 
+    /* Escaneo de rejilla táctica cyber-grid al activar panel */
+    .section-content.active::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(rgba(16, 185, 129, 0.04) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(16, 185, 129, 0.04) 1px, transparent 1px);
+      background-size: 24px 24px;
+      pointer-events: none;
+      opacity: 0;
+      animation: cyber-grid-fade 0.5s ease-out forwards;
+      border-radius: 8px;
+    }
+
+    @keyframes cyber-grid-fade {
+      0% { opacity: 0.8; }
+      60% { opacity: 0.4; }
+      100% { opacity: 0; }
+    }
+
+    /* Botón del Sidebar con pulso de shockwave y resplandor HUD */
     .menu-btn {
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
       position: relative;
+      overflow: hidden;
     }
 
     .menu-btn.active {
-      background: rgba(16, 185, 129, 0.16) !important;
+      background: rgba(16, 185, 129, 0.18) !important;
       border-color: var(--accent-cyan) !important;
-      color: var(--accent-cyan) !important;
+      color: #ffffff !important;
       font-weight: 700;
-      box-shadow: inset 3px 0 0 var(--accent-cyan), 0 0 16px rgba(16, 185, 129, 0.22);
-      transform: translateX(4px);
+      box-shadow: inset 4px 0 0 var(--accent-cyan), 0 0 20px rgba(16, 185, 129, 0.35);
+      transform: translateX(6px);
+    }
+
+    .menu-btn.active::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+      animation: cyber-btn-shimmer 0.7s ease-out forwards;
+      pointer-events: none;
+    }
+
+    @keyframes cyber-btn-shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
     }
 
     .panel-box {

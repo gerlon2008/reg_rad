@@ -107,6 +107,8 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
+      zoom: 0.9; /* Escala global al 90% para monitores estándar */
+
       font-family: var(--font-sans);
       background-color: var(--bg-page);
       color: var(--text-main);
@@ -1513,8 +1515,9 @@
 
               <div class="field-group" style="position: relative;">
                 <label class="field-label">Recinto de Planta <span style="color:var(--accent-cyan); font-size:9.5px; text-transform:none;">[🔍 Buscar]</span></label>
-                <div class="searchable-select-wrapper" id="recinto-search-wrapper">
-                  <input type="text" id="q-recinto" class="field-control" placeholder="Escriba código o nombre (ej: 108, R-001, G.V.)..." autocomplete="off">
+                <div class="searchable-select-wrapper" id="recinto-search-wrapper" style="position: relative;">
+                  <input type="text" id="q-recinto" class="field-control" placeholder="Escriba código o nombre (ej: 108, R-001, G.V.)..." autocomplete="off" style="padding-right: 28px;">
+                  <button type="button" class="btn-clear-ctrl" id="btn-clear-recinto" title="Borrar recinto seleccionado" onclick="clearRecintoSelection()">&times;</button>
                   <input type="hidden" id="q-recinto-id" value="">
                   <div class="searchable-dropdown" id="recinto-dropdown"></div>
                 </div>

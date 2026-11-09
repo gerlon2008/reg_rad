@@ -343,6 +343,8 @@ if (file_exists($miconex_path)) {
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
+      zoom: 0.9; /* Escala global al 90% para ajuste en monitores estándar */
+
       font-family: var(--font-sans);
       background-color: var(--bg-page);
       color: var(--text-main);
@@ -1070,65 +1072,136 @@ if (file_exists($miconex_path)) {
     }
 
     /* ================= SECCIÓN / PANELES ACTIVOS ================= */
-    /* ================= ANIMACIONES FUTURISTAS HUD EN CAMBIO DE PESTAÑAS ================= */
+        /* ================= ANIMACIONES CINEMATOGRÁFICAS HUD / SCADA (EFECTO 'GUAU') ================= */
     .section-panel {
       display: none;
     }
 
     .section-panel.active {
       display: block;
-      animation: hud-panel-reveal 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation: cyber-hologram-assemble 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       position: relative;
+      perspective: 1000px;
     }
 
-    @keyframes hud-panel-reveal {
+    /* Ensamblaje holográfico con barrido de matriz cuántica */
+    @keyframes cyber-hologram-assemble {
       0% {
         opacity: 0;
-        transform: translateY(12px) scale(0.994);
-        filter: blur(4px) brightness(1.25);
+        transform: perspective(900px) rotateX(5deg) translateY(20px) scale(0.98);
+        filter: blur(8px) brightness(1.7) contrast(1.3);
+        box-shadow: 0 0 40px rgba(16, 185, 129, 0.55);
       }
-      50% {
-        filter: blur(0.5px) brightness(1.08);
+      30% {
+        opacity: 0.75;
+        filter: blur(2.5px) brightness(1.35) contrast(1.15);
+      }
+      65% {
+        transform: perspective(900px) rotateX(-1deg) translateY(-2px) scale(1.002);
+        filter: blur(0.5px) brightness(1.1);
+        box-shadow: 0 0 20px rgba(16, 185, 129, 0.25);
       }
       100% {
         opacity: 1;
-        transform: translateY(0) scale(1);
+        transform: perspective(900px) rotateX(0deg) translateY(0) scale(1);
         filter: none;
+        box-shadow: none;
       }
     }
 
-    /* Haz de barrido láser cian en el borde superior del panel activo */
+    /* Haz de barrido doble láser cian ultrabrillante en el borde superior */
     .section-panel.active .panel-box::before {
       content: '';
       position: absolute;
       top: 0;
-      left: -100%;
-      width: 100%;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--accent-cyan), #ffffff, var(--accent-cyan), transparent);
-      animation: hud-laser-scan 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      left: -120%;
+      width: 120%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent 0%, rgba(16, 185, 129, 0.4) 20%, var(--accent-cyan) 50%, #ffffff 70%, var(--accent-cyan) 85%, transparent 100%);
+      animation: cyber-laser-sweep 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      box-shadow: 0 0 12px var(--accent-cyan), 0 0 24px var(--accent-cyan);
       z-index: 10;
       pointer-events: none;
     }
 
-    @keyframes hud-laser-scan {
-      0% { left: -100%; opacity: 1; }
-      100% { left: 100%; opacity: 0; }
+    @keyframes cyber-laser-sweep {
+      0% { left: -120%; opacity: 1; }
+      70% { opacity: 1; }
+      100% { left: 120%; opacity: 0; }
     }
 
-    /* Brillo táctico y pulso activo en el botón de navegación del Sidebar */
+    /* Escaneo de rejilla táctica cyber-grid al activar panel */
+    .section-panel.active::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(rgba(16, 185, 129, 0.04) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(16, 185, 129, 0.04) 1px, transparent 1px);
+      background-size: 24px 24px;
+      pointer-events: none;
+      opacity: 0;
+      animation: cyber-grid-fade 0.5s ease-out forwards;
+      border-radius: 8px;
+    }
+
+    @keyframes cyber-grid-fade {
+      0% { opacity: 0.8; }
+      60% { opacity: 0.4; }
+      100% { opacity: 0; }
+    }
+
+    /* Botón del Sidebar con pulso de shockwave y resplandor HUD */
     .menu-btn {
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
       position: relative;
+      overflow: hidden;
     }
 
     .menu-btn.active {
-      background: rgba(16, 185, 129, 0.16) !important;
+      background: rgba(16, 185, 129, 0.18) !important;
       border-color: var(--accent-cyan) !important;
-      color: var(--accent-cyan) !important;
+      color: #ffffff !important;
       font-weight: 700;
-      box-shadow: inset 3px 0 0 var(--accent-cyan), 0 0 16px rgba(16, 185, 129, 0.22);
-      transform: translateX(4px);
+      box-shadow: inset 4px 0 0 var(--accent-cyan), 0 0 20px rgba(16, 185, 129, 0.35);
+      transform: translateX(6px);
+    }
+
+    .menu-btn.active::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+      animation: cyber-btn-shimmer 0.7s ease-out forwards;
+      pointer-events: none;
+    }
+
+    @keyframes cyber-btn-shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    /* Botón X de limpieza en inputs */
+    .btn-clear-ctrl {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 4px;
+      display: none;
+      z-index: 5;
+      transition: all 0.15s ease;
+    }
+
+    .btn-clear-ctrl:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.2);
     }
 
     .panel-box {
@@ -1811,8 +1884,9 @@ if (file_exists($miconex_path)) {
 
               <div class="field-group" style="position: relative;">
                 <label class="field-label">Recinto de Planta <span style="color:var(--accent-cyan); font-size:9.5px; text-transform:none;">[🔍 Buscar]</span></label>
-                <div class="searchable-select-wrapper" id="recinto-search-wrapper">
-                  <input type="text" id="q-recinto" class="field-control" placeholder="Escriba código o nombre (ej: 108, R-001, G.V.)..." autocomplete="off">
+                <div class="searchable-select-wrapper" id="recinto-search-wrapper" style="position: relative;">
+                  <input type="text" id="q-recinto" class="field-control" placeholder="Escriba código o nombre (ej: 108, R-001, G.V.)..." autocomplete="off" style="padding-right: 28px;">
+                  <button type="button" class="btn-clear-ctrl" id="btn-clear-recinto" title="Borrar recinto seleccionado" onclick="clearRecintoSelection()">&times;</button>
                   <input type="hidden" id="q-recinto-id" value="">
                   <div class="searchable-dropdown" id="recinto-dropdown"></div>
                 </div>
@@ -3196,6 +3270,8 @@ if (file_exists($miconex_path)) {
       recintoInput.value = name;
       recintoIdInput.value = id;
       recintoDropdown.classList.remove('open');
+      const clearBtn = document.getElementById('btn-clear-recinto');
+      if (clearBtn) clearBtn.style.display = name ? 'block' : 'none';
       if (typeof updateRecintoHistory === 'function') {
         updateRecintoHistory(id, name);
       }
@@ -3210,6 +3286,8 @@ if (file_exists($miconex_path)) {
 
       recintoInput.addEventListener('input', () => {
         renderRecintosDropdown(recintoInput.value);
+        const clearBtn = document.getElementById('btn-clear-recinto');
+        if (clearBtn) clearBtn.style.display = recintoInput.value ? 'block' : 'none';
       });
 
       recintoInput.addEventListener('keydown', (e) => {
@@ -3737,26 +3815,44 @@ if (file_exists($miconex_path)) {
 
 
     // ================= HISTÓRICO DE LOS ÚLTIMOS 3 VALORES DEL RECINTO =================
+        // Borrar selección de recinto con la crucecita X
+    function clearRecintoSelection() {
+      const input = document.getElementById('q-recinto');
+      const idInput = document.getElementById('q-recinto-id');
+      const clearBtn = document.getElementById('btn-clear-recinto');
+      const histPanel = document.getElementById('recinto-history-panel');
+      const dropdown = document.getElementById('recinto-dropdown');
+
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+      if (idInput) idInput.value = '';
+      if (clearBtn) clearBtn.style.display = 'none';
+      if (histPanel) histPanel.style.display = 'none';
+      if (dropdown) dropdown.classList.remove('open');
+    }
+
     const mockRecintoHistory = {
       '1': [
-        { fecha: 'Ayer 23:30', hora: '23:30', oficial: 'ALTUNA', dosis: '2.5', tritio: '0.20', gases: '0.00' },
-        { fecha: 'Ayer 15:40', hora: '15:40', oficial: 'ROLHAUSER', dosis: '2.0', tritio: '0.15', gases: '0.00' },
-        { fecha: 'Ayer 08:10', hora: '08:10', oficial: 'GATICA', dosis: '1.8', tritio: '0.20', gases: '0.00' }
+        { fecha: '08/11/2026', hora: '23:30', dosis: '2.5', tritio: '0.20', gases: '0.00' },
+        { fecha: '08/11/2026', hora: '15:40', dosis: '2.0', tritio: '0.15', gases: '0.00' },
+        { fecha: '08/11/2026', hora: '08:10', dosis: '1.8', tritio: '0.20', gases: '0.00' }
       ],
       '24': [
-        { fecha: 'Ayer 23:30', hora: '23:30', oficial: 'ALTUNA', dosis: '24.0', tritio: '0.45', gases: '0.00' },
-        { fecha: 'Ayer 15:40', hora: '15:40', oficial: 'ROLHAUSER', dosis: '18.5', tritio: '0.40', gases: '0.00' },
-        { fecha: 'Ayer 08:15', hora: '08:15', oficial: 'GATICA', dosis: '12.0', tritio: '0.25', gases: '0.00' }
+        { fecha: '08/11/2026', hora: '23:30', dosis: '24.0', tritio: '0.45', gases: '0.00' },
+        { fecha: '08/11/2026', hora: '15:40', dosis: '18.5', tritio: '0.40', gases: '0.00' },
+        { fecha: '08/11/2026', hora: '08:15', dosis: '12.0', tritio: '0.25', gases: '0.00' }
       ],
       '5': [
-        { fecha: 'Ayer 23:35', hora: '23:35', oficial: 'ALTUNA', dosis: '18.5', tritio: '1.80', gases: '0.40' },
-        { fecha: 'Ayer 15:50', hora: '15:50', oficial: 'ROLHAUSER', dosis: '15.0', tritio: '1.50', gases: '0.30' },
-        { fecha: 'Ayer 08:20', hora: '08:20', oficial: 'GATICA', dosis: '14.0', tritio: '1.20', gases: '0.20' }
+        { fecha: '08/11/2026', hora: '23:35', dosis: '18.5', tritio: '1.80', gases: '0.40' },
+        { fecha: '08/11/2026', hora: '15:50', dosis: '15.0', tritio: '1.50', gases: '0.30' },
+        { fecha: '08/11/2026', hora: '08:20', dosis: '14.0', tritio: '1.20', gases: '0.20' }
       ],
       '12': [
-        { fecha: 'Ayer 23:45', hora: '23:45', oficial: 'ALTUNA', dosis: '45.0', tritio: '3.40', gases: '0.85' },
-        { fecha: 'Ayer 16:00', hora: '16:00', oficial: 'ROLHAUSER', dosis: '42.0', tritio: '3.10', gases: '0.80' },
-        { fecha: 'Ayer 08:30', hora: '08:30', oficial: 'GATICA', dosis: '40.0', tritio: '2.80', gases: '0.70' }
+        { fecha: '08/11/2026', hora: '23:45', dosis: '45.0', tritio: '3.40', gases: '0.85' },
+        { fecha: '08/11/2026', hora: '16:00', dosis: '42.0', tritio: '3.10', gases: '0.80' },
+        { fecha: '08/11/2026', hora: '08:30', dosis: '40.0', tritio: '2.80', gases: '0.70' }
       ]
     };
 
@@ -3782,12 +3878,12 @@ if (file_exists($miconex_path)) {
       ];
 
       chipsList.innerHTML = history.map((item, idx) => `
-        <div style="background: rgba(22, 54, 48, 0.6); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 4px 8px; display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono);">
+        <div style="background: rgba(22, 54, 48, 0.7); border: 1px solid var(--border-card); border-radius: 4px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px;">
           <span style="font-weight: 800; color: var(--accent-cyan);">[${idx + 1}]</span>
-          <span style="color: var(--text-muted); font-size: 10px;">${item.fecha} (${item.oficial}):</span>
+          <span style="color: #ffffff; font-weight: 700;">📅 ${item.fecha} &bull; ${item.hora} hs:</span>
           <span style="color: var(--accent-amber); font-weight: 700;">${item.dosis} µSv/h</span>
           <span style="color: var(--text-dim);">|</span>
-          <span style="color: var(--accent-cyan);">${item.tritio} DAC</span>
+          <span style="color: var(--accent-cyan); font-weight: 700;">${item.tritio} DAC</span>
           <span style="color: var(--text-dim);">|</span>
           <span style="color: #c084fc;">${item.gases} DAC</span>
         </div>

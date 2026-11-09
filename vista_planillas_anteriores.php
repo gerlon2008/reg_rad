@@ -243,6 +243,8 @@ if (empty($registros_historicos)) {
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
+      zoom: 0.9; /* Escala global al 90% para monitores estándar */
+
       background-color: var(--bg-page);
       color: var(--text-main);
       font-family: var(--font-ui);
@@ -461,6 +463,30 @@ if (empty($registros_historicos)) {
 
     .filter-search input {
       width: 100%;
+    }
+
+        /* Botón X de limpieza en inputs */
+    .btn-clear-ctrl {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 4px;
+      display: none;
+      z-index: 5;
+      transition: all 0.15s ease;
+    }
+
+    .btn-clear-ctrl:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.2);
     }
 
     .btn-filter-reset {
@@ -980,10 +1006,13 @@ if (empty($registros_historicos)) {
         </select>
       </div>
 
-      <!-- Búsqueda en vivo -->
+      <!-- Búsqueda en vivo con botón X -->
       <div class="filter-item filter-search">
         <label>Búsqueda rápida</label>
-        <input type="text" id="filter-search-input" class="filter-ctrl" placeholder="Buscar por número, oficial, jefe, fecha...">
+        <div style="position: relative;">
+          <input type="text" id="filter-search-input" class="filter-ctrl" placeholder="Buscar por número, oficial, jefe, fecha..." style="padding-right: 28px;">
+          <button type="button" class="btn-clear-ctrl" id="btn-clear-search" title="Limpiar búsqueda" onclick="clearFilterSearch()">&times;</button>
+        </div>
       </div>
 
       <!-- Reset -->
