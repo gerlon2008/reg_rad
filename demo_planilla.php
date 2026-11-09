@@ -342,17 +342,27 @@ if (file_exists($miconex_path)) {
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      zoom: 0.9; /* Escala global al 90% para ajuste en monitores estándar */
+    html {
+      zoom: 0.9; /* Escala global al 90% en la raíz para evitar desfasaje de viewport */
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
 
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
       font-family: var(--font-sans);
       background-color: var(--bg-page);
       color: var(--text-main);
       font-size: 13px;
       line-height: 1.45;
       display: flex;
-      height: 100vh;
-      overflow: hidden;
     }
 
     /* ================= SIDEBAR ================= */
@@ -511,7 +521,8 @@ if (file_exists($miconex_path)) {
       flex: 1;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      overflow-x: hidden !important;
+      overflow-y: hidden;
       background: var(--bg-page);
     }
 
@@ -1109,15 +1120,29 @@ if (file_exists($miconex_path)) {
       }
     }
 
-    /* Haz de barrido doble láser cian ultrabrillante en el borde superior */
+    /* Haz de barrido láser cian acotado con transform sin desbordar el viewport */
+    .section-panel {
+      overflow-x: hidden;
+    }
+
+    .section-panel.active {
+      overflow-x: hidden;
+    }
+
+    .section-panel .panel-box {
+      overflow: hidden !important;
+      position: relative !important;
+    }
+
     .section-panel.active .panel-box::before {
       content: '';
       position: absolute;
       top: 0;
-      left: -120%;
-      width: 120%;
+      left: 0;
+      width: 100%;
       height: 3px;
       background: linear-gradient(90deg, transparent 0%, rgba(16, 185, 129, 0.4) 20%, var(--accent-cyan) 50%, #ffffff 70%, var(--accent-cyan) 85%, transparent 100%);
+      transform: translateX(-100%);
       animation: cyber-laser-sweep 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       box-shadow: 0 0 12px var(--accent-cyan), 0 0 24px var(--accent-cyan);
       z-index: 10;
@@ -1125,9 +1150,9 @@ if (file_exists($miconex_path)) {
     }
 
     @keyframes cyber-laser-sweep {
-      0% { left: -120%; opacity: 1; }
+      0% { transform: translateX(-100%); opacity: 1; }
       70% { opacity: 1; }
-      100% { left: 120%; opacity: 0; }
+      100% { transform: translateX(100%); opacity: 0; }
     }
 
     /* Escaneo de rejilla táctica cyber-grid al activar panel */

@@ -254,17 +254,26 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+    html {
+      zoom: 0.9; /* Escala global al 90% en raíz para ajuste sin desborde horizontal */
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
     body {
-      zoom: 0.9; /* Escala global al 90% para monitores estándar */
-
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
       background-color: var(--bg-page);
       color: var(--text-main);
       font-family: var(--font-ui);
       font-size: 13px;
       line-height: 1.4;
-      height: 100vh;
-      overflow: hidden;
       display: flex;
     }
 
@@ -428,7 +437,8 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       display: flex;
       flex-direction: column;
       height: 100vh;
-      overflow: hidden;
+      overflow-x: hidden !important;
+      overflow-y: hidden;
       background: var(--bg-page);
     }
 
@@ -727,15 +737,29 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       }
     }
 
-    /* Haz de barrido doble láser cian ultrabrillante en el borde superior */
+    /* Haz de barrido láser cian acotado con transform sin desbordar el viewport */
+    .section-content {
+      overflow-x: hidden;
+    }
+
+    .section-content.active {
+      overflow-x: hidden;
+    }
+
+    .section-content .panel-box {
+      overflow: hidden !important;
+      position: relative !important;
+    }
+
     .section-content.active .panel-box::before {
       content: '';
       position: absolute;
       top: 0;
-      left: -120%;
-      width: 120%;
+      left: 0;
+      width: 100%;
       height: 3px;
       background: linear-gradient(90deg, transparent 0%, rgba(16, 185, 129, 0.4) 20%, var(--accent-cyan) 50%, #ffffff 70%, var(--accent-cyan) 85%, transparent 100%);
+      transform: translateX(-100%);
       animation: cyber-laser-sweep 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       box-shadow: 0 0 12px var(--accent-cyan), 0 0 24px var(--accent-cyan);
       z-index: 10;
@@ -743,9 +767,9 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
     }
 
     @keyframes cyber-laser-sweep {
-      0% { left: -120%; opacity: 1; }
+      0% { transform: translateX(-100%); opacity: 1; }
       70% { opacity: 1; }
-      100% { left: 120%; opacity: 0; }
+      100% { transform: translateX(100%); opacity: 0; }
     }
 
     /* Escaneo de rejilla táctica cyber-grid al activar panel */

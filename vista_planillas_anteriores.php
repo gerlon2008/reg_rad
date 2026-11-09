@@ -241,10 +241,14 @@ if (empty($registros_historicos)) {
       --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+    html {
+      zoom: 0.9; /* Escala global al 90% en la raíz sin desbordar el viewport */
+      overflow-x: hidden;
+    }
     body {
-      zoom: 0.9; /* Escala global al 90% para monitores estándar */
-
+      width: 100%;
+      overflow-x: hidden;
       background-color: var(--bg-page);
       color: var(--text-main);
       font-family: var(--font-ui);
@@ -253,7 +257,6 @@ if (empty($registros_historicos)) {
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      overflow-x: hidden;
     }
 
     /* Topbar HUD */
