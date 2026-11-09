@@ -495,6 +495,194 @@
       font-style: italic;
     }
 
+    /* ================= VANILLA DARK DATEPICKER & TIMEPICKER ================= */
+    .latam-datepicker-popup,
+    .latam-timepicker-popup {
+      display: none;
+      position: absolute;
+      background: #0f172a;
+      border: 1px solid var(--accent-cyan);
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.85);
+      z-index: 2500;
+      width: 250px;
+      user-select: none;
+    }
+
+    .dp-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .dp-month-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #ffffff;
+      font-family: var(--font-sans);
+    }
+
+    .dp-nav-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-card);
+      color: var(--accent-cyan);
+      font-weight: bold;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+    .dp-nav-btn:hover {
+      background: var(--accent-cyan);
+      color: #000;
+    }
+
+    .dp-grid-weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      text-align: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+
+    .dp-grid-days {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+    }
+
+    .dp-day-cell {
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: #e2e8f0;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .dp-day-cell:hover {
+      background: rgba(6, 182, 212, 0.25);
+      color: var(--accent-cyan);
+    }
+
+    .dp-day-cell.other-month {
+      color: #475569;
+      opacity: 0.5;
+    }
+
+    .dp-day-cell.today {
+      border: 1px solid rgba(6, 182, 212, 0.6);
+      font-weight: 700;
+    }
+
+    .dp-day-cell.selected {
+      background: var(--accent-cyan) !important;
+      color: #000000 !important;
+      font-weight: 800;
+    }
+
+    .dp-quick-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border-card);
+    }
+
+    .dp-quick-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-card);
+      color: var(--accent-cyan);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      flex: 1;
+      text-align: center;
+      transition: all 0.12s ease;
+    }
+    .dp-quick-btn:hover {
+      background: rgba(6, 182, 212, 0.2);
+      border-color: var(--accent-cyan);
+    }
+
+    /* TIMEPICKER POPUP */
+    .tp-presets {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .tp-preset-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-card);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 4px 2px;
+      border-radius: 4px;
+      text-align: center;
+      cursor: pointer;
+    }
+    .tp-preset-btn:hover {
+      background: rgba(6, 182, 212, 0.2);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    .tp-selector-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .tp-col-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      text-align: center;
+    }
+
+    .tp-col-scroll {
+      max-height: 120px;
+      overflow-y: auto;
+      border: 1px solid var(--border-card);
+      border-radius: 4px;
+      background: #090d16;
+    }
+
+    .tp-item {
+      padding: 4px;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #94a3b8;
+      cursor: pointer;
+    }
+    .tp-item:hover, .tp-item.active {
+      background: var(--accent-cyan);
+      color: #000;
+      font-weight: 700;
+    }
+
     .kpi-card::before {
       content: "";
       position: absolute;
@@ -1040,12 +1228,12 @@
             <div class="entry-bar">
               <div class="field-group">
                 <label class="field-label">Fecha (LatAm)</label>
-                <input type="text" id="q-fecha" class="field-control mono" value="08/11/2026" placeholder="DD/MM/AAAA">
+                <input type="text" id="q-fecha" class="field-control mono latam-datepicker-input" value="08/11/2026" placeholder="DD/MM/AAAA">
               </div>
 
               <div class="field-group">
                 <label class="field-label">Hora <button id="btn-now" type="button" style="background:none; border:none; color:var(--accent-cyan); font-size:10px; cursor:pointer;" title="Hora actual">⚡Ahora</button></label>
-                <input type="text" id="q-hora" class="field-control mono" value="00:15" placeholder="HH:MM">
+                <input type="text" id="q-hora" class="field-control mono latam-timepicker-input" value="00:15" placeholder="HH:MM">
               </div>
 
               <div class="field-group" style="position: relative;">
@@ -1517,7 +1705,7 @@
 
         <div class="field-group" style="margin-bottom: 12px;">
           <label class="field-label">Fecha Operativa de Guardia (DD/MM/AAAA)</label>
-          <input type="text" id="modal-fecha-operativa" class="field-control mono" style="font-size: 14px; font-weight: 800; color: #ffffff;" value="08/11/2026">
+          <input type="text" id="modal-fecha-operativa" class="field-control mono latam-datepicker-input" style="font-size: 14px; font-weight: 800; color: #ffffff;" value="08/11/2026">
         </div>
 
         <!-- Cartel inteligente de detección automática de madrugada -->
@@ -1596,11 +1784,11 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
             <div class="field-group">
               <label class="field-label">Hora Desde (HH:MM)</label>
-              <input type="text" id="kpi-in-tritio-desde" class="field-control mono" value="23:00">
+              <input type="text" id="kpi-in-tritio-desde" class="field-control mono latam-timepicker-input" value="23:00">
             </div>
             <div class="field-group">
               <label class="field-label">Hora Hasta (HH:MM)</label>
-              <input type="text" id="kpi-in-tritio-hasta" class="field-control mono" value="07:00">
+              <input type="text" id="kpi-in-tritio-hasta" class="field-control mono latam-timepicker-input" value="07:00">
             </div>
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
@@ -1623,7 +1811,7 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
             <div class="field-group">
               <label class="field-label">Hora de Medición (HH:MM)</label>
-              <input type="text" id="kpi-in-c14-hora" class="field-control mono" value="06:00">
+              <input type="text" id="kpi-in-c14-hora" class="field-control mono latam-timepicker-input" value="06:00">
             </div>
             <div class="field-group">
               <label class="field-label">Actividad C-14 (MBq)</label>
@@ -1640,7 +1828,7 @@
           <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 12px; margin-bottom: 12px;">
             <div class="field-group">
               <label class="field-label">Hora de Medición (HH:MM)</label>
-              <input type="text" id="kpi-in-dedofrio-hora" class="field-control mono" value="04:30">
+              <input type="text" id="kpi-in-dedofrio-hora" class="field-control mono latam-timepicker-input" value="04:30">
             </div>
             <div class="field-group">
               <label class="field-label">Concentración (ppm)</label>
@@ -2339,6 +2527,286 @@
       }
     });
 
+  
+    // ================= IMPLEMENTACIÓN VANILLA DATEPICKER LATAM (DD/MM/AAAA) =================
+    const dpPopup = document.getElementById('latam-datepicker-popup');
+    const dpMonthDisplay = document.getElementById('dp-month-display');
+    const dpDaysContainer = document.getElementById('dp-days-container');
+    let dpCurrentDate = new Date();
+    let dpTargetInput = null;
+
+    const monthNamesLatam = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+
+    function parseLatamDate(str) {
+      if (!str) return new Date();
+      const parts = str.split('/');
+      if (parts.length === 3) {
+        const d = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const y = parseInt(parts[2], 10);
+        if (!isNaN(d) && !isNaN(m) && !isNaN(y)) return new Date(y, m, d);
+      }
+      return new Date();
+    }
+
+    function formatLatamDate(dateObj) {
+      const d = String(dateObj.getDate()).padStart(2, '0');
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const y = dateObj.getFullYear();
+      return `${d}/${m}/${y}`;
+    }
+
+    function renderDatepickerGrid() {
+      const year = dpCurrentDate.getFullYear();
+      const month = dpCurrentDate.getMonth();
+
+      dpMonthDisplay.textContent = `${monthNamesLatam[month]} ${year}`;
+      dpDaysContainer.innerHTML = '';
+
+      const firstDayOfMonth = new Date(year, month, 1);
+      const lastDayOfMonth = new Date(year, month + 1, 0);
+
+      // En LatAm la semana arranca lunes (1 = Lunes, 0 = Domingo)
+      let startingDay = firstDayOfMonth.getDay() - 1;
+      if (startingDay === -1) startingDay = 6;
+
+      const totalDays = lastDayOfMonth.getDate();
+      const prevMonthLastDay = new Date(year, month, 0).getDate();
+
+      // Días del mes previo
+      for (let i = startingDay - 1; i >= 0; i--) {
+        const cell = document.createElement('div');
+        cell.className = 'dp-day-cell other-month';
+        cell.textContent = prevMonthLastDay - i;
+        dpDaysContainer.appendChild(cell);
+      }
+
+      const today = new Date();
+      const selectedVal = dpTargetInput ? dpTargetInput.value : '';
+
+      // Días del mes actual
+      for (let day = 1; day <= totalDays; day++) {
+        const cell = document.createElement('div');
+        cell.className = 'dp-day-cell';
+        cell.textContent = day;
+
+        const cellDate = new Date(year, month, day);
+        const cellStr = formatLatamDate(cellDate);
+
+        if (cellStr === formatLatamDate(today)) {
+          cell.classList.add('today');
+        }
+        if (cellStr === selectedVal) {
+          cell.classList.add('selected');
+        }
+
+        cell.addEventListener('click', () => {
+          if (dpTargetInput) {
+            dpTargetInput.value = cellStr;
+            dpTargetInput.dispatchEvent(new Event('input'));
+            dpTargetInput.dispatchEvent(new Event('change'));
+          }
+          closeDatepicker();
+        });
+
+        dpDaysContainer.appendChild(cell);
+      }
+    }
+
+    function openDatepicker(inputEl) {
+      dpTargetInput = inputEl;
+      dpCurrentDate = parseLatamDate(inputEl.value);
+
+      const rect = inputEl.getBoundingClientRect();
+      dpPopup.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+      dpPopup.style.left = (rect.left + window.scrollX) + 'px';
+      dpPopup.style.display = 'block';
+
+      renderDatepickerGrid();
+    }
+
+    function closeDatepicker() {
+      dpPopup.style.display = 'none';
+      dpTargetInput = null;
+    }
+
+    document.getElementById('dp-btn-prev').addEventListener('click', () => {
+      dpCurrentDate.setMonth(dpCurrentDate.getMonth() - 1);
+      renderDatepickerGrid();
+    });
+
+    document.getElementById('dp-btn-next').addEventListener('click', () => {
+      dpCurrentDate.setMonth(dpCurrentDate.getMonth() + 1);
+      renderDatepickerGrid();
+    });
+
+    document.getElementById('dp-btn-yesterday').addEventListener('click', () => {
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      if (dpTargetInput) {
+        dpTargetInput.value = formatLatamDate(y);
+        dpTargetInput.dispatchEvent(new Event('change'));
+      }
+      closeDatepicker();
+    });
+
+    document.getElementById('dp-btn-today').addEventListener('click', () => {
+      const t = new Date();
+      if (dpTargetInput) {
+        dpTargetInput.value = formatLatamDate(t);
+        dpTargetInput.dispatchEvent(new Event('change'));
+      }
+      closeDatepicker();
+    });
+
+    document.getElementById('dp-btn-close').addEventListener('click', closeDatepicker);
+
+    // Vincular todos los inputs de fecha
+    document.querySelectorAll('.latam-datepicker-input').forEach(inp => {
+      inp.setAttribute('readonly', 'readonly');
+      inp.style.cursor = 'pointer';
+      inp.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openDatepicker(inp);
+      });
+    });
+
+    // ================= IMPLEMENTACIÓN VANILLA TIMEPICKER LATAM (HH:MM) =================
+    const tpPopup = document.getElementById('latam-timepicker-popup');
+    const tpHoursList = document.getElementById('tp-hours-list');
+    const tpMinutesList = document.getElementById('tp-minutes-list');
+    let tpTargetInput = null;
+
+    // Generar 00..23 horas
+    for (let h = 0; h < 24; h++) {
+      const div = document.createElement('div');
+      div.className = 'tp-item';
+      div.textContent = String(h).padStart(2, '0');
+      div.addEventListener('click', () => {
+        selectTimePart('h', div.textContent);
+      });
+      tpHoursList.appendChild(div);
+    }
+
+    // Generar minutos de 5 en 5 (00, 05.. 55)
+    for (let m = 0; m < 60; m += 5) {
+      const div = document.createElement('div');
+      div.className = 'tp-item';
+      div.textContent = String(m).padStart(2, '0');
+      div.addEventListener('click', () => {
+        selectTimePart('m', div.textContent);
+      });
+      tpMinutesList.appendChild(div);
+    }
+
+    function selectTimePart(type, val) {
+      if (!tpTargetInput) return;
+      const current = tpTargetInput.value.split(':');
+      let h = current[0] || '00';
+      let m = current[1] || '00';
+
+      if (type === 'h') h = val;
+      if (type === 'm') m = val;
+
+      tpTargetInput.value = `${h}:${m}`;
+      tpTargetInput.dispatchEvent(new Event('change'));
+    }
+
+    function applyQuickTime(hhmm) {
+      if (tpTargetInput) {
+        tpTargetInput.value = hhmm;
+        tpTargetInput.dispatchEvent(new Event('change'));
+      }
+      closeTimepicker();
+    }
+
+    function applyNowTime() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      applyQuickTime(`${h}:${m}`);
+    }
+
+    function openTimepicker(inputEl) {
+      tpTargetInput = inputEl;
+      const rect = inputEl.getBoundingClientRect();
+      tpPopup.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+      tpPopup.style.left = (rect.left + window.scrollX) + 'px';
+      tpPopup.style.display = 'block';
+    }
+
+    function closeTimepicker() {
+      tpPopup.style.display = 'none';
+      tpTargetInput = null;
+    }
+
+    document.getElementById('tp-close-btn').addEventListener('click', closeTimepicker);
+
+    document.querySelectorAll('.latam-timepicker-input').forEach(inp => {
+      inp.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openTimepicker(inp);
+      });
+    });
+
+    // Cerrar datepicker y timepicker al hacer clic afuera
+    document.addEventListener('click', (e) => {
+      if (dpPopup.style.display === 'block' && !dpPopup.contains(e.target) && !e.target.classList.contains('latam-datepicker-input')) {
+        closeDatepicker();
+      }
+      if (tpPopup.style.display === 'block' && !tpPopup.contains(e.target) && !e.target.classList.contains('latam-timepicker-input')) {
+        closeTimepicker();
+      }
+    });
+
   </script>
+  <!-- ================= POPUPS FLOTANTES DE DATEPICKER Y TIMEPICKER LATAM ================= -->
+  <div id="latam-datepicker-popup" class="latam-datepicker-popup">
+    <div class="dp-header">
+      <button type="button" class="dp-nav-btn" id="dp-btn-prev">&lt;</button>
+      <span class="dp-month-title" id="dp-month-display">Noviembre 2026</span>
+      <button type="button" class="dp-nav-btn" id="dp-btn-next">&gt;</button>
+    </div>
+    <div class="dp-grid-weekdays">
+      <div>Lu</div><div>Ma</div><div>Mi</div><div>Ju</div><div>Vi</div><div>Sá</div><div>Do</div>
+    </div>
+    <div class="dp-grid-days" id="dp-days-container"></div>
+    <div class="dp-quick-footer">
+      <button type="button" class="dp-quick-btn" id="dp-btn-yesterday">⬅️ Ayer</button>
+      <button type="button" class="dp-quick-btn" id="dp-btn-today">📅 Hoy</button>
+      <button type="button" class="dp-quick-btn" id="dp-btn-close" style="color:var(--text-dim);">Cerrar</button>
+    </div>
+  </div>
+
+  <div id="latam-timepicker-popup" class="latam-timepicker-popup">
+    <div style="font-size:11px; font-weight:700; color:#fff; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+      <span>⏰ Seleccionar Hora</span>
+      <span id="tp-close-btn" style="cursor:pointer; color:var(--text-dim);">✕</span>
+    </div>
+    <div class="tp-presets">
+      <div class="tp-preset-btn" onclick="applyQuickTime('00:00')">00:00</div>
+      <div class="tp-preset-btn" onclick="applyQuickTime('04:00')">04:00</div>
+      <div class="tp-preset-btn" onclick="applyQuickTime('07:00')">07:00</div>
+      <div class="tp-preset-btn" onclick="applyQuickTime('11:00')">11:00</div>
+      <div class="tp-preset-btn" onclick="applyQuickTime('14:00')">14:00</div>
+      <div class="tp-preset-btn" onclick="applyQuickTime('19:00')">19:00</div>
+      <div class="tp-preset-btn" onclick="applyQuickTime('23:00')">23:00</div>
+      <div class="tp-preset-btn" onclick="applyNowTime()" style="color:var(--accent-cyan); font-weight:bold;">⚡Ahora</div>
+    </div>
+    <div class="tp-selector-row">
+      <div>
+        <div class="tp-col-title">Hora</div>
+        <div class="tp-col-scroll" id="tp-hours-list"></div>
+      </div>
+      <div>
+        <div class="tp-col-title">Minutos</div>
+        <div class="tp-col-scroll" id="tp-minutes-list"></div>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
