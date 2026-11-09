@@ -243,7 +243,6 @@ if (empty($registros_historicos)) {
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
     html {
-      zoom: 0.9; /* Escala global al 90% en la raíz sin desbordar el viewport */
       overflow-x: hidden;
     }
     body {

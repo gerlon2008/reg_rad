@@ -343,7 +343,6 @@ if (file_exists($miconex_path)) {
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     html {
-      zoom: 0.9; /* Escala global al 90% en la raíz para evitar desfasaje de viewport */
       width: 100%;
       height: 100%;
       overflow: hidden;
@@ -1774,15 +1773,12 @@ if (file_exists($miconex_path)) {
         <span>🧽 Frotis &amp; Dryers</span>
         <span class="menu-badge">0</span>
       </button>
-      <button class="menu-btn" data-section="sec-tareas">
-        <span>⚠️ Tareas de Campo &amp; PTR</span>
-        <span class="menu-badge" id="menu-badge-tareas">0</span>
+      <button class="menu-btn" data-section="sec-actas" id="btn-sidebar-actas">
+        <span>📖 Libro de Actas &amp; Tareas PTR</span>
+        <span class="menu-badge" id="menu-badge-actas">2</span>
       </button>
 
-      <div class="menu-header" style="margin-top: 14px;">Administración &amp; Actas</div>
-      <button class="menu-btn" data-section="sec-actas">
-        <span>📖 Libro de Actas</span>
-      </button>
+      <div class="menu-header" style="margin-top: 14px;">Administración &amp; Cierre</div>
       <button class="menu-btn" data-section="sec-historial">
         <span>🗂️ Historial de Planillas</span>
       </button>
@@ -2263,7 +2259,7 @@ if (file_exists($miconex_path)) {
 
       <!-- ================= SECCIÓN 5: TAREAS & PTR ================= -->
       <!-- ================= SECCIÓN 5: LIBRO DE ACTAS & NOVEDADES DE GUARDIA ================= -->
-      <section class="section-panel" id="sec-actas">
+      <section class="section-panel" id="sec-actas" data-alias="sec-tareas">
         <div class="panel-box">
           <div class="panel-header">
             <div class="panel-title"><span>📖</span> Libro de Actas &amp; Novedades de Guardia (SyR)</div>
@@ -2826,8 +2822,9 @@ if (file_exists($miconex_path)) {
 
     menuButtons.forEach(btn => {
       btn.addEventListener('click', () => {
-        const targetSec = btn.getAttribute('data-section');
+        let targetSec = btn.getAttribute('data-section');
         if (!targetSec) return;
+        if (targetSec === 'sec-tareas') targetSec = 'sec-actas';
 
         menuButtons.forEach(b => b.classList.remove('active'));
         sections.forEach(s => s.classList.remove('active'));

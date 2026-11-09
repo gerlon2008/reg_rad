@@ -256,7 +256,6 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
     html {
-      zoom: 0.9; /* Escala global al 90% en raíz para ajuste sin desborde horizontal */
       width: 100%;
       height: 100%;
       overflow: hidden;
@@ -1183,12 +1182,9 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       <button type="button" class="menu-btn" data-section="sec-gases">
         <span>🏭 Efluentes Gaseosos &amp; Chimenea</span>
       </button>
-      <button type="button" class="menu-btn" data-section="sec-tareas">
-        <span>📝 Tareas &amp; Relevamientos PTR</span>
-        <span class="menu-badge"><?php echo count($rows_tareas); ?></span>
-      </button>
       <button type="button" class="menu-btn" data-section="sec-actas">
-        <span>📖 Libro de Actas</span>
+        <span>📖 Libro de Actas &amp; Tareas PTR</span>
+        <span class="menu-badge"><?php echo count($rows_tareas); ?></span>
       </button>
       <button type="button" class="menu-btn" data-section="sec-liquidos">
         <span>💧 Efluentes Líquidos &amp; Espectr.</span>
@@ -1859,6 +1855,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
     const sectionTitle = document.getElementById('current-section-title');
 
     function goToSection(secId) {
+      if (secId === 'sec-tareas') secId = 'sec-actas';
       // 1. Activar botón de sidebar correspondiente
       menuBtns.forEach(btn => {
         if (btn.dataset.section === secId) {
