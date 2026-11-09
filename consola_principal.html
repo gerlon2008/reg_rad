@@ -1109,6 +1109,52 @@
       text-transform: uppercase;
     }
 
+    
+    /* ================= SYNC ENGINE (OUTBOX OFFLINE & AUTO-RETRY) ================= */
+    .sync-pill {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .sync-pill.synced {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #34d399;
+    }
+    .sync-pill.pending {
+      background: rgba(245, 158, 11, 0.2);
+      border: 1px solid var(--accent-amber);
+      color: var(--accent-amber);
+      animation: cyber-pulse 2s infinite ease-in-out;
+    }
+    .sync-pill.syncing {
+      background: rgba(6, 182, 212, 0.2);
+      border: 1px solid var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+    .sync-badge {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+    .sync-badge.synced {
+      color: #34d399;
+    }
+    .sync-badge.pending {
+      color: var(--accent-amber);
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
     /* ================= MODALES Y TOASTS ================= */
     .modal-overlay {
       display: none;
@@ -1302,9 +1348,13 @@
       
       </div>
       <div class="topbar-right">
-        <span>Jefe de Turno: <strong style="color: #ffffff;" id="topbar-jefe-turno">GÓMEZ, CARLOS</strong></span>
+        <div class="sync-pill synced" id="sync-status-indicator" onclick="SyncEngine.flush(true)" title="Estado de sincronización: Haga clic para forzar reintento">
+          ☁️ Servidor sincronizado
+        </div>
         <span>•</span>
-        <span>Fecha de Guardia: <strong style="color: #ffffff;" id="topbar-latam-date">09/11/2026</strong></span>
+        <span>Jefe: <strong style="color: #ffffff;" id="topbar-jefe-turno">GÓMEZ, CARLOS</strong></span>
+        <span>•</span>
+        <span>Fecha: <strong style="color: #ffffff;" id="topbar-latam-date">09/11/2026</strong></span>
         <div class="clock-pill" id="live-clock">14:50:00 hs</div>
       </div>
     </header>
@@ -2391,14 +2441,16 @@
       recalculateKPIs();
       showToast('✔️ Medición registrada en ' + recinto.split(' - ')[0]);
 
-      // Enviar a MySQL si hay conexión
+      // Encolar en LocalStorage y sincronizar con MySQL
       const partes = fecha.split('/');
       const fechaSql = partes.length === 3 ? `${partes[2]}-${partes[1]}-${partes[0]}` : fecha;
-      const recintoOption = document.querySelector(`#q-recinto option[value="${recinto}"]`);
-      const recintoId = recintoOption ? (recintoOption.getAttribute('data-id') || 1) : 1;
+      const recintoId = document.getElementById('q-recinto-id').value || 1;
+      const rowTempId = 'row_' + Date.now();
+      tr.id = rowTempId;
 
-      fetch(`procesos_reg_rad.php?accion=guardar_valores_rutina&id_user=1&fecha=${fechaSql}&hora=${hora}&ubicacion=${recintoId}&gases_nobles=${gNum || 0}&tritio=${tNum || 0}&tasa_dosis=${dNum || 0}&observaciones=${encodeURIComponent(obs)}&relevado_por=1&id_planilla=${activePlanillaId || 1}`)
-        .catch(e => console.log('Offline/Mock save'));
+      const urlRutina = `procesos_reg_rad.php?accion=guardar_valores_rutina&id_user=1&fecha=${fechaSql}&hora=${hora}&ubicacion=${recintoId}&gases_nobles=${gNum || 0}&tritio=${tNum || 0}&tasa_dosis=${dNum || 0}&observaciones=${encodeURIComponent(obs)}&relevado_por=1&id_planilla=${activePlanillaId || 1}`;
+
+      SyncEngine.enqueue('rutina', urlRutina, 'GET', null, { rowId: rowTempId, recinto, fecha, hora });
 
       document.getElementById('q-gases').value = '';
       document.getElementById('q-tritio').value = '';
@@ -2540,17 +2592,14 @@
       const horaDesde = document.getElementById('kpi-in-tritio-desde').value;
       const horaHasta = document.getElementById('kpi-in-tritio-hasta').value;
 
-      // 1. Guardar Tritio (Ventilación General & Reactor)
-      fetch(`procesos_reg_rad.php?accion=guardar_valores_emision_tritio&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&desde=${horaDesde}&hasta=${horaHasta}&vent_gral_unidad_actividad=5&vent_reactor_unidad_actividad=5&vent_gral=${ventGral}&vent_reactor=${ventReactor}`)
-        .catch(e => console.log('Offline/Mock tritio save'));
+      // 1. Encolar Tritio (Ventilación General & Reactor)
+      SyncEngine.enqueue('tritio', `procesos_reg_rad.php?accion=guardar_valores_emision_tritio&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&desde=${horaDesde}&hasta=${horaHasta}&vent_gral_unidad_actividad=5&vent_reactor_unidad_actividad=5&vent_gral=${ventGral}&vent_reactor=${ventReactor}`);
 
-      // 2. Guardar Carbono-14
-      fetch(`procesos_reg_rad.php?accion=guardar_valores_carbono14&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&hora=${horaActualStr}&actividad_unidad_ingresada=4&actividad=${c14}`)
-        .catch(e => console.log('Offline/Mock C14 save'));
+      // 2. Encolar Carbono-14
+      SyncEngine.enqueue('carbono14', `procesos_reg_rad.php?accion=guardar_valores_carbono14&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&hora=${horaActualStr}&actividad_unidad_ingresada=4&actividad=${c14}`);
 
-      // 3. Guardar Dedo Frío
-      fetch(`procesos_reg_rad.php?accion=guardar_valores_dedo_frio&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&hora=${horaActualStr}&ppm=${dedoFrio}&menor_que=${isMenor ? 1 : 0}`)
-        .catch(e => console.log('Offline/Mock Dedo Frío save'));
+      // 3. Encolar Dedo Frío
+      SyncEngine.enqueue('dedofrio', `procesos_reg_rad.php?accion=guardar_valores_dedo_frio&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&hora=${horaActualStr}&ppm=${dedoFrio}&menor_que=${isMenor ? 1 : 0}`);
 
       closeKpiModal();
       showToast('✔️ Métricas de chimenea actualizadas y guardadas en MySQL');
@@ -2592,7 +2641,6 @@
       const tbody = document.getElementById('tasks-table-body');
       const tr = document.createElement('tr');
       tr.className = 'new-row';
-      tr.className = 'new-row';
       tr.innerHTML = `
         <td class="num" style="font-weight: 700; color: var(--accent-cyan);">${ptr.toUpperCase()}</td>
         <td>${recinto}</td>
@@ -2608,6 +2656,19 @@
       const taskCount = tbody.querySelectorAll('tr').length;
       document.getElementById('menu-badge-tareas').textContent = taskCount;
 
+      // Encolar tarea en LocalStorage y sincronizar con MySQL
+      SyncEngine.enqueue('tarea', 'procesos_reg_rad_post.php?accion=insertar_tarea_diaria', 'POST', {
+        id_planilla: (typeof activePlanillaId !== 'undefined' ? activePlanillaId : 1),
+        id_usuario: 1,
+        texto: desc,
+        recinto: recinto,
+        ptr: ptr,
+        dosis: dosis,
+        derrame: derrame,
+        id_oficial_asociado: (oficialSelect ? oficialSelect.value : ''),
+        id_ayudante: (ayudanteSelect ? ayudanteSelect.value : '')
+      });
+
       showToast('✔️ Tarea PTR asentada correctamente');
       document.getElementById('task-ptr').value = '';
       document.getElementById('task-desc').value = '';
@@ -2618,15 +2679,11 @@
     function saveActas() {
       const text = document.getElementById('actas-text').value;
       // Guardar en MySQL
-      const formData = new FormData();
-      formData.append('id_planilla', activePlanillaId || 1);
-      formData.append('id_usuario', 1);
-      formData.append('texto', text);
-
-      fetch('procesos_reg_rad_post.php?accion=actualizar_libro_actas', {
-        method: 'POST',
-        body: formData
-      }).catch(e => console.log('Offline save'));
+      SyncEngine.enqueue('actas', 'procesos_reg_rad_post.php?accion=actualizar_libro_actas', 'POST', {
+        id_planilla: activePlanillaId || 1,
+        id_usuario: 1,
+        texto: text
+      });
 
       showToast('✔️ Novedades guardadas en el Libro de Actas');
     }
@@ -3117,6 +3174,156 @@
         setAppTheme(savedTheme);
       }
     } catch(e) {}
+
+  
+    // ================= MOTOR DE COLA OFFLINE Y SINCRONIZACIÓN AUTOMÁTICA (OUTBOX) =================
+    const SyncEngine = {
+      QUEUE_KEY: 'regrad_offline_queue_v1',
+      isSyncing: false,
+
+      // Encolar acción en LocalStorage
+      enqueue(actionType, url, method = 'GET', postData = null, meta = {}) {
+        let queue = this.getQueue();
+        const item = {
+          id: 'tx_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          timestamp: new Date().toISOString(),
+          actionType,
+          url,
+          method,
+          postData,
+          meta,
+          retries: 0
+        };
+        queue.push(item);
+        this.saveQueue(queue);
+        this.updateSyncUI();
+
+        // Disparar intento de sincronización en segundo plano
+        this.flush();
+        return item.id;
+      },
+
+      getQueue() {
+        try {
+          const q = localStorage.getItem(this.QUEUE_KEY);
+          return q ? JSON.parse(q) : [];
+        } catch(e) {
+          return [];
+        }
+      },
+
+      saveQueue(queue) {
+        try {
+          localStorage.setItem(this.QUEUE_KEY, JSON.stringify(queue));
+        } catch(e) {}
+      },
+
+      // Intentar vaciar la cola enviando peticiones pendientes al servidor
+      async flush(manual = false) {
+        if (this.isSyncing) return;
+        let queue = this.getQueue();
+        if (queue.length === 0) {
+          this.updateSyncUI();
+          if (manual) showToast('☁️ No hay datos pendientes de sincronización');
+          return;
+        }
+
+        this.isSyncing = true;
+        this.updateSyncUI(true);
+
+        const remaining = [];
+        let successCount = 0;
+
+        for (let i = 0; i < queue.length; i++) {
+          const item = queue[i];
+          try {
+            let response;
+            if (item.method === 'POST') {
+              let formData = new FormData();
+              if (item.postData) {
+                for (let k in item.postData) {
+                  formData.append(k, item.postData[k]);
+                }
+              }
+              response = await fetch(item.url, { method: 'POST', body: formData });
+            } else {
+              response = await fetch(item.url);
+            }
+
+            if (response && response.ok) {
+              const resText = await response.text();
+              console.log(`✔️ Sincronizado OK [${item.actionType}]:`, resText);
+              successCount++;
+
+              // Actualizar badge visual en la fila correspondiente si existe
+              if (item.meta && item.meta.rowId) {
+                const rowEl = document.getElementById(item.meta.rowId);
+                if (rowEl) {
+                  const b = rowEl.querySelector('.sync-badge');
+                  if (b) {
+                    b.className = 'sync-badge synced';
+                    b.innerHTML = '● Guardado';
+                    b.title = 'Guardado confirmado en MySQL';
+                  }
+                }
+              }
+            } else {
+              throw new Error('Servidor devolvió status: ' + (response ? response.status : 'desconocido'));
+            }
+          } catch(err) {
+            console.warn(`⏳ Error enviando [${item.actionType}], reintentará automáticamente:`, err.message);
+            item.retries = (item.retries || 0) + 1;
+            remaining.push(item);
+          }
+        }
+
+        this.saveQueue(remaining);
+        this.isSyncing = false;
+        this.updateSyncUI();
+
+        if (successCount > 0 && remaining.length === 0) {
+          showToast(`☁️ ${successCount} registro(s) sincronizado(s) con éxito con MySQL`);
+        } else if (manual && remaining.length > 0) {
+          showToast(`⏳ El servidor aún no responde. ${remaining.length} registro(s) seguro(s) en LocalStorage`);
+        }
+      },
+
+      updateSyncUI(inProgress = false) {
+        const queue = this.getQueue();
+        const pill = document.getElementById('sync-status-indicator');
+        if (!pill) return;
+
+        if (inProgress) {
+          pill.className = 'sync-pill syncing';
+          pill.innerHTML = `🔄 Sincronizando (${queue.length})...`;
+        } else if (queue.length > 0) {
+          pill.className = 'sync-pill pending';
+          pill.innerHTML = `⏳ ${queue.length} pendiente${queue.length > 1 ? 's' : ''} [Reintentar]`;
+          pill.title = 'Datos guardados localmente. Haga clic para intentar enviar ahora al servidor';
+        } else {
+          pill.className = 'sync-pill synced';
+          pill.innerHTML = `☁️ Servidor sincronizado`;
+          pill.title = 'Todos los datos están guardados en MySQL';
+        }
+      }
+    };
+
+    // Reintentos automáticos periódicos cada 25 segundos
+    setInterval(() => {
+      SyncEngine.flush();
+    }, 25000);
+
+    // Reintento inmediato cuando se detecta conexión a internet / intranet
+    window.addEventListener('online', () => {
+      showToast('🌐 Conexión detectada. Sincronizando cola de datos...');
+      SyncEngine.flush();
+    });
+
+    // Inicializar indicador visual al cargar
+    setTimeout(() => {
+      SyncEngine.updateSyncUI();
+      SyncEngine.flush();
+    }, 2000);
 
   </script>
   </body>
