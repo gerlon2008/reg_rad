@@ -862,15 +862,39 @@ if (file_exists($miconex_path)) {
     }
 
     .modal-header {
-      padding: 16px 20px;
+      padding: 14px 20px;
       background: var(--bg-card-subtle);
       border-bottom: 1px solid var(--border-card);
-      font-size: 14px;
+      font-size: 13.5px;
       font-weight: 700;
       color: #ffffff;
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 10px;
+    }
+
+    .modal-header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      line-height: 1;
+      transition: all 0.15s ease;
+    }
+
+    .btn-modal-close:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
     }
 
     .modal-body {
@@ -1564,7 +1588,10 @@ if (file_exists($miconex_path)) {
   <div class="modal-overlay" id="shift-config-modal">
     <div class="modal-box">
       <div class="modal-header">
-        <span style="color: var(--accent-cyan);">⚙️</span> Configuración y Apertura de Turno
+        <div class="modal-header-left">
+          <span style="color: var(--accent-cyan);">⚙️</span> Configuración y Apertura de Turno
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeShiftModal()" title="Cerrar modal (Esc)">✕</button>
       </div>
       <div class="modal-body">
         
@@ -1641,8 +1668,11 @@ if (file_exists($miconex_path)) {
   <div class="modal-overlay" id="kpi-metricas-modal">
     <div class="modal-box" style="width: 620px;">
       <div class="modal-header">
-        <span style="color: var(--accent-cyan);">⚡</span>
-        <span id="kpi-modal-title">Carga / Actualización de Métricas de Chimenea &amp; Planta</span>
+        <div class="modal-header-left">
+          <span style="color: var(--accent-cyan);">⚡</span>
+          <span id="kpi-modal-title">Carga / Actualización de Métricas de Chimenea &amp; Planta</span>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeKpiModal()" title="Cerrar modal (Esc)">✕</button>
       </div>
       <div class="modal-body" style="padding: 16px 20px;">
         
@@ -1750,7 +1780,10 @@ if (file_exists($miconex_path)) {
   <div class="modal-overlay" id="confirm-modal">
     <div class="modal-box">
       <div class="modal-header" style="color: var(--accent-red);">
-        ⚠️ ALERTA DE SEGURIDAD RADIOLÓGICA
+        <div class="modal-header-left">
+          ⚠️ ALERTA DE SEGURIDAD RADIOLÓGICA
+        </div>
+        <button type="button" class="btn-modal-close" onclick="document.getElementById('confirm-modal').style.display='none'" title="Cerrar modal (Esc)">✕</button>
       </div>
       <div class="modal-body" id="modal-desc">
         La tasa de dosis ingresada supera los 100 µSv/h. ¿Confirma este valor o desea corregirlo?
@@ -2221,6 +2254,34 @@ if (file_exists($miconex_path)) {
     setTimeout(sendHeartbeat, 3000);
 
     recalculateKPIs();
+  
+    // ================= CIERRE DE CUALQUIER MODAL AL CLICKEAR AFUERA (BACKDROP) Y CON TECLA ESCAPE =================
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        // Si el clic fue exactamente en el fondo oscuro exterior y no dentro de la caja de contenido
+        if (e.target === overlay) {
+          overlay.style.display = 'none';
+          if (overlay.id === 'confirm-modal') {
+            pendingEntry = null;
+          }
+        }
+      });
+    });
+
+    // Cerrar con tecla Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+          if (overlay.style.display === 'flex' || overlay.style.display === 'block') {
+            overlay.style.display = 'none';
+            if (overlay.id === 'confirm-modal') {
+              pendingEntry = null;
+            }
+          }
+        });
+      }
+    });
+
   </script>
 </body>
 </html>
