@@ -1,16 +1,59 @@
 <?php
 /**
  * REGISTRO RADIOLÓGICO ONLINE - CNE / NA-SA
- * Consola Principal: Dashboard con KPIs + Menú Lateral
- * Compatible con PHP 5.5.7 y 100% Offline (Sin CDNs ni dependencias externas)
+ * Consola Principal Conectada a MySQL
+ * Compatible con PHP 5.5.7 y Apache 2.4 (100% Offline)
  */
 
-$fecha_hoy = date('Y-m-d');
+// Formato de Fecha Latinoamericano (DD/MM/AAAA)
+$fecha_hoy_latam = date('d/m/Y');
 $hora_actual = date('H:i');
 $oficial_actual = "Pérez, Juan";
 $jefe_turno_actual = "Gómez, Carlos";
 $estado_planta = "REACTOR EN POTENCIA 100%";
 $turno_actual = "Turno 2 (14:00 - 22:00)";
+
+// Lista de recintos por defecto (fallback)
+$recintos_array = array(
+  "R-001 - Edificio de Contención (+15m)",
+  "R-002 - Edificio de Contención (-5m)",
+  "R-004 - Blindaje Fuera del Núcleo",
+  "R-012 - Bóveda Moderador",
+  "R-024 - Sala de Bombas PHT",
+  "R-028 - Manifold Refrigerante Primario",
+  "R-045 - Bóveda de Calandria",
+  "R-052 - Intercambiadores de Calor D2O",
+  "R-080 - Área Tanques D2O",
+  "R-095 - Sala de Purificación",
+  "R-110 - Muestreador de Efluentes Chimenea",
+  "R-125 - Sala de Filtros de Ventilación Activa"
+);
+
+// Conexión real a MySQL en servidor de producción CNE
+$miconex_path = $_SERVER["DOCUMENT_ROOT"] . "/ptr/Connections/miconex.php";
+if (file_exists($miconex_path)) {
+    require_once($miconex_path);
+    if (isset($miconex)) {
+        mysql_query("SET NAMES 'utf8'", $miconex);
+        mysql_select_db($database_miconex, $miconex);
+
+        // Consulta de recintos reales de planta
+        $query_recintos = "SELECT id, recinto FROM `graf_tritio_recintos` ORDER BY recinto";
+        $res_recintos = mysql_query($query_recintos, $miconex);
+        if ($res_recintos && mysql_num_rows($res_recintos) > 0) {
+            $recintos_array = array();
+            while ($row = mysql_fetch_assoc($res_recintos)) {
+                $recintos_array[] = $row['recinto'];
+            }
+        }
+
+        // Consultar oficial en sesión si existe
+        if (session_status() == PHP_SESSION_NONE) { session_start(); }
+        if (isset($_SESSION['nombre_apellido'])) {
+            $oficial_actual = $_SESSION['nombre_apellido'];
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -146,7 +189,7 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 9px 12px;
+      padding: 10px 12px;
       margin-bottom: 3px;
       border-radius: 6px;
       color: var(--text-muted);
@@ -204,7 +247,6 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
       background: var(--bg-page);
     }
 
-    /* Barra Superior */
     .topbar {
       height: 52px;
       background: var(--bg-card);
@@ -255,7 +297,6 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
       font-weight: 700;
     }
 
-    /* Workspace con Scroll */
     .workspace {
       flex: 1;
       overflow-y: auto;
@@ -282,9 +323,7 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
     .kpi-card::before {
       content: "";
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
+      top: 0; left: 0; right: 0;
       height: 3px;
       background: var(--card-color, var(--accent-blue));
     }
@@ -326,12 +365,27 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
       gap: 6px;
     }
 
-    /* ================= PANEL DE TELEMETRÍA & CARGA ================= */
+    /* ================= SECCIONES / PANELES ================= */
+    .section-panel {
+      display: none;
+    }
+
+    .section-panel.active {
+      display: block;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     .panel-box {
       background: var(--bg-card);
       border: 1px solid var(--border-card);
       border-radius: 8px;
       overflow: hidden;
+      margin-bottom: 20px;
     }
 
     .panel-header {
@@ -352,13 +406,17 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
       gap: 8px;
     }
 
+    .panel-body {
+      padding: 20px;
+    }
+
     /* Barra Horizontal de Carga Rápida */
     .entry-bar {
       padding: 14px 20px;
       background: rgba(15, 23, 42, 0.6);
       border-bottom: 1px solid var(--border-card);
       display: grid;
-      grid-template-columns: 130px 120px 2fr 110px 110px 120px 2fr 125px;
+      grid-template-columns: 140px 120px 2.2fr 110px 110px 120px 2fr 125px;
       gap: 12px;
       align-items: end;
     }
@@ -416,11 +474,9 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
       transition: opacity 0.15s ease;
     }
 
-    .btn-register:hover {
-      opacity: 0.9;
-    }
+    .btn-register:hover { opacity: 0.9; }
 
-    /* Tabla de Alta Densidad */
+    /* Tabla */
     .data-table {
       width: 100%;
       border-collapse: collapse;
@@ -494,7 +550,7 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
       color: #ffffff;
     }
 
-    /* ================= MODAL & TOAST ================= */
+    /* Modal & Toast */
     .toast-popup {
       position: fixed;
       bottom: 24px;
@@ -527,16 +583,16 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
       background: var(--bg-card);
       border: 1px solid var(--border-card);
       border-radius: 8px;
-      width: 440px;
-      padding: 20px;
+      width: 460px;
+      padding: 22px;
       box-shadow: 0 20px 40px rgba(0,0,0,0.8);
     }
 
     .modal-header { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
     .modal-body { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
     .modal-footer { display: flex; justify-content: flex-end; gap: 10px; }
-    .btn-modal-cancel { background: transparent; border: 1px solid var(--border-card); color: #ffffff; padding: 6px 14px; border-radius: 4px; cursor: pointer; }
-    .btn-modal-confirm { background: var(--accent-red); border: none; color: #ffffff; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: 700; }
+    .btn-modal-cancel { background: transparent; border: 1px solid var(--border-card); color: #ffffff; padding: 7px 14px; border-radius: 4px; cursor: pointer; }
+    .btn-modal-confirm { background: var(--accent-red); border: none; color: #ffffff; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -558,31 +614,31 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
 
     <nav class="sidebar-menu">
       <div class="menu-header">Módulos de Turno</div>
-      <button class="menu-btn active">
+      <button class="menu-btn active" data-section="sec-rutina">
         <span>📋 Relevamiento Rutina</span>
         <span class="menu-badge" id="menu-badge-rutina">2</span>
       </button>
-      <button class="menu-btn">
+      <button class="menu-btn" data-section="sec-gaseosos">
         <span>💨 Efluentes Gaseosos</span>
         <span class="menu-badge">RO 8.4%</span>
       </button>
-      <button class="menu-btn">
+      <button class="menu-btn" data-section="sec-liquidos">
         <span>💧 Efluentes Líquidos</span>
         <span class="menu-badge">Nominal</span>
       </button>
-      <button class="menu-btn">
+      <button class="menu-btn" data-section="sec-tareas">
         <span>⚠️ Tareas &amp; PTR</span>
-        <span class="menu-badge">0</span>
+        <span class="menu-badge" id="menu-badge-tareas">0</span>
       </button>
 
       <div class="menu-header" style="margin-top: 14px;">Administración &amp; Actas</div>
-      <button class="menu-btn">
+      <button class="menu-btn" data-section="sec-actas">
         <span>📖 Libro de Actas</span>
       </button>
-      <button class="menu-btn">
+      <button class="menu-btn" data-section="sec-historial">
         <span>🗂️ Historial de Planillas</span>
       </button>
-      <button class="menu-btn">
+      <button class="menu-btn" data-section="sec-cierre">
         <span>🔒 Cierre de Turno</span>
       </button>
     </nav>
@@ -599,13 +655,14 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
     <!-- TOPBAR -->
     <header class="topbar">
       <div class="topbar-left">
-        <span class="topbar-title">Planilla Diaria de Guardia</span>
+        <span class="topbar-title" id="current-section-title">Relevamiento de Rutina</span>
         <span class="shift-tag"><?php echo $turno_actual; ?></span>
       </div>
       <div class="topbar-right">
         <span>Jefe de Turno: <strong style="color: #ffffff;"><?php echo $jefe_turno_actual; ?></strong></span>
         <span>•</span>
-        <span>Fecha: <strong style="color: #ffffff;"><?php echo $fecha_hoy; ?></strong></span>
+        <!-- FECHA EN FORMATO LATINOAMERICANO DD/MM/AAAA -->
+        <span>Fecha: <strong style="color: #ffffff;"><?php echo $fecha_hoy_latam; ?></strong></span>
         <div class="clock-pill" id="live-clock"><?php echo $hora_actual; ?>:00 hs</div>
       </div>
     </header>
@@ -665,107 +722,376 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
 
       </section>
 
-      <!-- ================= PANEL PRINCIPAL: TELEMETRÍA Y CARGA ================= -->
-      <section class="panel-box">
-        <div class="panel-header">
-          <div class="panel-title">
-            <span>📋</span> Relevamientos Radiológicos de Recintos
+      <!-- ================= SECCIÓN 1: RELEVAMIENTO DE RUTINA ================= -->
+      <section class="section-panel active" id="sec-rutina">
+        <div class="panel-box">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span>📋</span> Relevamientos Radiológicos de Recintos (Carga Continua)
+            </div>
+            <span style="font-size: 11.5px; font-family: var(--font-mono); color: var(--text-muted);">
+              [ Ingrese los valores y pulse <span style="color: var(--accent-cyan);">Enter</span> para registrar ]
+            </span>
           </div>
-          <span style="font-size: 11.5px; font-family: var(--font-mono); color: var(--text-muted);">
-            [ Ingrese los valores y pulse <span style="color: var(--accent-cyan);">Enter</span> para registrar ]
-          </span>
-        </div>
 
-        <!-- BARRA HORIZONTAL DE CARGA RÁPIDA -->
-        <div class="entry-bar">
-          <div class="field-group">
-            <label class="field-label">Fecha</label>
-            <input type="date" id="q-fecha" class="field-control" value="<?php echo $fecha_hoy; ?>">
-          </div>
-          <div class="field-group">
-            <label class="field-label">Hora</label>
-            <div style="display: flex; gap: 4px;">
-              <input type="time" id="q-hora" class="field-control mono" value="<?php echo $hora_actual; ?>">
-              <button style="background: var(--bg-card-subtle); border: 1px solid var(--border-card); color: #fff; padding: 0 6px; border-radius: 4px; cursor: pointer;" id="btn-now" title="Poner hora actual">⚡</button>
+          <!-- BARRA HORIZONTAL DE CARGA RÁPIDA -->
+          <div class="entry-bar">
+            <div class="field-group">
+              <label class="field-label">Fecha (DD/MM/AAAA)</label>
+              <!-- FECHA EN FORMATO LATINOAMERICANO -->
+              <input type="text" id="q-fecha" class="field-control mono" value="<?php echo $fecha_hoy_latam; ?>" placeholder="DD/MM/AAAA">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Hora</label>
+              <div style="display: flex; gap: 4px;">
+                <input type="time" id="q-hora" class="field-control mono" value="<?php echo $hora_actual; ?>">
+                <button style="background: var(--bg-card-subtle); border: 1px solid var(--border-card); color: #fff; padding: 0 6px; border-radius: 4px; cursor: pointer;" id="btn-now" title="Poner hora actual">⚡</button>
+              </div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Ubicación / Recinto (MySQL)</label>
+              <!-- SELECT VINCULADO A RECINTOS DE MYSQL -->
+              <select id="q-recinto" class="field-control" style="font-weight: 700; color: var(--accent-cyan);">
+                <option value="">-- Seleccionar Recinto de Planta --</option>
+                <?php foreach ($recintos_array as $recinto_nombre) { ?>
+                  <option value="<?php echo htmlspecialchars($recinto_nombre, ENT_QUOTES, 'UTF-8'); ?>">
+                    <?php echo htmlspecialchars($recinto_nombre, ENT_QUOTES, 'UTF-8'); ?>
+                  </option>
+                <?php } ?>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Gases (DAC)</label>
+              <input type="text" id="q-gases" class="field-control mono" placeholder="0.00">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Tritio (DAC)</label>
+              <input type="text" id="q-tritio" class="field-control mono" placeholder="0.00">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Dosis (µSv/h)</label>
+              <input type="text" id="q-dosis" class="field-control mono" placeholder="0.0">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Observaciones</label>
+              <input type="text" id="q-obs" class="field-control" placeholder="Condición operativa...">
+            </div>
+            <div>
+              <button class="btn-register" id="btn-add" style="width: 100%;">
+                + REGISTRAR
+              </button>
             </div>
           </div>
-          <div class="field-group">
-            <label class="field-label">Ubicación / Recinto</label>
-            <select id="q-recinto" class="field-control" style="font-weight: 700;">
-              <option value="">-- Seleccionar Recinto --</option>
-              <option value="R-001 (Edificio de Contención +15m)">R-001 (Edificio de Contención +15m)</option>
-              <option value="R-004 (Blindaje Fuera del Núcleo)">R-004 (Blindaje Fuera del Núcleo)</option>
-              <option value="R-024 (Sala de Bombas PHT)">R-024 (Sala de Bombas PHT)</option>
-              <option value="R-045 (Bóveda de Calandria)">R-045 (Bóveda de Calandria)</option>
-              <option value="R-080 (Área Tanques D2O)">R-080 (Área Tanques D2O)</option>
-              <option value="R-110 (Muestreador de Efluentes)">R-110 (Muestreador de Efluentes)</option>
-            </select>
+
+          <!-- TABLA COMPLETA DE ALTA DENSIDAD -->
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 110px;">Fecha</th>
+                <th style="width: 85px; text-align: right;">Hora</th>
+                <th>Ubicación / Recinto</th>
+                <th style="width: 120px; text-align: right;">G. Nobles (DAC)</th>
+                <th style="width: 120px; text-align: right;">Tritio (DAC)</th>
+                <th style="width: 130px; text-align: right;">T. Dosis (µSv/h)</th>
+                <th>Observaciones</th>
+                <th style="width: 130px;">Responsable</th>
+                <th style="width: 65px; text-align: center;">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <!-- Datos con fechas en formato Latinoamericano DD/MM/AAAA -->
+              <tr data-dosis="8.5" data-tritio="0.45" data-recinto="R-001 - Edificio de Contención (+15m)">
+                <td><?php echo $fecha_hoy_latam; ?></td>
+                <td class="num">10:15</td>
+                <td style="font-weight: 700; color: #ffffff;">R-001 - Edificio de Contención (+15m)</td>
+                <td class="num">0.12</td>
+                <td class="num">0.45</td>
+                <td class="num">8.5</td>
+                <td style="color: var(--text-muted);">Ronda matutina de rutina. Parámetros normales.</td>
+                <td><?php echo $oficial_actual; ?></td>
+                <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
+              </tr>
+              <tr data-dosis="24.0" data-tritio="1.80" data-recinto="R-024 - Sala de Bombas PHT">
+                <td><?php echo $fecha_hoy_latam; ?></td>
+                <td class="num">11:30</td>
+                <td style="font-weight: 700; color: #ffffff;">R-024 - Sala de Bombas PHT</td>
+                <td class="num">0.35</td>
+                <td class="num"><span class="badge-amber">1.80</span></td>
+                <td class="num"><span class="badge-amber">24.0</span></td>
+                <td style="color: var(--text-muted);">Prensa de bomba PHT. Máscara de protección.</td>
+                <td><?php echo $oficial_actual; ?></td>
+                <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
+              </tr>
+            </tbody>
+          </table>
+
+        </div>
+      </section>
+
+      <!-- ================= SECCIÓN 2: EFLUENTES GASEOSOS ================= -->
+      <section class="section-panel" id="sec-gaseosos">
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+          <div class="panel-box">
+            <div class="panel-header">
+              <div class="panel-title"><span>💨</span> Espectrometría de Chimenea (Gases Nobles)</div>
+              <span class="shift-tag">Isótopos Principales</span>
+            </div>
+            <div class="panel-body">
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px;">
+                <div class="field-group">
+                  <label class="field-label">Fecha Muestreo (DD/MM/AAAA)</label>
+                  <input type="text" class="field-control mono" value="<?php echo $fecha_hoy_latam; ?>">
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Hora Desde</label>
+                  <input type="time" class="field-control mono" value="08:00">
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Hora Hasta</label>
+                  <input type="time" class="field-control mono" value="14:00">
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
+                <div class="field-group">
+                  <label class="field-label" style="color: var(--accent-cyan);">Argón-41 (Ar-41) [MBq]</label>
+                  <input type="text" id="g-ar41" class="field-control mono g-iso" value="14.20">
+                </div>
+                <div class="field-group">
+                  <label class="field-label" style="color: var(--accent-cyan);">Kriptón-85 (Kr-85) [MBq]</label>
+                  <input type="text" id="g-kr85" class="field-control mono g-iso" value="2.10">
+                </div>
+                <div class="field-group">
+                  <label class="field-label" style="color: var(--accent-cyan);">Kriptón-85m (Kr-85m) [MBq]</label>
+                  <input type="text" id="g-kr85m" class="field-control mono g-iso" value="0.80">
+                </div>
+                <div class="field-group">
+                  <label class="field-label" style="color: var(--accent-cyan);">Xenón-133 (Xe-133) [MBq]</label>
+                  <input type="text" id="g-xe133" class="field-control mono g-iso" value="18.50">
+                </div>
+                <div class="field-group">
+                  <label class="field-label" style="color: var(--accent-cyan);">Xenón-135 (Xe-135) [MBq]</label>
+                  <input type="text" id="g-xe135" class="field-control mono g-iso" value="5.40">
+                </div>
+                <div class="field-group">
+                  <label class="field-label" style="color: var(--accent-cyan);">Xenón-135m (Xe-135m) [MBq]</label>
+                  <input type="text" id="g-xe135m" class="field-control mono g-iso" value="1.10">
+                </div>
+              </div>
+              <div style="margin-top: 20px; text-align: right;">
+                <button class="btn-register" onclick="showToast('✔️ Espectrometría guardada en base de datos');">
+                  💾 GUARDAR MEDICIÓN DE GASES
+                </button>
+              </div>
+            </div>
           </div>
-          <div class="field-group">
-            <label class="field-label">Gases (DAC)</label>
-            <input type="text" id="q-gases" class="field-control mono" placeholder="0.00">
+
+          <div class="panel-box">
+            <div class="panel-header">
+              <div class="panel-title"><span>📊</span> Restricción Operacional (RO)</div>
+            </div>
+            <div class="panel-body">
+              <div style="margin-bottom: 16px;">
+                <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">ACTIVIDAD TOTAL CALCULADA</div>
+                <div id="ro-total-actividad" style="font-size: 24px; font-family: var(--font-mono); font-weight: 900; color: var(--accent-cyan);">42.100 MBq</div>
+              </div>
+              <div style="margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; font-family: var(--font-mono); margin-bottom: 6px;">
+                  <span>% Restricción Operacional</span>
+                  <span id="ro-pct-text" style="color: var(--accent-green); font-weight: 700;">8.42 %</span>
+                </div>
+                <div style="width: 100%; height: 10px; background: var(--bg-input); border-radius: 5px; overflow: hidden; border: 1px solid var(--border-card);">
+                  <div id="ro-bar" style="width: 8.42%; height: 100%; background: var(--accent-green); transition: width 0.3s ease;"></div>
+                </div>
+              </div>
+              <div style="padding: 10px; border-radius: 6px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); font-size: 11.5px; color: var(--accent-green);">
+                ✔️ <strong>Parámetros nominales:</strong> La tasa de descarga se encuentra ampliamente dentro de los límites de licencia.
+              </div>
+            </div>
           </div>
-          <div class="field-group">
-            <label class="field-label">Tritio (DAC)</label>
-            <input type="text" id="q-tritio" class="field-control mono" placeholder="0.00">
+        </div>
+      </section>
+
+      <!-- ================= SECCIÓN 3: EFLUENTES LÍQUIDOS ================= -->
+      <section class="section-panel" id="sec-liquidos">
+        <div class="panel-box">
+          <div class="panel-header">
+            <div class="panel-title"><span>💧</span> Tanques de Descarga de Efluentes Líquidos Activos</div>
           </div>
-          <div class="field-group">
-            <label class="field-label">Dosis (µSv/h)</label>
-            <input type="text" id="q-dosis" class="field-control mono" placeholder="0.0">
+          <div class="panel-body">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Tanque de Descarga</th>
+                  <th style="text-align: right;">Volumen (m³)</th>
+                  <th style="text-align: right;">Actividad Tritio (MBq/m³)</th>
+                  <th style="text-align: right;">Actividad Gamma (MBq/m³)</th>
+                  <th>Autorización / Estado</th>
+                  <th style="text-align: center;">Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="font-weight: 700; color: #fff;">TK-01 (Tanque Retención Activo A)</td>
+                  <td class="num">45.0</td>
+                  <td class="num">120.5</td>
+                  <td class="num">0.85</td>
+                  <td><span style="color: var(--accent-green); font-weight: 700;">● AUTORIZADO</span></td>
+                  <td style="text-align: center;"><button class="btn-register" style="padding: 4px 10px; height: auto;" onclick="showToast('Verificación de tanque TK-01 emitida')">Verificar</button></td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 700; color: #fff;">TK-02 (Tanque Retención Activo B)</td>
+                  <td class="num">12.0</td>
+                  <td class="num">85.0</td>
+                  <td class="num">0.40</td>
+                  <td><span style="color: var(--text-muted);">En llenado</span></td>
+                  <td style="text-align: center;"><button class="btn-register" style="padding: 4px 10px; height: auto;" onclick="showToast('Muestreo solicitado')">Muestrear</button></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <div class="field-group">
-            <label class="field-label">Observaciones</label>
-            <input type="text" id="q-obs" class="field-control" placeholder="Condición del recinto...">
+        </div>
+      </section>
+
+      <!-- ================= SECCIÓN 4: TAREAS & PTR ================= -->
+      <section class="section-panel" id="sec-tareas">
+        <div class="panel-box">
+          <div class="panel-header">
+            <div class="panel-title"><span>⚠️</span> Control de Tareas Radiológicas &amp; Permisos PTR</div>
           </div>
-          <div>
-            <button class="btn-register" id="btn-add" style="width: 100%;">
-              + REGISTRAR
+          <div class="panel-body">
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px;">
+              <div class="field-group">
+                <label class="field-label">N° de PTR Asociado</label>
+                <input type="text" id="t-ptr" class="field-control mono" placeholder="ej: PTR-2026-0412">
+              </div>
+              <div class="field-group">
+                <label class="field-label">Recinto de Trabajo</label>
+                <select id="t-recinto" class="field-control">
+                  <option value="">-- Seleccionar Recinto --</option>
+                  <?php foreach ($recintos_array as $recinto_nombre) { ?>
+                    <option value="<?php echo htmlspecialchars($recinto_nombre, ENT_QUOTES, 'UTF-8'); ?>">
+                      <?php echo htmlspecialchars($recinto_nombre, ENT_QUOTES, 'UTF-8'); ?>
+                    </option>
+                  <?php } ?>
+                </select>
+              </div>
+              <div class="field-group">
+                <label class="field-label">Oficial Responsable</label>
+                <input type="text" class="field-control" value="<?php echo $oficial_actual; ?>" readonly>
+              </div>
+              <div class="field-group">
+                <label class="field-label">Ayudante Asignado</label>
+                <input type="text" id="t-ayudante" class="field-control" placeholder="Nombre del ayudante...">
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 14px; margin-bottom: 16px;">
+              <div class="field-group">
+                <label class="field-label">Tasa de Dosis Máx Prevista (µSv/h)</label>
+                <input type="text" id="t-dosis" class="field-control mono" placeholder="0.0">
+              </div>
+              <div class="field-group">
+                <label class="field-label">Riesgo Derrame Agua Pesada D2O</label>
+                <select id="t-derrame" class="field-control">
+                  <option value="0">No / Sin riesgo</option>
+                  <option value="1">Sí / Riesgo potencial de derrame</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label class="field-label">Descripción de la Tarea</label>
+                <input type="text" id="t-desc" class="field-control" placeholder="Detalle del trabajo de mantenimiento...">
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <button class="btn-register" onclick="showToast('✔️ Tarea registrada y vinculada al turno'); document.getElementById('menu-badge-tareas').textContent = '1';">
+                + REGISTRAR TRABAJO CON RADIACIÓN
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SECCIÓN 5: LIBRO DE ACTAS ================= -->
+      <section class="section-panel" id="sec-actas">
+        <div class="panel-box">
+          <div class="panel-header">
+            <div class="panel-title"><span>📖</span> Libro de Actas / Novedades de Guardia</div>
+          </div>
+          <div class="panel-body">
+            <div style="margin-bottom: 12px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">
+              Bitácora oficial de novedades para el traspaso de turno a la guardia entrante:
+            </div>
+            <textarea id="actas-text" class="field-control mono" style="height: 140px; padding: 12px; resize: vertical;" placeholder="Ingrese las novedades del turno..."></textarea>
+            <div style="margin-top: 14px; text-align: right;">
+              <button class="btn-register" onclick="showToast('✔️ Novedades asentadas en el Libro de Actas');">
+                💾 GUARDAR EN LIBRO DE ACTAS
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SECCIÓN 6: HISTORIAL DE PLANILLAS ================= -->
+      <section class="section-panel" id="sec-historial">
+        <div class="panel-box">
+          <div class="panel-header">
+            <div class="panel-title"><span>🗂️</span> Historial de Planillas Anteriores</div>
+          </div>
+          <div class="panel-body">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>N° Planilla</th>
+                  <th>Fecha (DD/MM/AAAA)</th>
+                  <th>Turno</th>
+                  <th>Oficial a Cargo</th>
+                  <th>Jefe de Turno</th>
+                  <th>Estado</th>
+                  <th style="text-align: center;">Reporte PDF</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="num">#10842</td>
+                  <td>08/11/2026</td>
+                  <td>Turno 1 (06:00 - 14:00)</td>
+                  <td>Rodríguez, Miguel</td>
+                  <td>Gómez, Carlos</td>
+                  <td><span style="color: var(--accent-green); font-weight:700;">Cerrada</span></td>
+                  <td style="text-align: center;"><button class="btn-del" style="color: var(--accent-cyan); border-color: var(--accent-cyan);" onclick="showToast('Generando vista oficial de planilla #10842')">📄 Ver PDF</button></td>
+                </tr>
+                <tr>
+                  <td class="num">#10841</td>
+                  <td>07/11/2026</td>
+                  <td>Turno 3 (22:00 - 06:00)</td>
+                  <td>Alonso, Fernando</td>
+                  <td>Martínez, Esteban</td>
+                  <td><span style="color: var(--accent-green); font-weight:700;">Cerrada</span></td>
+                  <td style="text-align: center;"><button class="btn-del" style="color: var(--accent-cyan); border-color: var(--accent-cyan);" onclick="showToast('Generando vista oficial de planilla #10841')">📄 Ver PDF</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SECCIÓN 7: CIERRE DE TURNO ================= -->
+      <section class="section-panel" id="sec-cierre">
+        <div class="panel-box">
+          <div class="panel-header">
+            <div class="panel-title"><span>🔒</span> Formalización y Cierre de Planilla Diaria</div>
+          </div>
+          <div class="panel-body">
+            <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 20px;">
+              Al formalizar el cierre del turno:
+              <br>• Se congela la planilla y se bloquea la edición de mediciones de rutina.
+              <br>• Se estampa la firma digital del <strong>Oficial de Radioprotección (<?php echo $oficial_actual; ?>)</strong> y del <strong>Jefe de Turno (<?php echo $jefe_turno_actual; ?>)</strong>.
+              <br>• Se emite el reporte oficial inmutable en formato PDF para el archivo de SyR CNE.
+            </p>
+            <button class="btn-register" style="padding: 10px 24px; font-size: 13px;" onclick="handleShiftClose()">
+              🔒 FORMALIZAR Y CERRAR TURNO ACTUAL
             </button>
           </div>
         </div>
-
-        <!-- TABLA COMPLETA DE ALTA DENSIDAD -->
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th style="width: 105px;">Fecha</th>
-              <th style="width: 85px; text-align: right;">Hora</th>
-              <th>Ubicación / Recinto</th>
-              <th style="width: 120px; text-align: right;">G. Nobles (DAC)</th>
-              <th style="width: 120px; text-align: right;">Tritio (DAC)</th>
-              <th style="width: 130px; text-align: right;">T. Dosis (µSv/h)</th>
-              <th>Observaciones</th>
-              <th style="width: 130px;">Responsable</th>
-              <th style="width: 65px; text-align: center;">Acción</th>
-            </tr>
-          </thead>
-          <tbody id="table-body">
-            <!-- Datos iniciales -->
-            <tr data-dosis="8.5" data-tritio="0.45" data-recinto="R-001 (Edificio de Contención +15m)">
-              <td>2026-11-08</td>
-              <td class="num">10:15</td>
-              <td style="font-weight: 700; color: #ffffff;">R-001 (Edificio de Contención +15m)</td>
-              <td class="num">0.12</td>
-              <td class="num">0.45</td>
-              <td class="num">8.5</td>
-              <td style="color: var(--text-muted);">Ronda matutina de rutina. Parámetros normales.</td>
-              <td>Pérez, Juan</td>
-              <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
-            </tr>
-            <tr data-dosis="24.0" data-tritio="1.80" data-recinto="R-024 (Sala de Bombas PHT)">
-              <td>2026-11-08</td>
-              <td class="num">11:30</td>
-              <td style="font-weight: 700; color: #ffffff;">R-024 (Sala de Bombas PHT)</td>
-              <td class="num">0.35</td>
-              <td class="num"><span class="badge-amber">1.80</span></td>
-              <td class="num"><span class="badge-amber">24.0</span></td>
-              <td style="color: var(--text-muted);">Prensa de bomba PHT. Máscara de protección.</td>
-              <td>Pérez, Juan</td>
-              <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
-            </tr>
-          </tbody>
-        </table>
-
       </section>
 
     </div>
@@ -791,7 +1117,30 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
   </div>
 
   <script>
-    // Reloj
+    // ================= NAVEGACIÓN ENTRE SECCIONES (BOTONES LATERALES) =================
+    const menuButtons = document.querySelectorAll('.menu-btn');
+    const sections = document.querySelectorAll('.section-panel');
+    const sectionTitleEl = document.getElementById('current-section-title');
+
+    menuButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetSec = btn.getAttribute('data-section');
+        if (!targetSec) return;
+
+        menuButtons.forEach(b => b.classList.remove('active'));
+        sections.forEach(s => s.classList.remove('active'));
+
+        btn.classList.add('active');
+        const activeSec = document.getElementById(targetSec);
+        if (activeSec) activeSec.classList.add('active');
+
+        // Actualizar título en topbar
+        const cleanTitle = btn.querySelector('span').textContent.replace(/[^\w\s&]/gi, '').trim();
+        sectionTitleEl.textContent = cleanTitle;
+      });
+    });
+
+    // ================= RELOJ EN VIVO =================
     function updateClock() {
       const now = new Date();
       document.getElementById('live-clock').textContent = now.toTimeString().split(' ')[0] + ' hs';
@@ -816,7 +1165,7 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
       setTimeout(() => { t.style.display = 'none'; }, 3000);
     }
 
-    // Recalcular KPIs en tiempo real
+    // ================= RECALCULAR KPIS EN TIEMPO REAL =================
     function recalculateKPIs() {
       const rows = document.querySelectorAll('#table-body tr');
       const count = rows.length;
@@ -851,12 +1200,29 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
       });
 
       document.getElementById('kpi-max-dosis').textContent = maxDosis.toFixed(1);
-      document.getElementById('kpi-max-recinto').textContent = `📍 ${maxRecinto.split(' ')[0]}`;
+      document.getElementById('kpi-max-recinto').textContent = `📍 ${maxRecinto.split(' - ')[0]}`;
       const avgT = tritioCount > 0 ? (sumTritio / tritioCount).toFixed(2) : '0.00';
       document.getElementById('kpi-avg-tritio').textContent = avgT;
     }
 
-    // Modal de confirmación para dosis > 100 µSv/h
+    // ================= CALCULADORA RO GASES NOBLES =================
+    document.querySelectorAll('.g-iso').forEach(inp => {
+      inp.addEventListener('input', calculateRO);
+    });
+
+    function calculateRO() {
+      let sum = 0;
+      document.querySelectorAll('.g-iso').forEach(inp => {
+        const val = parseFloat(inp.value.replace(',', '.')) || 0;
+        sum += val;
+      });
+      document.getElementById('ro-total-actividad').textContent = sum.toFixed(3) + ' MBq';
+      const pct = Math.min(100, (sum / 500) * 100);
+      document.getElementById('ro-pct-text').textContent = pct.toFixed(2) + ' %';
+      document.getElementById('ro-bar').style.width = pct + '%';
+    }
+
+    // ================= MODAL & CARGA DE FILAS =================
     let pendingEntry = null;
 
     function commitRow(fecha, hora, recinto, gases, tritio, dosis, obs) {
@@ -880,13 +1246,13 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
         <td class="num">${tritioBadge}</td>
         <td class="num">${dosisBadge}</td>
         <td style="color: var(--text-muted);">${obs || 'Sin observaciones'}</td>
-        <td>Pérez, Juan</td>
+        <td><?php echo $oficial_actual; ?></td>
         <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
       `;
 
       document.getElementById('table-body').prepend(tr);
       recalculateKPIs();
-      showToast('✔️ Medición registrada en ' + recinto.split(' ')[0]);
+      showToast('✔️ Medición registrada en ' + recinto.split(' - ')[0]);
 
       document.getElementById('q-gases').value = '';
       document.getElementById('q-tritio').value = '';
@@ -916,7 +1282,7 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
         document.getElementById('modal-desc').innerHTML = `
           La tasa de dosis ingresada para <strong>${recinto}</strong> es de <span style="color: var(--accent-red); font-weight:800;">${dNum} µSv/h</span>.
           <br><br>
-          Este valor supera el umbral operativo estándar (> 100 µSv/h). ¿Confirma que la medición es correcta?
+          Este valor supera el umbral estándar (> 100 µSv/h). ¿Confirma que la medición es correcta?
         `;
         document.getElementById('confirm-modal').style.display = 'flex';
         return;
@@ -927,8 +1293,7 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
 
     document.getElementById('btn-add').addEventListener('click', handleRegister);
 
-    // Atajo Enter
-    document.querySelectorAll('.field-control').forEach(input => {
+    document.querySelectorAll('.entry-bar .field-control').forEach(input => {
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
@@ -937,7 +1302,6 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
       });
     });
 
-    // Confirmación modal
     document.getElementById('btn-modal-cancel').onclick = () => {
       document.getElementById('confirm-modal').style.display = 'none';
       document.getElementById('q-dosis').focus();
@@ -950,11 +1314,14 @@ $turno_actual = "Turno 2 (14:00 - 22:00)";
       }
     };
 
-    // Eliminar fila
     function deleteRow(btn) {
       btn.closest('tr').remove();
       recalculateKPIs();
       showToast('Registro eliminado');
+    }
+
+    function handleShiftClose() {
+      showToast('🔒 Turno formalizado y cerrado. Planilla archivada.', 4000);
     }
 
     recalculateKPIs();
