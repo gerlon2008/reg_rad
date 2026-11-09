@@ -223,13 +223,100 @@ if (file_exists($miconex_path)) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="titanio" class="theme-pill active">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Registro Radiológico Online - Central Nuclear Embalse (NA-SA)</title>
   <style>
-    :root {
+    :root, [data-theme="default"] {
+      --bg-page: #090d16;
+      --bg-sidebar: #0f172a;
+      --bg-card: #111827;
+      --bg-card-subtle: #1f2937;
+      --bg-input: #0c1220;
+      --border-card: #374151;
+      --border-subtle: #1e293b;
+
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+
+      --accent-blue: #3b82f6;
+      --accent-cyan: #06b6d4;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    /* 🌊 TEMA AZUL ABISAL (Deep Navy & Sapphire) */
+    [data-theme="navy"] {
+      --bg-page: #07111e;
+      --bg-sidebar: #0b1a2e;
+      --bg-card: #10223b;
+      --bg-card-subtle: #172f50;
+      --bg-input: #091626;
+      --border-card: #20416b;
+      --border-subtle: #142a46;
+
+      --text-main: #f0f6fc;
+      --text-muted: #93b0d4;
+      --text-dim: #5b7b9e;
+
+      --accent-blue: #3b82f6;
+      --accent-cyan: #38bdf8;
+      --accent-green: #22c55e;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+    }
+
+    /* 🌲 TEMA VERDE PETRÓLEO (Deep Petrol & Pine) */
+    [data-theme="petrol"] {
+      --bg-page: #061412;
+      --bg-sidebar: #0a1e1b;
+      --bg-card: #0f2924;
+      --bg-card-subtle: #173a34;
+      --bg-input: #081a17;
+      --border-card: #214e46;
+      --border-subtle: #12332c;
+
+      --text-main: #edfcf6;
+      --text-muted: #8ec7b9;
+      --text-dim: #558f82;
+
+      --accent-blue: #059669;
+      --accent-cyan: #2dd4bf;
+      --accent-green: #10b981;
+      --accent-amber: #fbbf24;
+      --accent-red: #ef4444;
+    }
+
+    /* 🍇 TEMA CIRUELA OBSIDIANA (Deep Plum Violet) */
+    [data-theme="plum"] {
+      --bg-page: #110b17;
+      --bg-sidebar: #181021;
+      --bg-card: #21162d;
+      --bg-card-subtle: #2d1f3d;
+      --bg-input: #150e1e;
+      --border-card: #433157;
+      --border-subtle: #271c33;
+
+      --text-main: #f5f3ff;
+      --text-muted: #c4b5fd;
+      --text-dim: #8572a8;
+
+      --accent-blue: #8b5cf6;
+      --accent-cyan: #38bdf8;
+      --accent-green: #34d399;
+      --accent-amber: #fbbf24;
+      --accent-red: #ef4444;
+    }
+
+    /* ⚙️ TEMA TITANIO PIZARRA (Titanium Slate & Steel) */
+    [data-theme="titanio" class="theme-pill active"] {
       --bg-page: #0f1319;
       --bg-sidebar: #151a23;
       --bg-card: #1b212c;
@@ -247,9 +334,27 @@ if (file_exists($miconex_path)) {
       --accent-green: #22c55e;
       --accent-amber: #f59e0b;
       --accent-red: #ef4444;
+    }
 
-      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    /* ⚡ TEMA ÁMBAR SCADA (Amber Carbon & Gold) */
+    [data-theme="ambar"] {
+      --bg-page: #0a0b0d;
+      --bg-sidebar: #111216;
+      --bg-card: #16181f;
+      --bg-card-subtle: #22252e;
+      --bg-input: #0e1014;
+      --border-card: #343744;
+      --border-subtle: #20222a;
+
+      --text-main: #f8fafc;
+      --text-muted: #a1a1aa;
+      --text-dim: #71717a;
+
+      --accent-blue: #d97706;
+      --accent-cyan: #f59e0b;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -284,7 +389,7 @@ if (file_exists($miconex_path)) {
     }
 
     .badge-nasa {
-      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      background: linear-gradient(135deg, #1d4ed8, #06b6d4);
       color: #ffffff;
       font-family: var(--font-mono);
       font-weight: 900;
@@ -1340,12 +1445,14 @@ if (file_exists($miconex_path)) {
         <span class="topbar-title" id="current-section-title">Relevamiento de Rutina</span>
         <span class="shift-tag" id="topbar-shift-tag"><?php echo htmlspecialchars($turno_actual_nombre, ENT_QUOTES, 'UTF-8'); ?></span>
         <button class="btn-new-shift" onclick="openShiftModal()">⚙️ Configurar / Iniciar Turno</button>
-      <div class="theme-switcher-bar">
-        <span style="font-size:10px; color:var(--text-dim); font-weight:700;">🎨 PALETA:</span>
-        <a href="demo_planilla.php" class="theme-pill">Original Cian</a>
-        <a href="demo_palette_1_slate_titanio.php" class="theme-pill active">1. Titanio Pizarra</a>
-        <a href="demo_palette_2_ambar_scada.php" class="theme-pill">2. Ámbar SCADA</a>
-        <a href="demo_palette_3_esmeralda_monocromo.php" class="theme-pill">3. Esmeralda Obsidiana</a>
+      <div class="theme-switcher-bar" id="theme-switcher-bar">
+        <span style="font-size:10px; color:var(--text-dim); font-weight:700; text-transform:uppercase;">🎨 FONDO:</span>
+        <button type="button" class="theme-pill" data-theme="default" onclick="setAppTheme('default')">Cian Original</button>
+        <button type="button" class="theme-pill" data-theme="navy" onclick="setAppTheme('navy')">🌊 Azul Abisal</button>
+        <button type="button" class="theme-pill" data-theme="petrol" onclick="setAppTheme('petrol')">🌲 Verde Petróleo</button>
+        <button type="button" class="theme-pill" data-theme="plum" onclick="setAppTheme('plum')">🍇 Ciruela</button>
+        <button type="button" class="theme-pill" data-theme="titanio" class="theme-pill active" onclick="setAppTheme('titanio')">⚙️ Titanio</button>
+        <button type="button" class="theme-pill" data-theme="ambar" onclick="setAppTheme('ambar')">⚡ Ámbar</button>
       </div>
       
       
@@ -3099,6 +3206,28 @@ if (file_exists($miconex_path)) {
         closeTimepicker();
       }
     });
+
+  
+    // ================= SELECTOR DE FONDO Y TEMAS EN VIVO =================
+    function setAppTheme(themeName) {
+      document.documentElement.setAttribute('data-theme', themeName);
+      try {
+        localStorage.setItem('regrad_active_theme', themeName);
+      } catch(e) {}
+
+      document.querySelectorAll('#theme-switcher-bar .theme-pill').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-theme') === themeName);
+      });
+      showToast('🎨 Fondo aplicado: ' + themeName.toUpperCase());
+    }
+
+    // Restaurar tema guardado al cargar
+    try {
+      const savedTheme = localStorage.getItem('regrad_active_theme') || 'titanio';
+      if (savedTheme) {
+        setAppTheme(savedTheme);
+      }
+    } catch(e) {}
 
   </script>
   </body>
