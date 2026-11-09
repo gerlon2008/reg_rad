@@ -1370,7 +1370,42 @@ if (file_exists($miconex_path)) {
       font-weight: 700;
     }
 
-        /* Pill interactiva de Historial en filas de medición guardadas */
+            /* Estilos para botón de apertura y filas clickeables de actas */
+    .btn-acta-open {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      transition: all 0.18s ease;
+      white-space: nowrap;
+    }
+
+    .btn-acta-open:hover {
+      background: var(--accent-cyan);
+      color: #02120e;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.45);
+      transform: scale(1.04);
+    }
+
+    .acta-clickable-row {
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+
+    .acta-clickable-row:hover td {
+      background-color: rgba(16, 185, 129, 0.08) !important;
+    }
+
+    /* Pill interactiva de Historial en filas de medición guardadas */
     .btn-recinto-hist-pill {
       background: rgba(16, 185, 129, 0.12);
       border: 1px solid rgba(16, 185, 129, 0.35);
@@ -2323,28 +2358,50 @@ if (file_exists($miconex_path)) {
                   <th style="width: 50px; text-align: center;">Acción</th>
                 </tr>
               </thead>
-              <tbody id="tbody-actas-guardia">
-                <tr>
+                            <tbody id="tbody-actas-guardia">
+                <tr class="acta-clickable-row" onclick="abrirModalDetalleActaFromRow(this)"
+                    data-hora="23:35" data-ptr="1042" data-recinto="R-005 - Sistema D2O"
+                    data-oficial="ALTUNA, LEONARDO (P)" data-ayudante="GOMEZ, FACUNDO"
+                    data-texto="Mantenimiento preventivo de bomba de purificación de agua pesada. Verificación de sellos mecánicos y líneas de recirculación. Sin presencia de goteo visible ni aerosoles en aire de sala. Se autoriza retiro de herramientas bajo control dosimétrico."
+                    data-dosis="18.5" data-tritio="1.80" data-derrame="0" data-aerosoles="0.00">
                   <td class="mono">23:35</td>
                   <td class="mono" style="color: var(--accent-cyan); font-weight: 700;">1042</td>
                   <td>R-005 - Sistema D2O</td>
                   <td style="font-weight: 700;">ALTUNA, LEONARDO (P)</td>
                   <td>GOMEZ, FACUNDO</td>
-                  <td class="text-left">Mantenimiento preventivo de bomba de purificación. Sin goteo ni aerosoles.</td>
+                  <td class="text-left" style="max-width: 320px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                      <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px; display: inline-block;">
+                        Mantenimiento preventivo de bomba de purificación. Sin goteo ni aerosoles...
+                      </span>
+                      <button type="button" class="btn-acta-open" title="Abrir y ver acta completa">🔍 Ver</button>
+                    </div>
+                  </td>
                   <td class="mono" style="text-align: right; color: var(--accent-amber); font-weight: 700;">18.5</td>
                   <td><span style="color: var(--text-dim);">-</span></td>
-                  <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
+                  <td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
                 </tr>
-                <tr>
+                <tr class="acta-clickable-row" onclick="abrirModalDetalleActaFromRow(this)"
+                    data-hora="02:10" data-ptr="-" data-recinto="Planta General"
+                    data-oficial="ALTUNA, LEONARDO (P)" data-ayudante="-"
+                    data-texto="Inspección de precintos y ronda perimetral de zona controlada. Todas las puertas de acceso verificadas intactas y enclavamientos normales. Monitores de área 7923 registrando fondo natural sin anomalías."
+                    data-dosis="0.0" data-tritio="0.00" data-derrame="0" data-aerosoles="0.00">
                   <td class="mono">02:10</td>
                   <td class="mono" style="color: var(--text-dim);">-</td>
                   <td>Planta General</td>
                   <td style="font-weight: 700;">ALTUNA, LEONARDO (P)</td>
                   <td>-</td>
-                  <td class="text-left">Inspección de precintos y ronda perimetral de zona controlada. Todas las puertas intactas.</td>
+                  <td class="text-left" style="max-width: 320px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                      <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px; display: inline-block;">
+                        Inspección de precintos y ronda perimetral de zona controlada...
+                      </span>
+                      <button type="button" class="btn-acta-open" title="Abrir y ver acta completa">🔍 Ver</button>
+                    </div>
+                  </td>
                   <td class="mono" style="text-align: right; color: var(--text-dim);">0.0</td>
                   <td><span style="color: var(--text-dim);">-</span></td>
-                  <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
+                  <td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
                 </tr>
               </tbody>
             </table>
@@ -4009,16 +4066,38 @@ if (file_exists($miconex_path)) {
       const tbody = document.getElementById('tbody-actas-guardia');
       const tr = document.createElement('tr');
       tr.className = 'new-row';
+      tr.className = 'new-row acta-clickable-row';
+      tr.setAttribute('data-hora', horaStr);
+      tr.setAttribute('data-ptr', ptr || '-');
+      tr.setAttribute('data-recinto', recinto);
+      tr.setAttribute('data-oficial', oficial);
+      tr.setAttribute('data-ayudante', ayudanteNombre);
+      tr.setAttribute('data-texto', texto);
+      tr.setAttribute('data-dosis', dosis);
+      tr.setAttribute('data-tritio', tritio);
+      tr.setAttribute('data-derrame', derrame);
+      tr.setAttribute('data-aerosoles', aerosolesDac || (aerosoles ? 'SÍ' : '0.0'));
+      tr.onclick = function(e) {
+        if (!e.target.closest('.btn-del')) {
+          abrirModalDetalleActaFromRow(this);
+        }
+      };
+
       tr.innerHTML = `
         <td class="mono">${horaStr}</td>
         <td class="mono" style="${ptr ? 'color: var(--accent-cyan); font-weight:700;' : 'color: var(--text-dim);'}">${ptr ? ptr : '-'}</td>
         <td style="font-weight:600;">${recinto.split(' - ')[0]}</td>
         <td style="font-weight:700;">${oficial}</td>
         <td>${ayudanteNombre}</td>
-        <td class="text-left" style="font-size: 11px;">${texto}</td>
+        <td class="text-left" style="max-width: 320px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px; display: inline-block;">${texto}</span>
+            <button type="button" class="btn-acta-open" title="Abrir y ver acta completa">🔍 Ver</button>
+          </div>
+        </td>
         <td class="mono" style="text-align: right; color: ${parseFloat(dosis) > 0 ? 'var(--accent-amber); font-weight:700;' : 'var(--text-dim);'}">${dosis}</td>
         <td>${derrame ? '<span class="badge-amber">SÍ (D2O)</span>' : '<span style="color:var(--text-dim)">-</span>'}</td>
-        <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
+        <td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
       `;
       tbody.prepend(tr);
 
@@ -4158,6 +4237,65 @@ if (file_exists($miconex_path)) {
       }
     }
 
+      // ================= MODAL DE DETALLE Y LECTURA COMPLETA DE ACTA =================
+    function abrirModalDetalleActaFromRow(tr) {
+      if (!tr) return;
+      const hora = tr.getAttribute('data-hora') || (tr.cells[0] ? tr.cells[0].textContent.trim() : '');
+      const ptr = tr.getAttribute('data-ptr') || (tr.cells[1] ? tr.cells[1].textContent.trim() : '');
+      const recinto = tr.getAttribute('data-recinto') || (tr.cells[2] ? tr.cells[2].textContent.trim() : '');
+      const oficial = tr.getAttribute('data-oficial') || (tr.cells[3] ? tr.cells[3].textContent.trim() : '');
+      const ayudante = tr.getAttribute('data-ayudante') || (tr.cells[4] ? tr.cells[4].textContent.trim() : '');
+      const texto = tr.getAttribute('data-texto') || (tr.cells[5] ? tr.cells[5].textContent.trim() : '');
+      const dosis = tr.getAttribute('data-dosis') || (tr.cells[6] ? tr.cells[6].textContent.trim() : '');
+      const derrame = tr.getAttribute('data-derrame') || ((tr.cells[7] && tr.cells[7].textContent.indexOf('SÍ') !== -1) ? '1' : '0');
+      const tritio = tr.getAttribute('data-tritio') || '0.0';
+      const aerosoles = tr.getAttribute('data-aerosoles') || '-';
+
+      abrirModalDetalleActa({ hora, ptr, recinto, oficial, ayudante, texto, dosis, derrame, tritio, aerosoles });
+    }
+
+    function abrirModalDetalleActa(d) {
+      const modal = document.getElementById('modal-detalle-acta');
+      if (!modal) return;
+
+      document.getElementById('mda-hora-ptr').textContent = (d.ptr && d.ptr !== '-') ? ('PTR #' + d.ptr + ' • ' + d.hora + ' hs') : ('Acta de Guardia • ' + d.hora + ' hs');
+      document.getElementById('mda-hora').textContent = d.hora + ' hs';
+      document.getElementById('mda-ptr').textContent = (d.ptr && d.ptr !== '-') ? d.ptr : 'Sin PTR';
+      document.getElementById('mda-recinto').textContent = d.recinto || 'General de Planta';
+      document.getElementById('mda-oficial').textContent = d.oficial || '-';
+      document.getElementById('mda-ayudante').textContent = (d.ayudante && d.ayudante !== '-') ? d.ayudante : 'Sin ayudante';
+      
+      const derrameEl = document.getElementById('mda-derrame');
+      if (d.derrame === '1' || d.derrame === 1 || String(d.derrame).indexOf('SÍ') !== -1) {
+        derrameEl.innerHTML = '<span style="color: var(--accent-amber);">⚠️ SÍ (D2O)</span>';
+      } else {
+        derrameEl.innerHTML = '<span style="color: var(--accent-green);">🟢 NO</span>';
+      }
+
+      document.getElementById('mda-dosis').textContent = 'Dosis: ' + (d.dosis || '0.0') + ' µSv/h';
+      document.getElementById('mda-tritio').textContent = 'Tritio: ' + (d.tritio || '0.0') + ' DAC';
+      document.getElementById('mda-aerosoles').textContent = 'Aerosoles: ' + (d.aerosoles || '0.0') + ' DAC';
+      document.getElementById('mda-texto-completo').textContent = d.texto || 'Sin observaciones';
+
+      modal.style.display = 'flex';
+    }
+
+    function closeActaModal() {
+      const modal = document.getElementById('modal-detalle-acta');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function copiarTextoActa() {
+      const txt = document.getElementById('mda-texto-completo') ? document.getElementById('mda-texto-completo').textContent : '';
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(txt).then(() => {
+          if (typeof showToast === 'function') showToast('📋 Descripción copiada al portapapeles');
+        });
+      } else {
+        if (typeof showToast === 'function') showToast('📋 Texto disponible en pantalla');
+      }
+    }
+
   </script>
     <!-- MODAL HUD: HISTORIAL DE LOS ÚLTIMOS 3 VALORES DEL RECINTO SELECCIONADO -->
   <div class="modal-overlay" id="modal-recinto-historial" style="display: none;" onclick="if(event.target===this) closeRecintoHistoryModal();">
@@ -4200,6 +4338,90 @@ if (file_exists($miconex_path)) {
               ⚡ Medir en este recinto
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL HUD: DETALLE Y LECTURA COMPLETA DE ACTA DE GUARDIA -->
+  <div class="modal-overlay" id="modal-detalle-acta" style="display: none;" onclick="if(event.target===this) closeActaModal();">
+    <div class="modal-box" style="max-width: 720px; border-left: 4px solid var(--accent-cyan); animation: cyber-hologram-assemble 0.28s ease-out;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 20px;">📖</span>
+          <div>
+            <div style="font-size: 11px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.5px;">
+              Libro de Actas &bull; Registro Completo
+            </div>
+            <div id="mda-hora-ptr" style="font-size: 15px; font-weight: 800; color: #ffffff; margin-top: 1px;">
+              -
+            </div>
+          </div>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeActaModal()" style="background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; padding: 4px 8px; border-radius: 4px;" title="Cerrar modal (Esc)">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 16px 22px;">
+        <!-- Ficha técnica en tarjetas compactas -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px;">
+          <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid var(--border-card); border-radius: 6px; padding: 8px 10px;">
+            <div style="font-size: 9.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Hora / Momento</div>
+            <div id="mda-hora" style="font-size: 13px; font-weight: 800; color: #ffffff; font-family: var(--font-mono); margin-top: 2px;">-</div>
+          </div>
+          <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid var(--border-card); border-radius: 6px; padding: 8px 10px;">
+            <div style="font-size: 9.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">N° PTR</div>
+            <div id="mda-ptr" style="font-size: 13px; font-weight: 800; color: var(--accent-cyan); font-family: var(--font-mono); margin-top: 2px;">-</div>
+          </div>
+          <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid var(--border-card); border-radius: 6px; padding: 8px 10px;">
+            <div style="font-size: 9.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Recinto</div>
+            <div id="mda-recinto" style="font-size: 12px; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">-</div>
+          </div>
+          <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid var(--border-card); border-radius: 6px; padding: 8px 10px;">
+            <div style="font-size: 9.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Derrame D2O</div>
+            <div id="mda-derrame" style="font-size: 12px; font-weight: 800; margin-top: 2px;">-</div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+          <div style="background: var(--bg-card-subtle); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 8px 12px;">
+            <div style="font-size: 9.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Oficial Responsable</div>
+            <div id="mda-oficial" style="font-size: 12.5px; font-weight: 700; color: #ffffff; margin-top: 2px;">-</div>
+          </div>
+          <div style="background: var(--bg-card-subtle); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 8px 12px;">
+            <div style="font-size: 9.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Personal Asistente / Ayudante</div>
+            <div id="mda-ayudante" style="font-size: 12.5px; font-weight: 700; color: var(--text-muted); margin-top: 2px;">-</div>
+          </div>
+        </div>
+
+        <!-- Parámetros Radiológicos adicionales -->
+        <div style="display: flex; gap: 10px; margin-bottom: 14px; background: rgba(9, 28, 24, 0.7); border: 1px solid var(--border-card); border-radius: 6px; padding: 7px 12px; font-family: var(--font-mono); font-size: 11px;">
+          <span style="color: var(--text-muted);">Valores de radioprotección:</span>
+          <span style="color: var(--accent-amber); font-weight: 700;" id="mda-dosis">Dosis: -</span>
+          <span style="color: var(--text-dim);">|</span>
+          <span style="color: var(--accent-cyan); font-weight: 700;" id="mda-tritio">Tritio: -</span>
+          <span style="color: var(--text-dim);">|</span>
+          <span style="color: #c084fc; font-weight: 700;" id="mda-aerosoles">Aerosoles: -</span>
+        </div>
+
+        <!-- Descripción Completa sin límite de renglón -->
+        <div style="margin-bottom: 16px;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+            <span>📝 Descripción Completa / Novedad Asentada:</span>
+            <span style="font-size: 10px; color: var(--text-dim); text-transform: none; font-weight: normal;">(Visualización completa del texto)</span>
+          </div>
+          <div id="mda-texto-completo" style="background: rgba(3, 15, 12, 0.95); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-cyan); border-radius: 6px; padding: 14px 16px; font-size: 13px; line-height: 1.6; color: #ffffff; white-space: pre-wrap; word-break: break-word; max-height: 280px; overflow-y: auto; font-family: var(--font-sans);">
+            -
+          </div>
+        </div>
+
+        <!-- Acciones Footer -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
+          <button type="button" class="btn-ghost" onclick="copiarTextoActa()" id="btn-copiar-acta" style="padding: 6px 14px; font-size: 11.5px; border-radius: 6px; border: 1px solid var(--border-card); background: rgba(255,255,255,0.05); color: var(--text-main); cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+            <span>📋</span> Copiar Descripción
+          </button>
+          <button type="button" class="btn-primary" onclick="closeActaModal()" style="padding: 6px 18px; font-size: 12px; font-weight: 700; border-radius: 6px; background: var(--accent-cyan); color: #02120e; border: none; cursor: pointer;">
+            Cerrar
+          </button>
         </div>
       </div>
     </div>
