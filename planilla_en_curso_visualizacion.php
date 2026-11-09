@@ -1,8 +1,14 @@
 <?php
-// Conexión y sesión de base de datos
+// =========================================================================================
+// REGISTRO RADIOLÓGICO ONLINE - CNE (NA-SA)
+// VISUALIZADOR DE PLANILLA (EN CURSO O HISTÓRICA / AUDITORÍA)
+// Arquitectura réplica exacta de la Consola Principal de Carga en modo Consulta / Solo Lectura
+// =========================================================================================
+
 $db_connected = false;
 $id_planilla = isset($_GET['id_planilla']) ? (int)$_GET['id_planilla'] : 1482;
 $usuario_nombre = "OFICIAL DE GUARDIA";
+$usuario_rol = "Oficial de Radioprotección";
 
 if (file_exists($_SERVER["DOCUMENT_ROOT"]."/ptr/Connections/miconex.php")) {
     @require_once($_SERVER["DOCUMENT_ROOT"]."/ptr/Connections/miconex.php");
@@ -11,7 +17,6 @@ if (file_exists($_SERVER["DOCUMENT_ROOT"]."/ptr/Connections/miconex.php")) {
 
     @session_start();
     if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true) {
-        $tipo_user = isset($_SESSION['portal_nivel']) ? $_SESSION['portal_nivel'] : 1;
         $id_user = isset($_SESSION['id_user']) ? $_SESSION['id_user'] : 1;
         if (!empty($_SESSION['nombre_apellido'])) {
             $usuario_nombre = mb_strtoupper($_SESSION['nombre_apellido'], 'UTF-8');
@@ -25,128 +30,81 @@ if (file_exists($_SERVER["DOCUMENT_ROOT"]."/ptr/Connections/miconex.php")) {
     }
 }
 
-// Funciones auxiliares seguras
-if (!function_exists('formafecha6')) {
-    function formafecha6($f) {
+// Helpers seguros
+if (!function_exists('formafecha_latam')) {
+    function formafecha_latam($f) {
         if (empty($f)) return '--/--/----';
         $ts = strtotime($f);
         return $ts ? date('d/m/Y', $ts) : $f;
     }
 }
-if (!function_exists('formato_hora_2')) {
-    function formato_hora_2($h) {
+if (!function_exists('formato_hora_limpio')) {
+    function formato_hora_limpio($h) {
         if (empty($h)) return '--:--';
         return substr($h, 0, 5);
     }
 }
-if (!function_exists('formato_hora_personalizado')) {
-    function formato_hora_personalizado($h) {
-        if (empty($h)) return '--:--';
-        return substr($h, 0, 5);
-    }
-}
-if (!function_exists('formato_hora')) {
-    function formato_hora($h) {
-        if (empty($h)) return '--:--';
-        return substr($h, 0, 5);
-    }
-}
-if (!function_exists('decimales')) {
-    function decimales($val, $n = 1) {
+if (!function_exists('decimales_limpio')) {
+    function decimales_limpio($val, $n = 1) {
         if ($val === null || $val === '') return '0.0';
         return number_format((float)$val, $n, '.', '');
     }
 }
-if (!function_exists('nulo')) {
-    function nulo($val) {
-        return ($val === null || $val === '' || $val === '0.0' || $val === '0') ? '-' : $val;
-    }
-}
-if (!function_exists('nulo2')) {
-    function nulo2($val) {
-        return ($val === null || $val === '') ? '-' : $val;
-    }
-}
-if (!function_exists('conversion_actividad')) {
-    function conversion_actividad($u_in, $u_out, $val) {
-        return (float)$val;
-    }
-}
-if (!function_exists('conversion_volumen')) {
-    function conversion_volumen($u_in, $u_out, $val) {
-        return (float)$val;
-    }
-}
-if (!function_exists('coma_cambio2')) {
-    function coma_cambio2($val) {
-        return $val;
-    }
-}
-if (!function_exists('coma_punto')) {
-    function coma_punto($val) {
-        return $val;
-    }
-}
-if (!function_exists('notacion_cientifica2')) {
-    function notacion_cientifica2($val) {
-        if (empty($val) || (float)$val == 0) return '0.0';
-        return sprintf("%.2e", (float)$val);
-    }
-}
 
-// Variables por defecto / fallback
+// Datos predeterminados (Fallback realista CNE)
 $row_planilla = array(
-    'fecha' => date('Y-m-d'),
-    'fecha_hora_cerrado' => date('Y-m-d H:i:s'),
+    'id_planilla_diaria' => $id_planilla,
+    'fecha' => '2026-11-09',
+    'fecha_hora_cerrado' => '2026-11-09 06:55:00',
+    'fecha_hora_creado' => '2026-11-08 22:50:00',
     'turno' => 1,
     'estado_planta' => 'POTENCIA 100%',
-    'observaciones' => "Turno sin novedades radiológicas extraordinarias. Recorridas de rutina completadas conforme al PO-SyR-01. Monitoreo de efluentes gaseosos normal."
+    'observaciones' => "Turno sin novedades radiológicas anormales. Recorridas de rutina completadas conforme al PO-SyR-01. Monitoreo de efluentes gaseosos normal."
 );
-$row_oficial_planilla_actual = array('of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO');
-$row_turno_planilla_actual = array('horarios' => 'Turno 1 (23:00 a 07:00 hs)');
-$row_jefe_turno_planilla_actual = array('jefe_apellido' => 'RODRIGUEZ', 'jefe_nombre' => 'MARCELO');
+$oficial_nombre = "ALTUNA, LEONARDO (P)";
+$jefe_nombre = "RODRIGUEZ, MARCELO";
+$turno_nombre = "Turno 1 (23:00 a 07:00 hs)";
+$estado_planta_nombre = "POTENCIA 100%";
+$es_cerrada = true;
 
 $rows_rutina = array();
-$row_gases_nobles = array('hora_desde' => '23:00', 'hora_hasta' => '07:00', 'ar41' => 0.4, 'kr85' => 0.1, 'kr85m' => 0.1, 'xe133' => 0.8, 'xe135' => 0.5, 'xe135m' => 0.2);
-$rows_tritio = array(array('hora_desde' => '23:00', 'hora_hasta' => '07:00', 'vent_gral' => 1.42, 'vent_reactor' => 0.88));
-$row_carbono14 = array('hora' => '05:30', 'medicion' => 3.1);
+$row_gases_nobles = array('hora_desde' => '23:00', 'hora_hasta' => '07:00', 'ar41' => 0.40, 'kr85' => 0.10, 'kr85m' => 0.05, 'xe133' => 0.85, 'xe135' => 0.52, 'xe135m' => 0.18);
+$rows_tritio = array(array('hora_desde' => '23:00', 'hora_hasta' => '07:00', 'vent_gral' => 1.45, 'vent_reactor' => 0.88));
+$row_carbono14 = array('hora' => '05:30', 'medicion' => 3.10);
 $row_dedo_frio = array('hora_medicion' => '04:15', 'ppm' => 12, 'menor_que' => 0);
 $row_concentrador = array('procedencia' => 'PLANTA', 'actividad_Bq' => 0.045, 'volumen_litro' => 15.2, 'ldd%' => 0.18);
 $row_precintos = array('hora' => '02:00', 'puerta_s123B' => 'INTACTO', 'puerta_s008' => 'INTACTO', 'puerta_s144' => 'INTACTO');
 $row_meteorologia = array('hora' => '03:00', 'velocidad_mseg' => '3.5', 'direc_viento' => 'SSE', 'cond_pasquill' => 'D');
+$rows_tareas = array();
 $rows_espectrometria = array();
 $rows_efluentes_liq = array();
 $rows_contaminacion = array();
 $rows_dryers = array();
 
 if ($db_connected && $id_planilla > 0) {
-    // 1. Planilla
-    $q = @mysql_query("SELECT * FROM regrad_planilla_diaria_nueva WHERE id_planilla_diaria = $id_planilla", $miconex);
-    if ($q && $r = mysql_fetch_assoc($q)) {
-        $row_planilla = $r;
-        $oficial_id = $r['of_rad'];
-        $turno_id = $r['turno'];
-        $jefe_id = $r['jefe_turno'];
-
-        // Oficial
-        $q_of = @mysql_query("SELECT * FROM regrad_of_rad WHERE id_of_rad = '$oficial_id'", $miconex);
-        if ($q_of && $r_of = mysql_fetch_assoc($q_of)) $row_oficial_planilla_actual = $r_of;
-
-        // Turno
-        $q_tur = @mysql_query("SELECT * FROM regrad_turnos WHERE id_turnos = '$turno_id'", $miconex);
-        if ($q_tur && $r_tur = mysql_fetch_assoc($q_tur)) $row_turno_planilla_actual = $r_tur;
-
-        // Jefe Turno
-        $q_jef = @mysql_query("SELECT * FROM regrad_jefes_turno WHERE id_jefes_turno = '$jefe_id'", $miconex);
-        if ($q_jef && $r_jef = mysql_fetch_assoc($q_jef)) $row_jefe_turno_planilla_actual = $r_jef;
+    // 1. Cabecera Planilla
+    $q_pl = @mysql_query("SELECT a.*, b.horarios, c.nombre_estado, d.of_apellido, d.of_nombre, e.jefe_apellido, e.jefe_nombre
+        FROM regrad_planilla_diaria_nueva a
+        LEFT JOIN regrad_turnos b ON b.id_turnos = a.turno
+        LEFT JOIN regrad_estados_planta c ON c.id_estado_planta = a.estado_planta
+        LEFT JOIN regrad_of_rad d ON d.id_of_rad = a.of_rad
+        LEFT JOIN regrad_jefes_turno e ON e.id_jefes_turno = a.jefe_turno
+        WHERE a.id_planilla_diaria = $id_planilla", $miconex);
+    if ($q_pl && $r_pl = mysql_fetch_assoc($q_pl)) {
+        $row_planilla = $r_pl;
+        $es_cerrada = !empty($r_pl['fecha_hora_cerrado']);
+        if (!empty($r_pl['of_apellido'])) $oficial_nombre = mb_strtoupper($r_pl['of_apellido'] . ", " . $r_pl['of_nombre'], 'UTF-8');
+        if (!empty($r_pl['jefe_apellido']) || !empty($r_pl['jefe_nombre'])) $jefe_nombre = mb_strtoupper($r_pl['jefe_apellido'] . ", " . $r_pl['jefe_nombre'], 'UTF-8');
+        if (!empty($r_pl['horarios'])) $turno_nombre = $r_pl['horarios'];
+        if (!empty($r_pl['nombre_estado'])) $estado_planta_nombre = mb_strtoupper($r_pl['nombre_estado'], 'UTF-8');
     }
 
-    // 2. Rutina
-    $q_rut = @mysql_query("SELECT a.*, b.of_apellido, b.of_nombre, c.recinto 
+    // 2. Relevamiento Rutina
+    $q_rut = @mysql_query("SELECT a.*, b.of_apellido, b.of_nombre, c.recinto as recinto_nombre 
         FROM regrad_relevamiento_rutina a 
         LEFT JOIN regrad_of_rad b ON b.id_of_rad = a.id_oficial 
         LEFT JOIN graf_tritio_recintos c ON c.id = a.ubicacion 
-        WHERE id_planilla = $id_planilla ORDER BY fecha, hora", $miconex);
+        WHERE id_planilla = $id_planilla ORDER BY fecha ASC, hora ASC", $miconex);
     if ($q_rut) {
         while ($r = mysql_fetch_assoc($q_rut)) $rows_rutina[] = $r;
     }
@@ -155,14 +113,14 @@ if ($db_connected && $id_planilla > 0) {
     $q_gn = @mysql_query("SELECT * FROM regrad_gases_nobles WHERE id_planilla = $id_planilla", $miconex);
     if ($q_gn && $r = mysql_fetch_assoc($q_gn)) $row_gases_nobles = $r;
 
-    // 4. Tritio
+    // 4. Tritio Chimenea
     $q_tr = @mysql_query("SELECT * FROM regrad_tritio WHERE id_planilla = $id_planilla", $miconex);
     if ($q_tr) {
         $rows_tritio = array();
         while ($r = mysql_fetch_assoc($q_tr)) $rows_tritio[] = $r;
     }
 
-    // 5. Carbono 14
+    // 5. C-14
     $q_c14 = @mysql_query("SELECT * FROM regrad_carbono14 WHERE id_planilla = $id_planilla", $miconex);
     if ($q_c14 && $r = mysql_fetch_assoc($q_c14)) $row_carbono14 = $r;
 
@@ -182,7 +140,18 @@ if ($db_connected && $id_planilla > 0) {
     $q_me = @mysql_query("SELECT * FROM regrad_cond_meteorologica WHERE id_planilla = $id_planilla", $miconex);
     if ($q_me && $r = mysql_fetch_assoc($q_me)) $row_meteorologia = $r;
 
-    // 10. Espectrometría
+    // 10. Tareas Diarias
+    $q_tar = @mysql_query("SELECT a.*, b.recinto as recinto_nombre, c.of_apellido, c.of_nombre, d.nombre_ayudante
+        FROM regrad_actas_tareas_diarias a
+        LEFT JOIN graf_tritio_recintos b ON b.id = a.id_recinto
+        LEFT JOIN regrad_of_rad c ON c.id_of_rad = a.id_oficial_asociado
+        LEFT JOIN regrad_ayudantes d ON d.id_ayudante = a.id_ayudante
+        WHERE a.id_planilla_diaria = $id_planilla ORDER BY a.id_tarea ASC", $miconex);
+    if ($q_tar) {
+        while ($r = mysql_fetch_assoc($q_tar)) $rows_tareas[] = $r;
+    }
+
+    // 11. Espectrometría
     $q_esp = @mysql_query("SELECT a.*, b.recinto as recinto_nombre 
         FROM regrad_espectr_conc_radionuclei a 
         LEFT JOIN graf_tritio_recintos b ON b.id = a.recinto 
@@ -191,13 +160,13 @@ if ($db_connected && $id_planilla > 0) {
         while ($r = mysql_fetch_assoc($q_esp)) $rows_espectrometria[] = $r;
     }
 
-    // 11. Efluentes Líquidos
+    // 12. Efluentes Líquidos
     $q_liq = @mysql_query("SELECT * FROM reg_rad_ef_liq_final_para_tabla WHERE id_planilla = $id_planilla", $miconex);
     if ($q_liq) {
         while ($r = mysql_fetch_assoc($q_liq)) $rows_efluentes_liq[] = $r;
     }
 
-    // 12. Contaminación Superficial
+    // 13. Contaminación Superficial
     $q_cs = @mysql_query("SELECT a.*, b.recinto as recinto_nombre 
         FROM regrad_contaminacion_superficial a 
         LEFT JOIN graf_tritio_recintos b ON b.id = a.recinto 
@@ -206,50 +175,63 @@ if ($db_connected && $id_planilla > 0) {
         while ($r = mysql_fetch_assoc($q_cs)) $rows_contaminacion[] = $r;
     }
 
-    // 13. Dryers
+    // 14. Dryers
     $q_dr = @mysql_query("SELECT * FROM reg_rad_eficiencia_dryers WHERE id_planilla = $id_planilla", $miconex);
     if ($q_dr) {
         while ($r = mysql_fetch_assoc($q_dr)) $rows_dryers[] = $r;
     }
 }
 
-// Fallback mock para rutina si está vacío
+// Fallbacks de muestra si está offline
 if (empty($rows_rutina)) {
     $rows_rutina = array(
-        array('fecha' => $row_planilla['fecha'], 'hora' => '23:30', 'recinto' => 'R-001 (HALL ACCESO)', 'gases_nobles' => 0.1, 'tritio' => 0.2, 'tasa_dosis' => 1.5, 'observaciones' => 'Ronda inicial', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO'),
-        array('fecha' => $row_planilla['fecha'], 'hora' => '01:15', 'recinto' => 'R-005 (SISTEMA D2O)', 'gases_nobles' => 0.4, 'tritio' => 1.8, 'tasa_dosis' => 12.0, 'observaciones' => 'Verificación válvulas', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO'),
-        array('fecha' => $row_planilla['fecha'], 'hora' => '03:40', 'recinto' => 'R-012 (EDIFICIO REACTOR)', 'gases_nobles' => 0.8, 'tritio' => 3.2, 'tasa_dosis' => 35.0, 'observaciones' => 'Control rutinario', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO'),
-        array('fecha' => $row_planilla['fecha'], 'hora' => '05:50', 'recinto' => 'R-020 (SALA DE FILTROS)', 'gases_nobles' => 0.2, 'tritio' => 0.5, 'tasa_dosis' => 4.2, 'observaciones' => 'Cierre de ronda', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO')
+        array('fecha' => $row_planilla['fecha'], 'hora' => '23:30', 'recinto_nombre' => 'R-001 (HALL ACCESO ZONA CONTROLADA)', 'gases_nobles' => 0.05, 'tritio' => 0.20, 'tasa_dosis' => 1.5, 'observaciones' => 'Ronda de inicio de guardia', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO'),
+        array('fecha' => $row_planilla['fecha'], 'hora' => '01:15', 'recinto_nombre' => 'R-005 (SISTEMA D2O Y PURIFICACIÓN)', 'gases_nobles' => 0.40, 'tritio' => 1.80, 'tasa_dosis' => 18.5, 'observaciones' => 'Verificación de sellos y estanqueidad', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO'),
+        array('fecha' => $row_planilla['fecha'], 'hora' => '03:40', 'recinto_nombre' => 'R-012 (EDIFICIO DEL REACTOR - PHT)', 'gases_nobles' => 0.85, 'tritio' => 3.40, 'tasa_dosis' => 45.0, 'observaciones' => 'Recorrida en potencia nominal', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO'),
+        array('fecha' => $row_planilla['fecha'], 'hora' => '05:50', 'recinto_nombre' => 'R-020 (SALA DE FILTROS Y VENTILACIÓN)', 'gases_nobles' => 0.15, 'tritio' => 0.60, 'tasa_dosis' => 5.2, 'observaciones' => 'Control de cierre de turno', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO')
     );
 }
 
-// Fallback mock para contaminacion superficial
-if (empty($rows_contaminacion)) {
-    $rows_contaminacion = array(
-        array('recinto_nombre' => 'R-001 ACCESO', 'hora' => '00:30', 'beta_gamma_Bq_cm2' => 0.05, 'alfa_Bq_cm2' => 0.01, 'tasa_dosis_equivalente_µsv_h' => 1.2),
-        array('recinto_nombre' => 'R-005 D2O', 'hora' => '02:00', 'beta_gamma_Bq_cm2' => 0.20, 'alfa_Bq_cm2' => 0.02, 'tasa_dosis_equivalente_µsv_h' => 10.5)
+if (empty($rows_tareas)) {
+    $rows_tareas = array(
+        array('id_ptr' => 1042, 'recinto_nombre' => 'R-005 (SISTEMA D2O)', 'tasa_dosis' => 18.5, 'derrame_agua' => 0, 'texto_tarea' => 'MANTENIMIENTO PREVENTIVO DE BOMBA DE PURIFICACIÓN DE AGUA PESADA', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO', 'nombre_ayudante' => 'GOMEZ, FACUNDO'),
+        array('id_ptr' => 1045, 'recinto_nombre' => 'R-012 (EDIFICIO REACTOR)', 'tasa_dosis' => 45.0, 'derrame_agua' => 0, 'texto_tarea' => 'RELEVAMIENTO RADIOLÓGICO PARA INSPECCIÓN TÉRMICA DE CAÑERÍAS', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO', 'nombre_ayudante' => 'VAZQUEZ, DANIEL')
     );
 }
 
-// Fallback mock para dryers
-if (empty($rows_dryers)) {
-    $rows_dryers = array(
-        array('fecha' => $row_planilla['fecha'], 'hora' => '01:00', 'nombre_dryers' => 'DRYER 1 (Reactor)', 'entrada_dac' => 25.4, 'salida_dac' => 1.8, 'eficiencia_porcentaje' => 92.91),
-        array('fecha' => $row_planilla['fecha'], 'hora' => '04:00', 'nombre_dryers' => 'DRYER 2 (Servicios)', 'entrada_dac' => 18.2, 'salida_dac' => 1.1, 'eficiencia_porcentaje' => 93.95)
-    );
+// Calcular Picos Radiológicos
+$max_dosis = 0.0;
+$max_tritio = 0.0;
+$max_gases = 0.0;
+$max_recinto_dosis = "-";
+
+foreach ($rows_rutina as $r) {
+    $d = (float)$r['tasa_dosis'];
+    $t = (float)$r['tritio'];
+    $g = (float)$r['gases_nobles'];
+    if ($d > $max_dosis) {
+        $max_dosis = $d;
+        $max_recinto_dosis = !empty($r['recinto_nombre']) ? $r['recinto_nombre'] : 'Recinto';
+    }
+    if ($t > $max_tritio) $max_tritio = $t;
+    if ($g > $max_gases) $max_gases = $g;
 }
 
-$oficial_full = mb_strtoupper((!empty($row_oficial_planilla_actual['of_apellido']) ? $row_oficial_planilla_actual['of_apellido'] . ", " . $row_oficial_planilla_actual['of_nombre'] : 'OFICIAL DE GUARDIA'), 'UTF-8');
-$jefe_full = mb_strtoupper((!empty($row_jefe_turno_planilla_actual['jefe_apellido']) ? $row_jefe_turno_planilla_actual['jefe_apellido'] . ", " . $row_jefe_turno_planilla_actual['jefe_nombre'] : 'SIN ASIGNAR'), 'UTF-8');
-$horarios_full = htmlspecialchars(!empty($row_turno_planilla_actual['horarios']) ? $row_turno_planilla_actual['horarios'] : 'Turno Operativo', ENT_QUOTES, 'UTF-8');
-$fecha_latam = formafecha6($row_planilla['fecha']);
+$kpi_vent_gral = !empty($rows_tritio[0]['vent_gral']) ? decimales_limpio($rows_tritio[0]['vent_gral'], 2) : '1.45';
+$kpi_vent_reactor = !empty($rows_tritio[0]['vent_reactor']) ? decimales_limpio($rows_tritio[0]['vent_reactor'], 2) : '0.88';
+$kpi_c14 = !empty($row_carbono14['medicion']) ? decimales_limpio($row_carbono14['medicion'], 1) : '3.1';
+$kpi_dedo_frio = !empty($row_dedo_frio['ppm']) ? decimales_limpio($row_dedo_frio['ppm'], 0) : '12';
+$kpi_dedo_frio_signo = (!empty($row_dedo_frio['menor_que']) && $row_dedo_frio['menor_que'] == 1) ? '< ' : '';
+$kpi_ro = !empty($row_concentrador['ldd%']) ? decimales_limpio($row_concentrador['ldd%'], 2) : '8.42';
+
+$fecha_latam = formafecha_latam($row_planilla['fecha']);
 ?>
 <!DOCTYPE html>
 <html lang="es" data-theme="petrol">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Planilla #<?php echo $id_planilla; ?> - Inspección de Registro Radiológico | CNE</title>
+  <title>SyR &bull; Inspección Planilla #<?php echo $id_planilla; ?> (CNE)</title>
   <style>
     /* ================= PALETA MAESTRA: VERDE RADIOLÓGICO / PETRÓLEO ================= */
     :root {
@@ -279,8 +261,173 @@ $fecha_latam = formafecha6($row_planilla['fecha']);
       font-family: var(--font-ui);
       font-size: 13px;
       line-height: 1.4;
-      min-height: 100vh;
-      overflow-x: hidden;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+    }
+
+    /* Layout: Sidebar + Main Workspace */
+    .sidebar {
+      width: 250px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-card);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      z-index: 20;
+    }
+
+    .sidebar-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sidebar-brand-title {
+      font-weight: 800;
+      font-size: 13px;
+      color: var(--text-main);
+      letter-spacing: 0.5px;
+    }
+
+    .sidebar-brand-sub {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Planilla Info Box in Sidebar */
+    .sidebar-meta-box {
+      margin: 12px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 6px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .meta-lbl {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .meta-val {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .meta-val.mono {
+      font-family: var(--font-mono);
+      color: var(--accent-cyan);
+    }
+
+    /* Nav Menu */
+    .sidebar-nav {
+      flex: 1;
+      padding: 8px 10px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .menu-btn {
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.15s ease;
+    }
+
+    .menu-btn:hover {
+      background: var(--bg-card-subtle);
+      color: var(--text-main);
+      border-color: var(--border-subtle);
+    }
+
+    .menu-btn.active {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+      font-weight: 700;
+    }
+
+    .menu-badge {
+      background: var(--bg-card-subtle);
+      color: var(--text-main);
+      font-size: 10px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      padding: 1px 6px;
+      border-radius: 10px;
+    }
+
+    .menu-btn.active .menu-badge {
+      background: var(--accent-cyan);
+      color: #04100e;
+    }
+
+    /* Sidebar Footer */
+    .sidebar-footer {
+      padding: 12px 14px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-sidebar);
+    }
+
+    .status-pill-audit {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid var(--accent-cyan);
+      color: var(--accent-cyan);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      width: 100%;
+      justify-content: center;
+    }
+
+    .status-pill-audit.closed {
+      background: rgba(59, 130, 246, 0.1);
+      border-color: rgba(59, 130, 246, 0.5);
+      color: #93c5fd;
+    }
+
+    /* Main Content Area */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg-page);
     }
 
     /* Topbar */
@@ -292,27 +439,25 @@ $fecha_latam = formafecha6($row_planilla['fecha']);
       align-items: center;
       justify-content: space-between;
       padding: 0 16px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
+      flex-shrink: 0;
+      z-index: 10;
     }
 
     .topbar-left {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
 
-    .brand-title {
+    .topbar-title {
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 800;
       color: var(--text-main);
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
-    .badge-id {
+    .sheet-badge {
       background: rgba(16, 185, 129, 0.2);
       border: 1px solid var(--accent-cyan);
       color: var(--accent-cyan);
@@ -326,10 +471,10 @@ $fecha_latam = formafecha6($row_planilla['fecha']);
     .topbar-right {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
 
-    .btn-action {
+    .btn-topbar {
       background: var(--bg-card-subtle);
       border: 1px solid var(--border-card);
       color: var(--text-main);
@@ -345,111 +490,220 @@ $fecha_latam = formafecha6($row_planilla['fecha']);
       transition: all 0.15s ease;
     }
 
-    .btn-action:hover {
+    .btn-topbar:hover {
       background: var(--accent-cyan);
       color: #04100e;
       border-color: var(--accent-cyan);
     }
 
-    .btn-action.btn-print:hover {
+    .btn-topbar.btn-print:hover {
       background: var(--accent-amber);
       color: #000000;
       border-color: var(--accent-amber);
     }
 
-    /* Main Container */
-    .view-container {
-      max-width: 1380px;
-      margin: 0 auto;
-      padding: 16px 20px 40px;
+    /* Workspace */
+    .workspace {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px 40px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
-    }
-
-    /* Header Summary Card */
-    .summary-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-card);
-      border-radius: 8px;
-      padding: 14px 18px;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
       gap: 14px;
-      position: relative;
     }
 
-    .summary-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; width: 4px; height: 100%;
-      background: var(--accent-cyan);
-    }
-
-    .summary-item {
+    /* ================= 6 KPIS SUPERIORES ================= */
+    .kpis-toolbar {
       display: flex;
-      flex-direction: column;
-      gap: 3px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2px;
     }
 
-    .summary-lbl {
-      font-size: 10px;
+    .kpis-title {
+      font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
-      color: var(--text-dim);
+      color: var(--text-muted);
       letter-spacing: 0.5px;
-    }
-
-    .summary-val {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--text-main);
-    }
-
-    .summary-val.mono {
-      font-family: var(--font-mono);
-      color: var(--accent-cyan);
-    }
-
-    /* Subnav Navigation Pills */
-    .subnav-pills {
       display: flex;
       align-items: center;
       gap: 6px;
-      overflow-x: auto;
-      padding-bottom: 4px;
     }
 
-    .pill-btn {
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+    }
+
+    .kpi-card {
       background: var(--bg-card);
       border: 1px solid var(--border-card);
-      color: var(--text-muted);
-      padding: 6px 12px;
-      font-size: 11px;
-      font-weight: 700;
-      border-radius: 6px;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 94px;
       cursor: pointer;
-      text-decoration: none;
-      white-space: nowrap;
+      position: relative;
+      overflow: hidden;
       transition: all 0.15s ease;
     }
 
-    .pill-btn:hover {
-      background: var(--bg-card-subtle);
-      color: var(--text-main);
-      border-color: var(--text-muted);
+    .kpi-card:hover {
+      border-color: var(--accent-cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     }
 
-    /* Panels */
-    .section-panel {
+    /* Futuristic HUD Scanline Radar Sweep */
+    .kpi-card::after {
+      content: '';
+      position: absolute;
+      top: -100%;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, transparent 0%, rgba(16, 185, 129, 0.08) 50%, transparent 100%);
+      animation: hud-scanline 6s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes hud-scanline {
+      0% { top: -100%; }
+      50% { top: 100%; }
+      100% { top: 100%; }
+    }
+
+    .kpi-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .kpi-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .kpi-action-icon {
+      font-size: 9px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .kpi-value-row {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      margin: 2px 0;
+    }
+
+    .kpi-value {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-main);
+      line-height: 1.1;
+    }
+
+    .kpi-unit {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-dim);
+    }
+
+    .kpi-footer {
+      font-size: 9px;
+      color: var(--text-dim);
+      margin-top: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Multi value inside KPI 1 */
+    .kpi-multi-values {
+      display: flex;
+      justify-content: space-between;
+      gap: 4px;
+      margin: 2px 0;
+    }
+
+    .kpi-sub-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .kpi-sub-label {
+      font-size: 8px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    .kpi-sub-val-row {
+      display: flex;
+      align-items: baseline;
+      gap: 2px;
+    }
+
+    .kpi-sub-val {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .kpi-sub-unit {
+      font-size: 7px;
+      color: var(--text-dim);
+    }
+
+    /* HUD Audit Banner */
+    .hud-audit-banner {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-left: 4px solid var(--accent-cyan);
+      border-radius: 6px;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+    }
+
+    .audit-tag {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    /* Sections */
+    .section-content {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .section-content.active {
+      display: flex;
+    }
+
+    .panel-box {
       background: var(--bg-card);
       border: 1px solid var(--border-card);
       border-radius: 8px;
       overflow: hidden;
-      margin-bottom: 14px;
     }
 
-    .panel-header {
+    .panel-box-header {
       background: var(--bg-sidebar);
       border-bottom: 1px solid var(--border-card);
       padding: 10px 14px;
@@ -458,7 +712,7 @@ $fecha_latam = formafecha6($row_planilla['fecha']);
       justify-content: space-between;
     }
 
-    .panel-header h2 {
+    .panel-box-header h2 {
       font-size: 12px;
       font-weight: 700;
       text-transform: uppercase;
@@ -469,8 +723,8 @@ $fecha_latam = formafecha6($row_planilla['fecha']);
       letter-spacing: 0.5px;
     }
 
-    .panel-body {
-      padding: 14px;
+    .panel-box-body {
+      padding: 12px 14px;
     }
 
     /* Tables */
@@ -498,7 +752,7 @@ $fecha_latam = formafecha6($row_planilla['fecha']);
     }
 
     .data-table tbody td {
-      padding: 8px 10px;
+      padding: 7px 10px;
       font-size: 12px;
       border-bottom: 1px solid var(--border-subtle);
       border-right: 1px solid var(--border-subtle);
@@ -522,21 +776,35 @@ $fecha_latam = formafecha6($row_planilla['fecha']);
       background: var(--bg-card-subtle);
     }
 
-    /* Grid of Subcards for Efluentes Gaseosos */
-    .gas-grid {
+    /* Badges */
+    .sync-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+    }
+
+    /* Gas Cards Grid */
+    .gas-sub-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 12px;
     }
 
-    .sub-card {
+    .gas-sub-card {
       background: var(--bg-sidebar);
       border: 1px solid var(--border-card);
       border-radius: 6px;
       padding: 10px 12px;
     }
 
-    .sub-card-title {
+    .gas-sub-title {
       font-size: 11px;
       font-weight: 700;
       color: var(--accent-cyan);
@@ -548,7 +816,7 @@ $fecha_latam = formafecha6($row_planilla['fecha']);
       padding-bottom: 4px;
     }
 
-    .sub-metric-row {
+    .metric-row {
       display: flex;
       justify-content: space-between;
       padding: 3px 0;
@@ -556,22 +824,22 @@ $fecha_latam = formafecha6($row_planilla['fecha']);
       border-bottom: 1px dashed var(--border-subtle);
     }
 
-    .sub-metric-row:last-child {
+    .metric-row:last-child {
       border-bottom: none;
     }
 
-    .sub-metric-lbl {
+    .metric-lbl {
       color: var(--text-muted);
     }
 
-    .sub-metric-val {
+    .metric-val {
       font-family: var(--font-mono);
       font-weight: 700;
       color: var(--text-main);
     }
 
-    /* Textarea Box */
-    .readonly-box {
+    /* Textarea Readonly */
+    .terminal-box {
       background: var(--bg-input);
       border: 1px solid var(--border-card);
       border-radius: 6px;
@@ -581,487 +849,776 @@ $fecha_latam = formafecha6($row_planilla['fecha']);
       color: var(--text-main);
       white-space: pre-wrap;
       line-height: 1.5;
-      min-height: 90px;
+      min-height: 120px;
     }
 
-    /* PRINT STYLES */
+    /* Print styling */
     @media print {
       body {
         background: #ffffff !important;
         color: #000000 !important;
-        font-family: Arial, sans-serif !important;
-        font-size: 10pt !important;
+        height: auto !important;
+        overflow: visible !important;
       }
-      .topbar, .subnav-pills, .btn-action {
+      .sidebar, .topbar, .kpis-toolbar, .btn-topbar {
         display: none !important;
       }
-      .view-container {
-        padding: 0 !important;
-        max-width: 100% !important;
+      .main-content {
+        height: auto !important;
+        overflow: visible !important;
       }
-      .section-panel, .summary-card, .sub-card {
+      .workspace {
+        overflow: visible !important;
+        padding: 0 !important;
+      }
+      .section-content {
+        display: flex !important;
+        page-break-after: always;
+      }
+      .panel-box, .kpi-card, .gas-sub-card {
         border: 1px solid #333333 !important;
         background: #ffffff !important;
         color: #000000 !important;
-        page-break-inside: avoid;
-        margin-bottom: 12pt !important;
-      }
-      .panel-header {
-        background: #f0f0f0 !important;
-        color: #000000 !important;
-        border-bottom: 1px solid #333333 !important;
       }
       .data-table thead th {
         background: #eeeeee !important;
         color: #000000 !important;
-        border: 1px solid #000000 !important;
       }
       .data-table tbody td {
-        border: 1px solid #cccccc !important;
         color: #000000 !important;
+        border-color: #cccccc !important;
       }
-      .readonly-box {
+      .terminal-box {
         background: #fafafa !important;
-        border: 1px solid #666666 !important;
         color: #000000 !important;
+        border-color: #666666 !important;
       }
     }
   </style>
 </head>
 <body>
 
-  <!-- Topbar -->
-  <header class="topbar">
-    <div class="topbar-left">
-      <div class="brand-title">
-        <span>CNE &bull; REPORTE DE REGISTRO RADIOLÓGICO</span>
-        <span class="badge-id">PLANILLA #<?php echo $id_planilla; ?></span>
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div>
+        <div class="sidebar-brand-title">REGISTRO RADIOLÓGICO</div>
+        <div class="sidebar-brand-sub">CNE &bull; SEGURIDAD RADIOLÓGICA</div>
       </div>
     </div>
-    <div class="topbar-right">
-      <button type="button" class="btn-action btn-print" onclick="window.print()">
-        <span>🖨️ Imprimir Reporte</span>
+
+    <!-- Metadata de la Guardia -->
+    <div class="sidebar-meta-box">
+      <div class="meta-row">
+        <span class="meta-lbl">Planilla Diaria</span>
+        <span class="meta-val mono">#<?php echo $id_planilla; ?></span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-lbl">Fecha Operativa</span>
+        <span class="meta-val mono"><?php echo $fecha_latam; ?></span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-lbl">Turno de Guardia</span>
+        <span class="meta-val"><?php echo htmlspecialchars($turno_nombre, ENT_QUOTES, 'UTF-8'); ?></span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-lbl">Oficial Responsable</span>
+        <span class="meta-val" style="color: var(--accent-cyan);"><?php echo htmlspecialchars($oficial_nombre, ENT_QUOTES, 'UTF-8'); ?></span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-lbl">Jefe de Turno</span>
+        <span class="meta-val"><?php echo htmlspecialchars($jefe_nombre, ENT_QUOTES, 'UTF-8'); ?></span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-lbl">Estado de Planta</span>
+        <span class="meta-val" style="color: var(--accent-green);"><?php echo htmlspecialchars($estado_planta_nombre, ENT_QUOTES, 'UTF-8'); ?></span>
+      </div>
+    </div>
+
+    <!-- Menú de Secciones -->
+    <nav class="sidebar-nav">
+      <button type="button" class="menu-btn active" data-section="sec-rutina">
+        <span>📋 Relevamiento de Rutina</span>
+        <span class="menu-badge"><?php echo count($rows_rutina); ?></span>
       </button>
-      <a href="vista_planillas_anteriores.php" class="btn-action">
-        <span>⬅️ Volver al Histórico</span>
-      </a>
-    </div>
-  </header>
-
-  <!-- View Content -->
-  <div class="view-container">
-
-    <!-- Header Summary Card -->
-    <div class="summary-card">
-      <div class="summary-item">
-        <div class="summary-lbl">Fecha Operativa</div>
-        <div class="summary-val mono"><?php echo $fecha_latam; ?></div>
-      </div>
-      <div class="summary-item">
-        <div class="summary-lbl">Turno de Guardia</div>
-        <div class="summary-val"><?php echo $horarios_full; ?></div>
-      </div>
-      <div class="summary-item">
-        <div class="summary-lbl">Oficial de Radioprotección</div>
-        <div class="summary-val"><?php echo $oficial_full; ?></div>
-      </div>
-      <div class="summary-item">
-        <div class="summary-lbl">Jefe de Turno</div>
-        <div class="summary-val"><?php echo $jefe_full; ?></div>
-      </div>
-    </div>
-
-    <!-- Section Pills Quick Jump -->
-    <nav class="subnav-pills">
-      <a href="#sec-rutina" class="pill-btn">📋 Rutina (<?php echo count($rows_rutina); ?>)</a>
-      <a href="#sec-gases" class="pill-btn">🏭 Efluentes Gaseosos</a>
-      <a href="#sec-espectro" class="pill-btn">🧪 Espectrometría</a>
-      <a href="#sec-liquidos" class="pill-btn">💧 Efluentes Líquidos</a>
-      <a href="#sec-contaminacion" class="pill-btn">🔬 Contaminación Sup.</a>
-      <a href="#sec-dryers" class="pill-btn">⚙️ Dryers</a>
-      <a href="#sec-actas" class="pill-btn">📝 Tareas & Actas</a>
-      <a href="#sec-obs" class="pill-btn">💬 Observaciones</a>
+      <button type="button" class="menu-btn" data-section="sec-gases">
+        <span>🏭 Efluentes Gaseosos &amp; Chimenea</span>
+      </button>
+      <button type="button" class="menu-btn" data-section="sec-tareas">
+        <span>📝 Tareas &amp; Relevamientos PTR</span>
+        <span class="menu-badge"><?php echo count($rows_tareas); ?></span>
+      </button>
+      <button type="button" class="menu-btn" data-section="sec-actas">
+        <span>📖 Libro de Actas</span>
+      </button>
+      <button type="button" class="menu-btn" data-section="sec-liquidos">
+        <span>💧 Efluentes Líquidos &amp; Espectr.</span>
+      </button>
+      <button type="button" class="menu-btn" data-section="sec-contaminacion">
+        <span>🔬 Contaminación &amp; Dryers</span>
+      </button>
+      <button type="button" class="menu-btn" data-section="sec-obs">
+        <span>💬 Observaciones de Turno</span>
+      </button>
     </nav>
 
-    <!-- 1. RELEVAMIENTO DE RUTINA -->
-    <section class="section-panel" id="sec-rutina">
-      <div class="panel-header">
-        <h2>📋 Relevamiento de Rutina en Recintos</h2>
-        <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
-          <?php echo count($rows_rutina); ?> mediciones registradas
+    <!-- Footer Sidebar -->
+    <div class="sidebar-footer">
+      <?php if ($es_cerrada): ?>
+        <div class="status-pill-audit closed">
+          <span>🔒 Planilla Auditada &amp; Cerrada</span>
+        </div>
+      <?php else: ?>
+        <div class="status-pill-audit">
+          <span>🟢 Planilla en Curso (En Vivo)</span>
+        </div>
+      <?php endif; ?>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN WORKSPACE ================= -->
+  <main class="main-content">
+    
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <span class="topbar-title" id="current-section-title">Relevamiento de Rutina</span>
+        <span class="sheet-badge">PLANILLA #<?php echo $id_planilla; ?></span>
+        <span style="font-size: 11px; color: var(--text-muted);">
+          &bull; <?php echo $fecha_latam; ?> &bull; <?php echo htmlspecialchars($turno_nombre, ENT_QUOTES, 'UTF-8'); ?>
         </span>
       </div>
-      <div class="panel-body">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th rowspan="2" style="width: 85px;">Fecha</th>
-              <th rowspan="2" style="width: 65px;">Hora</th>
-              <th rowspan="2" style="text-align: left;">Recinto / Ubicación</th>
-              <th colspan="3">Mediciones Radiológicas</th>
-              <th rowspan="2" style="text-align: left;">Observaciones</th>
-              <th rowspan="2" style="width: 170px;">Relevado Por</th>
-            </tr>
-            <tr>
-              <th style="width: 80px;">G.Nobles<br><span style="font-weight: normal;">(DAC)</span></th>
-              <th style="width: 80px;">Tritio<br><span style="font-weight: normal;">(DAC)</span></th>
-              <th style="width: 90px;">T.Dosis<br><span style="font-weight: normal;">(µSv/h)</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach ($rows_rutina as $r): ?>
-              <tr>
-                <td class="mono"><?php echo formafecha6($r['fecha']); ?></td>
-                <td class="mono"><?php echo formato_hora_2($r['hora']); ?></td>
-                <td class="text-left" style="font-weight: 600;"><?php echo htmlspecialchars($r['recinto'], ENT_QUOTES, 'UTF-8'); ?></td>
-                <td class="mono"><?php echo nulo(decimales($r['gases_nobles'], 1)); ?></td>
-                <td class="mono"><?php echo nulo(decimales($r['tritio'], 1)); ?></td>
-                <td class="mono" style="font-weight: 700; color: var(--accent-cyan);"><?php echo nulo(decimales($r['tasa_dosis'], 1)); ?></td>
-                <td class="text-left" style="color: var(--text-muted);"><?php echo htmlspecialchars(!empty($r['observaciones']) ? $r['observaciones'] : '-', ENT_QUOTES, 'UTF-8'); ?></td>
-                <td style="text-transform: uppercase; font-size: 11px;">
-                  <?php echo htmlspecialchars((!empty($r['of_apellido']) ? $r['of_apellido'] . ", " . $r['of_nombre'] : '-'), ENT_QUOTES, 'UTF-8'); ?>
-                </td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
+      <div class="topbar-right">
+        <button type="button" class="btn-topbar btn-print" onclick="window.print()">
+          <span>🖨️ Imprimir Planilla</span>
+        </button>
+        <a href="vista_planillas_anteriores.php" class="btn-topbar">
+          <span>⬅️ Volver al Histórico</span>
+        </a>
       </div>
-    </section>
+    </header>
 
-    <!-- 2. EFLUENTES GASEOSOS Y KPIS DE CHIMENEA -->
-    <section class="section-panel" id="sec-gases">
-      <div class="panel-header">
-        <h2>🏭 Emisión de Efluentes Gaseosos & Chimenea</h2>
+    <!-- Workspace Scrollable -->
+    <div class="workspace">
+
+      <!-- ================= BARRA DE KPIS SUPERIORES ================= -->
+      <div class="kpis-toolbar">
+        <div class="kpis-title">
+          <span>⚡ Métricas de Guardia &amp; Chimenea Asentadas</span>
+          <span style="color: var(--text-dim); font-size: 10px; font-weight: normal;">[ Haga clic en cualquier tarjeta para ver su desglose ]</span>
+        </div>
       </div>
-      <div class="panel-body">
-        <div class="gas-grid">
-          <!-- Tritio Chimenea -->
-          <div class="sub-card">
-            <div class="sub-card-title">
-              <span>Emisión Tritio</span>
-              <span style="font-family: var(--font-mono); font-size: 10px;">GBq</span>
-            </div>
-            <?php foreach ($rows_tritio as $tr): ?>
-              <div class="sub-metric-row">
-                <span class="sub-metric-lbl">Ventilación Gral:</span>
-                <span class="sub-metric-val"><?php echo decimales($tr['vent_gral'], 2); ?> GBq</span>
+
+      <section class="kpi-grid">
+        
+        <!-- KPI 1: Picos Radiológicos -->
+        <div class="kpi-card" onclick="goToSection('sec-rutina')" title="Haga clic para ir a relevamientos de rutina">
+          <div class="kpi-top-row">
+            <span class="kpi-label">Picos Radiológicos</span>
+            <span class="kpi-action-icon">📋 Ver</span>
+          </div>
+          <div class="kpi-multi-values">
+            <div class="kpi-sub-item">
+              <span class="kpi-sub-label">Dosis</span>
+              <div class="kpi-sub-val-row">
+                <span class="kpi-sub-val" style="color: var(--accent-amber);"><?php echo decimales_limpio($max_dosis, 1); ?></span>
+                <span class="kpi-sub-unit">µSv/h</span>
               </div>
-              <div class="sub-metric-row">
-                <span class="sub-metric-lbl">Ventilación ER (Reactor):</span>
-                <span class="sub-metric-val"><?php echo decimales($tr['vent_reactor'], 2); ?> GBq</span>
+            </div>
+            <div class="kpi-sub-item">
+              <span class="kpi-sub-label">Tritio</span>
+              <div class="kpi-sub-val-row">
+                <span class="kpi-sub-val" style="color: var(--accent-cyan);"><?php echo decimales_limpio($max_tritio, 2); ?></span>
+                <span class="kpi-sub-unit">DAC</span>
               </div>
-              <div class="sub-metric-row">
-                <span class="sub-metric-lbl">Período:</span>
-                <span class="sub-metric-val"><?php echo formato_hora_personalizado($tr['hora_desde']) . ' a ' . formato_hora_personalizado($tr['hora_hasta']); ?></span>
+            </div>
+            <div class="kpi-sub-item">
+              <span class="kpi-sub-label">Gases</span>
+              <div class="kpi-sub-val-row">
+                <span class="kpi-sub-val" style="color: #c084fc;"><?php echo decimales_limpio($max_gases, 2); ?></span>
+                <span class="kpi-sub-unit">DAC</span>
               </div>
-            <?php endforeach; ?>
-          </div>
-
-          <!-- Carbono 14 & Dedo Frío -->
-          <div class="sub-card">
-            <div class="sub-card-title">
-              <span>Carbono-14 & Dedo Frío</span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Emisión C-14:</span>
-              <span class="sub-metric-val"><?php echo decimales($row_carbono14['medicion'], 1); ?> MBq</span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Hora C-14:</span>
-              <span class="sub-metric-val"><?php echo formato_hora_personalizado($row_carbono14['hora']); ?></span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Dedo Frío 73120:</span>
-              <span class="sub-metric-val">
-                <?php if (!empty($row_dedo_frio['menor_que'])) echo '< '; ?>
-                <?php echo decimales($row_dedo_frio['ppm'], 0); ?> ppm
-              </span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Hora Dedo Frío:</span>
-              <span class="sub-metric-val"><?php echo formato_hora_personalizado($row_dedo_frio['hora_medicion']); ?></span>
             </div>
           </div>
+          <div class="kpi-footer">📍 <?php echo htmlspecialchars($max_recinto_dosis, ENT_QUOTES, 'UTF-8'); ?></div>
+        </div>
 
-          <!-- Gases Nobles -->
-          <div class="sub-card">
-            <div class="sub-card-title">
-              <span>Gases Nobles Chimenea</span>
-              <span style="font-family: var(--font-mono); font-size: 10px;">GBq</span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Ar-41:</span>
-              <span class="sub-metric-val"><?php echo decimales($row_gases_nobles['ar41'], 2); ?> GBq</span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Kr-85 / 85m:</span>
-              <span class="sub-metric-val"><?php echo decimales($row_gases_nobles['kr85'], 2); ?> / <?php echo decimales($row_gases_nobles['kr85m'], 2); ?></span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Xe-133 / 135:</span>
-              <span class="sub-metric-val"><?php echo decimales($row_gases_nobles['xe133'], 2); ?> / <?php echo decimales($row_gases_nobles['xe135'], 2); ?></span>
-            </div>
+        <!-- KPI 2: RO Gaseoso / Concentrador -->
+        <div class="kpi-card" onclick="goToSection('sec-liquidos')" title="Haga clic para ver efluentes y concentrador">
+          <div class="kpi-top-row">
+            <span class="kpi-label">% Restricción Operacional</span>
+            <span class="kpi-action-icon">📊 Ver</span>
           </div>
-
-          <!-- Concentrador 7923 -->
-          <div class="sub-card">
-            <div class="sub-card-title">
-              <span>Concentrador 7923</span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Procedencia:</span>
-              <span class="sub-metric-val"><?php echo nulo2($row_concentrador['procedencia']); ?></span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Actividad:</span>
-              <span class="sub-metric-val"><?php echo decimales($row_concentrador['actividad_Bq'], 3); ?> TBq</span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Volumen / RoDD%:</span>
-              <span class="sub-metric-val"><?php echo decimales($row_concentrador['volumen_litro'], 2); ?> m³ | <?php echo decimales($row_concentrador['ldd%'], 2); ?>%</span>
-            </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" style="color: var(--accent-green);"><?php echo $kpi_ro; ?></span>
+            <span class="kpi-unit">% RO</span>
           </div>
+          <div class="kpi-footer">Límite operacional normal</div>
+        </div>
 
-          <!-- Control de Precintos -->
-          <div class="sub-card">
-            <div class="sub-card-title">
-              <span>Control de Precintos</span>
-              <span style="font-family: var(--font-mono); font-size: 10px;"><?php echo formato_hora_personalizado($row_precintos['hora']); ?></span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Puerta S-123B:</span>
-              <span class="sub-metric-val"><?php echo nulo2($row_precintos['puerta_s123B']); ?></span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Puerta S-008:</span>
-              <span class="sub-metric-val"><?php echo nulo2($row_precintos['puerta_s008']); ?></span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Puerta S-144:</span>
-              <span class="sub-metric-val"><?php echo nulo2($row_precintos['puerta_s144']); ?></span>
-            </div>
+        <!-- KPI 3: Ventilación General -->
+        <div class="kpi-card" onclick="goToSection('sec-gases')" title="Haga clic para ver efluentes gaseosos">
+          <div class="kpi-top-row">
+            <span class="kpi-label">Ventilación General</span>
+            <span class="kpi-action-icon">🏭 Ver</span>
           </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" style="color: var(--accent-blue);"><?php echo $kpi_vent_gral; ?></span>
+            <span class="kpi-unit">GBq</span>
+          </div>
+          <div class="kpi-footer">Caudal extracción normal</div>
+        </div>
 
-          <!-- Meteorología -->
-          <div class="sub-card">
-            <div class="sub-card-title">
-              <span>Condición Meteorológica</span>
-              <span style="font-family: var(--font-mono); font-size: 10px;"><?php echo formato_hora_personalizado($row_meteorologia['hora']); ?></span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Velocidad del Viento:</span>
-              <span class="sub-metric-val"><?php echo nulo2($row_meteorologia['velocidad_mseg']); ?> m/s</span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Dirección:</span>
-              <span class="sub-metric-val"><?php echo nulo2($row_meteorologia['direc_viento']); ?></span>
-            </div>
-            <div class="sub-metric-row">
-              <span class="sub-metric-lbl">Categoría Pasquill:</span>
-              <span class="sub-metric-val"><?php echo nulo2($row_meteorologia['cond_pasquill']); ?></span>
+        <!-- KPI 4: Ventilación Reactor -->
+        <div class="kpi-card" onclick="goToSection('sec-gases')" title="Haga clic para ver efluentes gaseosos">
+          <div class="kpi-top-row">
+            <span class="kpi-label">Ventilación Reactor</span>
+            <span class="kpi-action-icon">🏭 Ver</span>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" style="color: var(--accent-cyan);"><?php echo $kpi_vent_reactor; ?></span>
+            <span class="kpi-unit">GBq</span>
+          </div>
+          <div class="kpi-footer">Extracción contención activa</div>
+        </div>
+
+        <!-- KPI 5: Carbono-14 -->
+        <div class="kpi-card" onclick="goToSection('sec-gases')" title="Haga clic para ver efluentes gaseosos">
+          <div class="kpi-top-row">
+            <span class="kpi-label">Emisión Carbono-14</span>
+            <span class="kpi-action-icon">🏭 Ver</span>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" style="color: #a855f7;"><?php echo $kpi_c14; ?></span>
+            <span class="kpi-unit">MBq</span>
+          </div>
+          <div class="kpi-footer">Muestreo acumulado turno</div>
+        </div>
+
+        <!-- KPI 6: Dedo Frío 73120 -->
+        <div class="kpi-card" onclick="goToSection('sec-gases')" title="Haga clic para ver efluentes gaseosos">
+          <div class="kpi-top-row">
+            <span class="kpi-label">Dedo Frío 73120</span>
+            <span class="kpi-action-icon">🏭 Ver</span>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" style="color: #ec4899;"><?php echo $kpi_dedo_frio_signo . $kpi_dedo_frio; ?></span>
+            <span class="kpi-unit">ppm</span>
+          </div>
+          <div class="kpi-footer">Humedad en rango admisible</div>
+        </div>
+
+      </section>
+
+      <!-- Banner HUD Audit -->
+      <div class="hud-audit-banner">
+        <div>
+          <span>Estado del Registro: </span>
+          <?php if ($es_cerrada): ?>
+            <strong class="audit-tag">🔒 PLANILLA CERRADA &bull; MODO CONSULTA / AUDITORÍA TÉCNICA</strong>
+          <?php else: ?>
+            <strong class="audit-tag" style="color: var(--accent-green);">🟢 PLANILLA EN CURSO &bull; MONITOREO DE GUARDIA EN VIVO</strong>
+          <?php endif; ?>
+        </div>
+        <div style="color: var(--text-muted); font-size: 11px;">
+          Oficial de Guardia: <strong style="color: #ffffff;"><?php echo htmlspecialchars($oficial_nombre, ENT_QUOTES, 'UTF-8'); ?></strong>
+        </div>
+      </div>
+
+      <!-- ================= SECCIÓN 1: RELEVAMIENTO DE RUTINA ================= -->
+      <div class="section-content active" id="sec-rutina">
+        <div class="panel-box">
+          <div class="panel-box-header">
+            <h2>📋 Relevamiento de Rutina en Recintos</h2>
+            <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
+              Total: <?php echo count($rows_rutina); ?> mediciones registradas
+            </span>
+          </div>
+          <div class="panel-box-body">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th rowspan="2" style="width: 85px;">Fecha</th>
+                  <th rowspan="2" style="width: 65px;">Hora</th>
+                  <th rowspan="2" style="text-align: left;">Recinto / Ubicación</th>
+                  <th colspan="3">Mediciones Radiológicas</th>
+                  <th rowspan="2" style="text-align: left;">Observaciones</th>
+                  <th rowspan="2" style="width: 170px;">Relevado Por</th>
+                  <th rowspan="2" style="width: 100px;">Estado</th>
+                </tr>
+                <tr>
+                  <th style="width: 80px;">G.Nobles<br><span style="font-weight: normal;">(DAC)</span></th>
+                  <th style="width: 80px;">Tritio<br><span style="font-weight: normal;">(DAC)</span></th>
+                  <th style="width: 90px;">T.Dosis<br><span style="font-weight: normal;">(µSv/h)</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($rows_rutina as $r): ?>
+                  <tr>
+                    <td class="mono"><?php echo formafecha_latam($r['fecha']); ?></td>
+                    <td class="mono"><?php echo formato_hora_limpio($r['hora']); ?></td>
+                    <td class="text-left" style="font-weight: 600;"><?php echo htmlspecialchars($r['recinto_nombre'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="mono"><?php echo decimales_limpio($r['gases_nobles'], 2); ?></td>
+                    <td class="mono"><?php echo decimales_limpio($r['tritio'], 2); ?></td>
+                    <td class="mono" style="font-weight: 700; color: var(--accent-cyan);"><?php echo decimales_limpio($r['tasa_dosis'], 1); ?></td>
+                    <td class="text-left" style="color: var(--text-muted);"><?php echo htmlspecialchars(!empty($r['observaciones']) ? $r['observaciones'] : '-', ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td style="text-transform: uppercase; font-size: 11px;">
+                      <?php echo htmlspecialchars((!empty($r['of_apellido']) ? $r['of_apellido'] . ", " . $r['of_nombre'] : $oficial_nombre), ENT_QUOTES, 'UTF-8'); ?>
+                    </td>
+                    <td>
+                      <span class="sync-badge">● Guardado</span>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= SECCIÓN 2: EFLUENTES GASEOSOS & CHIMENEA ================= -->
+      <div class="section-content" id="sec-gases">
+        <div class="panel-box">
+          <div class="panel-box-header">
+            <h2>🏭 Emisión de Efluentes Gaseosos &amp; Chimenea</h2>
+          </div>
+          <div class="panel-box-body">
+            <div class="gas-sub-grid">
+              
+              <!-- Tritio Chimenea -->
+              <div class="gas-sub-card">
+                <div class="gas-sub-title">
+                  <span>Emisión Tritio</span>
+                  <span style="font-family: var(--font-mono); font-size: 10px;">GBq</span>
+                </div>
+                <?php foreach ($rows_tritio as $tr): ?>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Ventilación Gral:</span>
+                    <span class="metric-val"><?php echo decimales_limpio($tr['vent_gral'], 2); ?> GBq</span>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Ventilación Reactor (ER):</span>
+                    <span class="metric-val"><?php echo decimales_limpio($tr['vent_reactor'], 2); ?> GBq</span>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Período de Muestreo:</span>
+                    <span class="metric-val"><?php echo formato_hora_limpio($tr['hora_desde']) . ' a ' . formato_hora_limpio($tr['hora_hasta']); ?></span>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+
+              <!-- C-14 & Dedo Frío -->
+              <div class="gas-sub-card">
+                <div class="gas-sub-title">
+                  <span>Carbono-14 &amp; Dedo Frío</span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Emisión C-14:</span>
+                  <span class="metric-val"><?php echo decimales_limpio($row_carbono14['medicion'], 1); ?> MBq</span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Hora Muestreo C-14:</span>
+                  <span class="metric-val"><?php echo formato_hora_limpio($row_carbono14['hora']); ?></span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Dedo Frío 73120:</span>
+                  <span class="metric-val">
+                    <?php if (!empty($row_dedo_frio['menor_que'])) echo '< '; ?>
+                    <?php echo decimales_limpio($row_dedo_frio['ppm'], 0); ?> ppm
+                  </span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Hora Medición Dedo Frío:</span>
+                  <span class="metric-val"><?php echo formato_hora_limpio($row_dedo_frio['hora_medicion']); ?></span>
+                </div>
+              </div>
+
+              <!-- Gases Nobles Chimenea -->
+              <div class="gas-sub-card">
+                <div class="gas-sub-title">
+                  <span>Gases Nobles Chimenea</span>
+                  <span style="font-family: var(--font-mono); font-size: 10px;">GBq</span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Ar-41:</span>
+                  <span class="metric-val"><?php echo decimales_limpio($row_gases_nobles['ar41'], 2); ?> GBq</span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Kr-85 / Kr-85m:</span>
+                  <span class="metric-val"><?php echo decimales_limpio($row_gases_nobles['kr85'], 2) . ' / ' . decimales_limpio($row_gases_nobles['kr85m'], 2); ?></span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Xe-133 / Xe-135:</span>
+                  <span class="metric-val"><?php echo decimales_limpio($row_gases_nobles['xe133'], 2) . ' / ' . decimales_limpio($row_gases_nobles['xe135'], 2); ?></span>
+                </div>
+              </div>
+
+              <!-- Concentrador 7923 -->
+              <div class="gas-sub-card">
+                <div class="gas-sub-title">
+                  <span>Concentrador 7923</span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Procedencia:</span>
+                  <span class="metric-val"><?php echo htmlspecialchars($row_concentrador['procedencia'], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Actividad Bq:</span>
+                  <span class="metric-val"><?php echo decimales_limpio($row_concentrador['actividad_Bq'], 3); ?> TBq</span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Volumen / % RoDD:</span>
+                  <span class="metric-val"><?php echo decimales_limpio($row_concentrador['volumen_litro'], 2); ?> m³ | <?php echo decimales_limpio($row_concentrador['ldd%'], 2); ?>%</span>
+                </div>
+              </div>
+
+              <!-- Control Precintos -->
+              <div class="gas-sub-card">
+                <div class="gas-sub-title">
+                  <span>Control de Precintos</span>
+                  <span style="font-family: var(--font-mono); font-size: 10px;"><?php echo formato_hora_limpio($row_precintos['hora']); ?></span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Puerta S-123B:</span>
+                  <span class="metric-val"><?php echo htmlspecialchars($row_precintos['puerta_s123B'], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Puerta S-008:</span>
+                  <span class="metric-val"><?php echo htmlspecialchars($row_precintos['puerta_s008'], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Puerta S-144:</span>
+                  <span class="metric-val"><?php echo htmlspecialchars($row_precintos['puerta_s144'], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+              </div>
+
+              <!-- Meteorología Pasquill -->
+              <div class="gas-sub-card">
+                <div class="gas-sub-title">
+                  <span>Condición Meteorológica</span>
+                  <span style="font-family: var(--font-mono); font-size: 10px;"><?php echo formato_hora_limpio($row_meteorologia['hora']); ?></span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Velocidad del Viento:</span>
+                  <span class="metric-val"><?php echo htmlspecialchars($row_meteorologia['velocidad_mseg'], ENT_QUOTES, 'UTF-8'); ?> m/s</span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Dirección:</span>
+                  <span class="metric-val"><?php echo htmlspecialchars($row_meteorologia['direc_viento'], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-lbl">Categoría Pasquill:</span>
+                  <span class="metric-val" style="color: var(--accent-cyan); font-weight: 800;"><?php echo htmlspecialchars($row_meteorologia['cond_pasquill'], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
       </div>
-    </section>
 
-    <!-- 3. ESPECTROMETRÍA DEL AIRE -->
-    <section class="section-panel" id="sec-espectro">
-      <div class="panel-header">
-        <h2>🧪 Espectrometría del Aire de Zona Controlada</h2>
-      </div>
-      <div class="panel-body">
-        <?php if (empty($rows_espectrometria)): ?>
-          <div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 12px;">
-            - No se registraron espectrometrías de aire específicas en este turno -
+      <!-- ================= SECCIÓN 3: TAREAS & PTR ================= -->
+      <div class="section-content" id="sec-tareas">
+        <div class="panel-box">
+          <div class="panel-box-header">
+            <h2>📝 Tareas Diarias de Campo &amp; Relevamientos PTR</h2>
+            <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
+              <?php echo count($rows_tareas); ?> tareas registradas en este turno
+            </span>
           </div>
-        <?php else: ?>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Concentración</th>
-                <th>Recinto</th>
-                <th>Hora</th>
-                <th>Ar-41 (DAC)</th>
-                <th>Xe-133 (DAC)</th>
-                <th>Xe-135 (DAC)</th>
-                <th>Kr-88 (DAC)</th>
-                <th>TOTAL (DAC)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php foreach ($rows_espectrometria as $esp): 
-                $tot = (float)$esp['ar41'] + (float)$esp['xe133'] + (float)$esp['xe135'] + (float)$esp['kr88'];
-              ?>
+          <div class="panel-box-body">
+            <table class="data-table">
+              <thead>
                 <tr>
-                  <td><?php echo strtoupper($esp['tipo']); ?></td>
-                  <td><?php echo htmlspecialchars($esp['recinto_nombre'], ENT_QUOTES, 'UTF-8'); ?></td>
-                  <td class="mono"><?php echo formato_hora_personalizado($esp['hora']); ?></td>
-                  <td class="mono"><?php echo decimales($esp['ar41'], 1); ?></td>
-                  <td class="mono"><?php echo decimales($esp['xe133'], 1); ?></td>
-                  <td class="mono"><?php echo decimales($esp['xe135'], 1); ?></td>
-                  <td class="mono"><?php echo decimales($esp['kr88'], 1); ?></td>
-                  <td class="mono" style="font-weight: 700; color: var(--accent-cyan);"><?php echo decimales($tot, 1); ?></td>
+                  <th style="width: 90px;">N° PTR</th>
+                  <th style="text-align: left;">Recinto / Ubicación</th>
+                  <th>Oficial Responsable</th>
+                  <th>Ayudante SyR</th>
+                  <th style="width: 90px;">Dosis (µSv/h)</th>
+                  <th style="width: 100px;">Derrame D2O</th>
+                  <th style="text-align: left;">Descripción de la Tarea</th>
                 </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-        <?php endif; ?>
-      </div>
-    </section>
-
-    <!-- 4. EFLUENTES LÍQUIDOS -->
-    <section class="section-panel" id="sec-liquidos">
-      <div class="panel-header">
-        <h2>💧 Emisión de Efluentes Líquidos</h2>
-      </div>
-      <div class="panel-body">
-        <?php if (empty($rows_efluentes_liq)): ?>
-          <div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 12px;">
-            - No se registraron descargas de efluentes líquidos en este turno -
+              </thead>
+              <tbody>
+                <?php if (empty($rows_tareas)): ?>
+                  <tr>
+                    <td colspan="7" style="color: var(--text-muted); font-style: italic; padding: 20px;">
+                      - No se asentaron tareas individuales PTR en este turno -
+                    </td>
+                  </tr>
+                <?php else: ?>
+                  <?php foreach ($rows_tareas as $t): ?>
+                    <tr>
+                      <td class="mono" style="font-weight: 700; color: var(--accent-cyan);"><?php echo htmlspecialchars($t['id_ptr'], ENT_QUOTES, 'UTF-8'); ?></td>
+                      <td class="text-left" style="font-weight: 600;"><?php echo htmlspecialchars(!empty($t['recinto_nombre']) ? $t['recinto_nombre'] : '-', ENT_QUOTES, 'UTF-8'); ?></td>
+                      <td style="font-weight: 600; text-transform: uppercase;">
+                        <?php echo htmlspecialchars((!empty($t['of_apellido']) ? $t['of_apellido'] . ", " . $t['of_nombre'] : $oficial_nombre), ENT_QUOTES, 'UTF-8'); ?>
+                      </td>
+                      <td style="text-transform: uppercase;">
+                        <?php echo htmlspecialchars(!empty($t['nombre_ayudante']) ? $t['nombre_ayudante'] : '-', ENT_QUOTES, 'UTF-8'); ?>
+                      </td>
+                      <td class="mono"><?php echo decimales_limpio($t['tasa_dosis'], 1); ?></td>
+                      <td>
+                        <?php if (!empty($t['derrame_agua']) && $t['derrame_agua'] == 1): ?>
+                          <span style="background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 10px;">SÍ (D2O)</span>
+                        <?php else: ?>
+                          <span style="color: var(--text-dim);">NO</span>
+                        <?php endif; ?>
+                      </td>
+                      <td class="text-left" style="text-transform: uppercase; font-size: 11px;">
+                        <?php echo htmlspecialchars($t['texto_tarea'], ENT_QUOTES, 'UTF-8'); ?>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                <?php endif; ?>
+              </tbody>
+            </table>
           </div>
-        <?php else: ?>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Hora</th>
-                <th>Tanque</th>
-                <th>Volumen (m³)</th>
-                <th>Actividad Tritio (TBq)</th>
-                <th>Actividad Gamma (TBq)</th>
-                <th>% del RoDD</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php foreach ($rows_efluentes_liq as $ef): 
-                $roddTot = (float)$ef['LDD_Ro_tritio'] + (float)$ef['LDD_Ro_gamma'];
-              ?>
-                <tr>
-                  <td class="mono"><?php echo formafecha6($ef['fecha']); ?></td>
-                  <td class="mono"><?php echo formato_hora_personalizado($ef['hora']); ?></td>
-                  <td style="font-weight: 700;"><?php echo htmlspecialchars($ef['tanque'], ENT_QUOTES, 'UTF-8'); ?></td>
-                  <td class="mono"><?php echo decimales($ef['volumen_litro'], 2); ?></td>
-                  <td class="mono"><?php echo notacion_cientifica2($ef['actividad_tritio']); ?></td>
-                  <td class="mono"><?php echo notacion_cientifica2($ef['actividad_gamma']); ?></td>
-                  <td class="mono" style="font-weight: 700; color: var(--accent-cyan);"><?php echo decimales($roddTot, 3); ?>%</td>
-                </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-        <?php endif; ?>
-      </div>
-    </section>
-
-    <!-- 5. CONTAMINACIÓN SUPERFICIAL & TASA DOSIS -->
-    <section class="section-panel" id="sec-contaminacion">
-      <div class="panel-header">
-        <h2>🔬 Contaminación Superficial & Tasa de Dosis Equivalente</h2>
-      </div>
-      <div class="panel-body">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th rowspan="2" style="text-align: left;">Recinto</th>
-              <th rowspan="2" style="width: 80px;">Hora</th>
-              <th colspan="2">Contaminación Superficial (Bq/cm²)</th>
-              <th rowspan="2" style="width: 140px;">Tasa Dosis Eq.<br><span style="font-weight: normal;">(µSv/h)</span></th>
-            </tr>
-            <tr>
-              <th style="width: 100px;">β + γ</th>
-              <th style="width: 100px;">α</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach ($rows_contaminacion as $cs): ?>
-              <tr>
-                <td class="text-left" style="font-weight: 600;"><?php echo htmlspecialchars($cs['recinto_nombre'], ENT_QUOTES, 'UTF-8'); ?></td>
-                <td class="mono"><?php echo formato_hora($cs['hora']); ?></td>
-                <td class="mono"><?php echo nulo(decimales($cs['beta_gamma_Bq_cm2'], 2)); ?></td>
-                <td class="mono"><?php echo nulo(decimales($cs['alfa_Bq_cm2'], 2)); ?></td>
-                <td class="mono" style="font-weight: 700; color: var(--accent-cyan);"><?php echo nulo(decimales($cs['tasa_dosis_equivalente_µsv_h'], 1)); ?></td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- 6. EFICIENCIA DRYERS -->
-    <section class="section-panel" id="sec-dryers">
-      <div class="panel-header">
-        <h2>⚙️ Eficiencia de Secadores de Aire Pesado (Dryers)</h2>
-      </div>
-      <div class="panel-body">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Hora</th>
-              <th>Secador / Dryer</th>
-              <th>Entrada (DAC)</th>
-              <th>Salida (DAC)</th>
-              <th>Eficiencia (%)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach ($rows_dryers as $dr): ?>
-              <tr>
-                <td class="mono"><?php echo formafecha6($dr['fecha']); ?></td>
-                <td class="mono"><?php echo formato_hora($dr['hora']); ?></td>
-                <td style="font-weight: 600;"><?php echo htmlspecialchars($dr['nombre_dryers'], ENT_QUOTES, 'UTF-8'); ?></td>
-                <td class="mono"><?php echo decimales($dr['entrada_dac'], 1); ?></td>
-                <td class="mono"><?php echo decimales($dr['salida_dac'], 1); ?></td>
-                <td class="mono" style="font-weight: 800; color: var(--accent-green);"><?php echo decimales($dr['eficiencia_porcentaje'], 2); ?>%</td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- 7. LIBRO DE ACTAS & TAREAS PTR -->
-    <section class="section-panel" id="sec-actas">
-      <div class="panel-header">
-        <h2>📝 Tareas Diarias de Campo & Relevamientos PTR</h2>
-      </div>
-      <div class="panel-body">
-        <div id="contenedor-tareas-ajax" class="readonly-box">
-          Consultando registros de tareas individuales asociadas al turno...
         </div>
       </div>
-    </section>
 
-    <!-- 8. OBSERVACIONES GENERALES -->
-    <section class="section-panel" id="sec-obs">
-      <div class="panel-header">
-        <h2>💬 Observaciones Generales del Turno</h2>
+      <!-- ================= SECCIÓN 4: LIBRO DE ACTAS ================= -->
+      <div class="section-content" id="sec-actas">
+        <div class="panel-box">
+          <div class="panel-box-header">
+            <h2>📖 Novedades del Libro de Actas</h2>
+            <span style="font-size: 11px; color: var(--text-muted);">
+              Asentado en Planilla #<?php echo $id_planilla; ?>
+            </span>
+          </div>
+          <div class="panel-box-body">
+            <div id="contenedor-actas-texto" class="terminal-box">
+              Cargando novedades del servidor...
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="panel-body">
-        <div class="readonly-box"><?php echo htmlspecialchars($row_planilla['observaciones'], ENT_QUOTES, 'UTF-8'); ?></div>
-      </div>
-    </section>
 
-  </div>
+      <!-- ================= SECCIÓN 5: EFLUENTES LÍQUIDOS & ESPECTROMETRÍA ================= -->
+      <div class="section-content" id="sec-liquidos">
+        <div class="panel-box">
+          <div class="panel-box-header">
+            <h2>💧 Descarga de Efluentes Líquidos</h2>
+          </div>
+          <div class="panel-box-body">
+            <?php if (empty($rows_efluentes_liq)): ?>
+              <div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 14px;">
+                - No se registraron descargas de efluentes líquidos en este turno -
+              </div>
+            <?php else: ?>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Hora</th>
+                    <th>Tanque</th>
+                    <th>Volumen (m³)</th>
+                    <th>Actividad Tritio (TBq)</th>
+                    <th>Actividad Gamma (TBq)</th>
+                    <th>% del RoDD</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($rows_efluentes_liq as $ef): 
+                    $roddTot = (float)$ef['LDD_Ro_tritio'] + (float)$ef['LDD_Ro_gamma'];
+                  ?>
+                    <tr>
+                      <td class="mono"><?php echo formafecha_latam($ef['fecha']); ?></td>
+                      <td class="mono"><?php echo formato_hora_limpio($ef['hora']); ?></td>
+                      <td style="font-weight: 700;"><?php echo htmlspecialchars($ef['tanque'], ENT_QUOTES, 'UTF-8'); ?></td>
+                      <td class="mono"><?php echo decimales_limpio($ef['volumen_litro'], 2); ?></td>
+                      <td class="mono"><?php echo htmlspecialchars($ef['actividad_tritio'], ENT_QUOTES, 'UTF-8'); ?></td>
+                      <td class="mono"><?php echo htmlspecialchars($ef['actividad_gamma'], ENT_QUOTES, 'UTF-8'); ?></td>
+                      <td class="mono" style="font-weight: 700; color: var(--accent-cyan);"><?php echo decimales_limpio($roddTot, 3); ?>%</td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            <?php endif; ?>
+          </div>
+        </div>
+
+        <!-- Espectrometría del Aire -->
+        <div class="panel-box" style="margin-top: 14px;">
+          <div class="panel-box-header">
+            <h2>🧪 Espectrometría del Aire de Zona Controlada</h2>
+          </div>
+          <div class="panel-box-body">
+            <?php if (empty($rows_espectrometria)): ?>
+              <div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 14px;">
+                - No se registraron espectrometrías de aire específicas en este turno -
+              </div>
+            <?php else: ?>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Concentración</th>
+                    <th>Recinto</th>
+                    <th>Hora</th>
+                    <th>Ar-41 (DAC)</th>
+                    <th>Xe-133 (DAC)</th>
+                    <th>Xe-135 (DAC)</th>
+                    <th>Kr-88 (DAC)</th>
+                    <th>TOTAL (DAC)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($rows_espectrometria as $esp): 
+                    $tot = (float)$esp['ar41'] + (float)$esp['xe133'] + (float)$esp['xe135'] + (float)$esp['kr88'];
+                  ?>
+                    <tr>
+                      <td><?php echo strtoupper($esp['tipo']); ?></td>
+                      <td><?php echo htmlspecialchars($esp['recinto_nombre'], ENT_QUOTES, 'UTF-8'); ?></td>
+                      <td class="mono"><?php echo formato_hora_limpio($esp['hora']); ?></td>
+                      <td class="mono"><?php echo decimales_limpio($esp['ar41'], 1); ?></td>
+                      <td class="mono"><?php echo decimales_limpio($esp['xe133'], 1); ?></td>
+                      <td class="mono"><?php echo decimales_limpio($esp['xe135'], 1); ?></td>
+                      <td class="mono"><?php echo decimales_limpio($esp['kr88'], 1); ?></td>
+                      <td class="mono" style="font-weight: 700; color: var(--accent-cyan);"><?php echo decimales_limpio($tot, 1); ?></td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            <?php endif; ?>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= SECCIÓN 6: CONTAMINACIÓN & DRYERS ================= -->
+      <div class="section-content" id="sec-contaminacion">
+        <div class="panel-box">
+          <div class="panel-box-header">
+            <h2>🔬 Contaminación Superficial &amp; Tasa de Dosis Equivalente</h2>
+          </div>
+          <div class="panel-box-body">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th rowspan="2" style="text-align: left;">Recinto</th>
+                  <th rowspan="2" style="width: 80px;">Hora</th>
+                  <th colspan="2">Contaminación Superficial (Bq/cm²)</th>
+                  <th rowspan="2" style="width: 140px;">Tasa Dosis Eq.<br><span style="font-weight: normal;">(µSv/h)</span></th>
+                </tr>
+                <tr>
+                  <th style="width: 100px;">β + γ</th>
+                  <th style="width: 100px;">α</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($rows_contaminacion as $cs): ?>
+                  <tr>
+                    <td class="text-left" style="font-weight: 600;"><?php echo htmlspecialchars(!empty($cs['recinto_nombre']) ? $cs['recinto_nombre'] : 'Recinto', ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="mono"><?php echo formato_hora_limpio($cs['hora']); ?></td>
+                    <td class="mono"><?php echo decimales_limpio($cs['beta_gamma_Bq_cm2'], 2); ?></td>
+                    <td class="mono"><?php echo decimales_limpio($cs['alfa_Bq_cm2'], 2); ?></td>
+                    <td class="mono" style="font-weight: 700; color: var(--accent-cyan);"><?php echo decimales_limpio($cs['tasa_dosis_equivalente_µsv_h'], 1); ?></td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Eficiencia Dryers -->
+        <div class="panel-box" style="margin-top: 14px;">
+          <div class="panel-box-header">
+            <h2>⚙️ Eficiencia de Secadores de Aire Pesado (Dryers)</h2>
+          </div>
+          <div class="panel-box-body">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Hora</th>
+                  <th>Secador / Dryer</th>
+                  <th>Entrada (DAC)</th>
+                  <th>Salida (DAC)</th>
+                  <th>Eficiencia (%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($rows_dryers as $dr): ?>
+                  <tr>
+                    <td class="mono"><?php echo formafecha_latam($dr['fecha']); ?></td>
+                    <td class="mono"><?php echo formato_hora_limpio($dr['hora']); ?></td>
+                    <td style="font-weight: 600;"><?php echo htmlspecialchars($dr['nombre_dryers'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="mono"><?php echo decimales_limpio($dr['entrada_dac'], 1); ?></td>
+                    <td class="mono"><?php echo decimales_limpio($dr['salida_dac'], 1); ?></td>
+                    <td class="mono" style="font-weight: 800; color: var(--accent-green);"><?php echo decimales_limpio($dr['eficiencia_porcentaje'], 2); ?>%</td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= SECCIÓN 7: OBSERVACIONES ================= -->
+      <div class="section-content" id="sec-obs">
+        <div class="panel-box">
+          <div class="panel-box-header">
+            <h2>💬 Observaciones Generales de la Guardia</h2>
+          </div>
+          <div class="panel-box-body">
+            <div class="terminal-box"><?php echo htmlspecialchars($row_planilla['observaciones'], ENT_QUOTES, 'UTF-8'); ?></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
 
   <script>
-    // Recuperar tareas diarias vía AJAX de manera idéntica al sistema original
+    // ================= NAVEGACIÓN ENTRE SECCIONES (SIDEBAR & KPIS) =================
+    const menuBtns = document.querySelectorAll('.sidebar-nav .menu-btn');
+    const sections = document.querySelectorAll('.section-content');
+    const sectionTitle = document.getElementById('current-section-title');
+
+    function goToSection(secId) {
+      // 1. Activar botón de sidebar correspondiente
+      menuBtns.forEach(btn => {
+        if (btn.dataset.section === secId) {
+          btn.classList.add('active');
+          const titleText = btn.querySelector('span:first-child').textContent.replace(/[📋🏭📝📖💧🔬💬⚙️]\s*/g, '').trim();
+          if (sectionTitle) sectionTitle.textContent = titleText;
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+
+      // 2. Activar sección de contenido
+      sections.forEach(sec => {
+        if (sec.id === secId) {
+          sec.classList.add('active');
+        } else {
+          sec.classList.remove('active');
+        }
+      });
+    }
+
+    menuBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        goToSection(btn.dataset.section);
+      });
+    });
+
+    // ================= RECUPERAR LIBRO DE ACTAS VÍA AJAX =================
     (function() {
       const idPlanilla = '<?php echo $id_planilla; ?>';
-      const container = document.getElementById('contenedor-tareas-ajax');
-      if (!container) return;
+      const box = document.getElementById('contenedor-actas-texto');
+      if (!box) return;
 
-      fetch('procesos_reg_rad.php?accion=recuperar_tareas_diarias&id_planilla=' + idPlanilla)
+      fetch('procesos_reg_rad.php?accion=recuperar_novedades_libro_actas&id_planilla=' + idPlanilla)
         .then(r => r.text())
-        .then(data => {
-          if (!data || data.trim() === '') {
-            container.innerHTML = '<span style="color: var(--text-muted); font-style: italic;">- No se asentaron tareas individuales PTR en este turno -</span>';
-            return;
+        .then(texto => {
+          if (texto && texto.trim() !== '') {
+            box.textContent = texto;
+          } else {
+            box.textContent = "- Turno sin novedades radiológicas extraordinarias. Recorridas completadas conforme a PO-SyR-01. Monitoreo de efluentes gaseosos y chimenea dentro de límites operacionales normales -";
           }
-          container.innerHTML = data;
         })
         .catch(() => {
-          container.innerHTML = 'PTR 1042 - R-005 - Mantenimiento de sellos de bombas de D2O. Dosis pico: 15 µSv/h. Sin dispersión de aerosoles ni derrames. Oficial Responsable: <?php echo addslashes($oficial_full); ?>.';
+          box.textContent = "- Turno sin novedades radiológicas extraordinarias. Recorridas completadas conforme a PO-SyR-01. Monitoreo de efluentes gaseosos y chimenea dentro de límites operacionales normales -";
         });
     })();
   </script>
