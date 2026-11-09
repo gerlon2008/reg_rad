@@ -34,8 +34,8 @@ if ($current_hour >= 0 && $current_hour < 8) {
 // Variables por defecto (modo offline o fallback de demostración)
 $id_planilla_activa = 10843;
 $id_usuario_actual = isset($_SESSION['id_user']) ? $_SESSION['id_user'] : 1;
-$oficial_actual = isset($_SESSION['nombre_apellido']) ? $_SESSION['nombre_apellido'] : "Pérez, Juan";
-$jefe_turno_actual = "Gómez, Carlos";
+$oficial_actual = isset($_SESSION['nombre_apellido']) ? mb_strtoupper($_SESSION['nombre_apellido'], 'UTF-8') : "PEÑALOZA, JOSE";
+$jefe_turno_actual = "GÓMEZ, CARLOS";
 $estado_planta = "REACTOR EN POTENCIA 100%";
 $turno_actual_nombre = ($turno_default == 3) ? "Turno 3 (23:00 - 07:00)" : (($turno_default == 2) ? "Turno 2 (14:00 - 22:00)" : "Turno 1 (06:00 - 14:00)");
 
@@ -61,15 +61,17 @@ $turnos_array = array(
 );
 
 $jefes_array = array(
-  array('id' => 1, 'nombre' => 'Gómez, Carlos'),
-  array('id' => 2, 'nombre' => 'Martínez, Esteban'),
-  array('id' => 3, 'nombre' => 'Vázquez, Jorge')
+  array('id' => 1, 'nombre' => 'GÓMEZ, CARLOS'),
+  array('id' => 2, 'nombre' => 'MARTÍNEZ, ESTEBAN'),
+  array('id' => 3, 'nombre' => 'VÁZQUEZ, JORGE')
 );
 
 $oficiales_array = array(
-  array('id' => 1, 'nombre' => 'Pérez, Juan'),
-  array('id' => 2, 'nombre' => 'Rodríguez, Miguel'),
-  array('id' => 3, 'nombre' => 'Alonso, Fernando')
+  array('id' => 1, 'nombre' => 'PEÑALOZA, JOSE'),
+  array('id' => 2, 'nombre' => 'PÉREZ, JUAN'),
+  array('id' => 3, 'nombre' => 'RODRÍGUEZ, MIGUEL'),
+  array('id' => 4, 'nombre' => 'ALONSO, FERNANDO'),
+  array('id' => 5, 'nombre' => 'MARTÍNEZ, ESTEBAN')
 );
 
 $estados_planta_array = array(
@@ -80,9 +82,19 @@ $estados_planta_array = array(
 );
 
 $ayudantes_array = array(
-  array('id' => 1, 'nombre' => 'López, Ramón (P)'),
-  array('id' => 2, 'nombre' => 'Fernández, Pablo (Ayudante)'),
-  array('id' => 3, 'nombre' => 'Sosa, Marcelo (Parada)')
+  array('id' => 1, 'nombre' => 'ALTUNA, LEONARDO (P)'),
+  array('id' => 2, 'nombre' => 'CASTRO, DIEGO ANIBAL (P)'),
+  array('id' => 3, 'nombre' => 'GIL, RUBEN EDUARDO (P)'),
+  array('id' => 4, 'nombre' => 'GONZALEZ, PATRICIO OSCAR (P)'),
+  array('id' => 5, 'nombre' => 'PEÑALOZA, JOSE (P)'),
+  array('id' => 6, 'nombre' => 'ROJO, CARLOS (P)'),
+  array('id' => 7, 'nombre' => 'VARGAS, MATIAS (P)'),
+  array('id' => 8, 'nombre' => 'YEDRO, LEANDRO ADRIAN (P)'),
+  array('id' => 9, 'nombre' => 'GOMEZ, FRANCO (PARADA)'),
+  array('id' => 10, 'nombre' => 'MARCONI, MARIANO (PARADA)'),
+  array('id' => 11, 'nombre' => 'MORENO, LEANDRO (PARADA)'),
+  array('id' => 12, 'nombre' => 'OVIEDO, ANDRES (AYUDANTE)'),
+  array('id' => 13, 'nombre' => 'TICERA, GUILLERMO (AYUDANTE)')
 );
 
 $relevamientos_rutina_iniciales = array(
@@ -141,7 +153,7 @@ if (file_exists($miconex_path)) {
         if ($res_jef && mysql_num_rows($res_jef) > 0) {
             $jefes_array = array();
             while ($row = mysql_fetch_assoc($res_jef)) {
-                $jefes_array[] = array('id' => $row['id_jefes_turno'], 'nombre' => $row['jefe_apellido'] . ", " . $row['jefe_nombre']);
+                $jefes_array[] = array('id' => $row['id_jefes_turno'], 'nombre' => mb_strtoupper($row['jefe_apellido'] . ", " . $row['jefe_nombre'], 'UTF-8'));
             }
         }
 
@@ -150,7 +162,7 @@ if (file_exists($miconex_path)) {
         if ($res_of && mysql_num_rows($res_of) > 0) {
             $oficiales_array = array();
             while ($row = mysql_fetch_assoc($res_of)) {
-                $oficiales_array[] = array('id' => $row['id_of_rad'], 'nombre' => $row['of_apellido'] . ", " . $row['of_nombre']);
+                $oficiales_array[] = array('id' => $row['id_of_rad'], 'nombre' => mb_strtoupper($row['of_apellido'] . ", " . $row['of_nombre'], 'UTF-8'));
             }
         }
 
@@ -160,7 +172,7 @@ if (file_exists($miconex_path)) {
             $ayudantes_array = array();
             while ($row = mysql_fetch_assoc($res_per)) {
                 $tipo = ($row['id_rol'] == 1) ? '(P)' : (($row['id_rol'] == 2) ? '(Parada)' : '(Ayudante)');
-                $ayudantes_array[] = array('id' => $row['id'], 'nombre' => $row['apellido'] . ", " . $row['nombre'] . " " . $tipo);
+                $ayudantes_array[] = array('id' => $row['id'], 'nombre' => mb_strtoupper($row['apellido'] . ", " . $row['nombre'] . " " . $tipo, 'UTF-8'));
             }
         }
 
@@ -185,8 +197,8 @@ if (file_exists($miconex_path)) {
             }
             $turno_default = $row_abierta['turno'];
             $turno_actual_nombre = $row_abierta['horarios'];
-            $oficial_actual = $row_abierta['of_apellido'] . ", " . $row_abierta['of_nombre'];
-            $jefe_turno_actual = $row_abierta['jefe_apellido'] . ", " . $row_abierta['jefe_nombre'];
+            $oficial_actual = mb_strtoupper($row_abierta['of_apellido'] . ", " . $row_abierta['of_nombre'], 'UTF-8');
+            $jefe_turno_actual = mb_strtoupper($row_abierta['jefe_apellido'] . ", " . $row_abierta['jefe_nombre'], 'UTF-8');
             if (!empty($row_abierta['nombre_estado'])) {
                 $estado_planta = $row_abierta['nombre_estado'];
             }
@@ -1235,6 +1247,104 @@ if (file_exists($miconex_path)) {
       color: var(--accent-red);
     }
 
+    
+    /* ================= ANIMACIONES FUTURISTAS & EFECTOS HUD ================= */
+    @keyframes hud-scanline {
+      0% { transform: translateX(-100%); opacity: 0; }
+      50% { opacity: 0.9; }
+      100% { transform: translateX(250%); opacity: 0; }
+    }
+
+    .kpi-card::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #34d399, #10b981, transparent);
+      animation: hud-scanline 5s infinite ease-in-out;
+      pointer-events: none;
+    }
+
+    @keyframes cyber-pulse {
+      0%, 100% { box-shadow: 0 0 6px rgba(16, 185, 129, 0.4); transform: scale(1); }
+      50% { box-shadow: 0 0 16px rgba(52, 211, 153, 0.85), 0 0 4px #10b981; transform: scale(1.08); }
+    }
+
+    .status-dot {
+      animation: cyber-pulse 2.2s infinite ease-in-out !important;
+    }
+
+    .session-dot {
+      animation: cyber-pulse 2.8s infinite ease-in-out !important;
+    }
+
+    /* Brackets tácticos en esquinas de paneles */
+    .panel-box {
+      position: relative;
+    }
+
+    .panel-box::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0;
+      width: 10px; height: 10px;
+      border-top: 2px solid var(--accent-cyan);
+      border-left: 2px solid var(--accent-cyan);
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    .panel-box::after {
+      content: "";
+      position: absolute;
+      top: 0; right: 0;
+      width: 10px; height: 10px;
+      border-top: 2px solid var(--accent-cyan);
+      border-right: 2px solid var(--accent-cyan);
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    /* Efecto shimmer en botón primario */
+    .btn-register {
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
+      transition: all 0.2s ease;
+    }
+    .btn-register:hover {
+      box-shadow: 0 0 18px rgba(52, 211, 153, 0.6);
+      transform: translateY(-1px);
+    }
+    .btn-register::after {
+      content: "";
+      position: absolute;
+      top: -50%; left: -60%;
+      width: 40%; height: 200%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+      transform: rotate(25deg);
+      transition: all 0.6s ease;
+    }
+    .btn-register:hover::after {
+      left: 140%;
+    }
+
+    @keyframes row-slide-in {
+      from { opacity: 0; transform: translateY(-8px); background: rgba(16, 185, 129, 0.25); }
+      to { opacity: 1; transform: translateY(0); background: transparent; }
+    }
+
+    .data-table tbody tr.new-row {
+      animation: row-slide-in 0.45s ease-out;
+    }
+
+    /* Forzar mayúsculas en nombres y opciones */
+    .user-name, #topbar-jefe-turno, #sidebar-user-name, select option, #tasks-table td {
+      text-transform: uppercase;
+    }
+
     /* ================= MODALES Y TOASTS ================= */
     .modal-overlay {
       display: none;
@@ -1853,8 +1963,14 @@ if (file_exists($miconex_path)) {
                 </select>
               </div>
               <div class="field-group">
-                <label class="field-label">Oficial Responsable</label>
-                <input type="text" class="field-control" value="<?php echo htmlspecialchars($oficial_actual, ENT_QUOTES, 'UTF-8'); ?>" readonly>
+                <label class="field-label">Oficial Responsable <span style="color:var(--accent-cyan); font-size:9.5px; text-transform:none;">[Seleccionar]</span></label>
+                <select id="task-oficial" class="field-control" style="font-weight:700; color:#ffffff;">
+                  <?php foreach ($oficiales_array as $of) { ?>
+                    <option value="<?php echo htmlspecialchars($of['nombre'], ENT_QUOTES, 'UTF-8'); ?>" <?php if($of['nombre'] == $oficial_actual) echo "selected"; ?>>
+                      <?php echo htmlspecialchars($of['nombre'], ENT_QUOTES, 'UTF-8'); ?>
+                    </option>
+                  <?php } ?>
+                </select>
               </div>
               <div class="field-group">
                 <label class="field-label">Ayudante (Personal Autorizado)</label>
@@ -1896,6 +2012,7 @@ if (file_exists($miconex_path)) {
                 <tr>
                   <th>PTR</th>
                   <th>Recinto</th>
+                  <th>Oficial Responsable</th>
                   <th>Ayudante Asignado</th>
                   <th style="text-align: right;">Dosis Máx (µSv/h)</th>
                   <th>Riesgo D2O</th>
@@ -1907,9 +2024,10 @@ if (file_exists($miconex_path)) {
                 <tr>
                   <td class="num" style="font-weight: 700; color: var(--accent-cyan);">PTR-2026-0398</td>
                   <td>R-024 - Sala de Bombas PHT</td>
-                  <td>López, Ramón (P)</td>
+                  <td style="font-weight: 700;">PEÑALOZA, JOSE</td>
+                  <td>ALTUNA, LEONARDO (P)</td>
                   <td class="num">18.5</td>
-                  <td><span class="badge-amber">Sí (D2O)</span></td>
+                  <td><span class="badge-amber">SÍ (D2O)</span></td>
                   <td>Inspección de sello de bomba PHT-02</td>
                   <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
                 </tr>
@@ -2454,6 +2572,7 @@ if (file_exists($miconex_path)) {
       let tritioBadge = !isNaN(tNum) ? (tNum > 1.0 ? `<span class="badge-amber">${tNum.toFixed(2)}</span>` : tNum.toFixed(2)) : '-';
 
       const tr = document.createElement('tr');
+      tr.className = 'new-row';
       tr.setAttribute('data-dosis', isNaN(dNum) ? 0 : dNum);
       tr.setAttribute('data-tritio', isNaN(tNum) ? 0 : tNum);
       tr.setAttribute('data-gases', isNaN(gNum) ? 0 : gNum);
@@ -2659,13 +2778,15 @@ if (file_exists($miconex_path)) {
 
     // ================= TAREAS DE CAMPO & PTR =================
     function registerDailyTask() {
-      const ptr = document.getElementById('task-ptr').value;
+      const ptr = document.getElementById('task-ptr').value.trim();
       const recinto = document.getElementById('task-recinto').value;
+      const oficialSelect = document.getElementById('task-oficial');
+      const oficialNombre = (oficialSelect ? oficialSelect.value : document.getElementById('sidebar-user-name').textContent).toUpperCase();
       const ayudanteSelect = document.getElementById('task-ayudante');
-      const ayudanteNombre = ayudanteSelect.options[ayudanteSelect.selectedIndex].text;
+      const ayudanteNombre = ayudanteSelect.options[ayudanteSelect.selectedIndex].text.toUpperCase();
       const dosis = document.getElementById('task-dosis').value || '0.0';
       const derrame = document.getElementById('task-derrame').value;
-      const desc = document.getElementById('task-desc').value || 'Sin descripción';
+      const desc = (document.getElementById('task-desc').value || 'Sin descripción').toUpperCase();
 
       if (!ptr) {
         showToast('⚠️ Ingrese el número de PTR');
@@ -2675,12 +2796,15 @@ if (file_exists($miconex_path)) {
 
       const tbody = document.getElementById('tasks-table-body');
       const tr = document.createElement('tr');
+      tr.className = 'new-row';
+      tr.className = 'new-row';
       tr.innerHTML = `
-        <td class="num" style="font-weight: 700; color: var(--accent-cyan);">${ptr}</td>
+        <td class="num" style="font-weight: 700; color: var(--accent-cyan);">${ptr.toUpperCase()}</td>
         <td>${recinto}</td>
+        <td style="font-weight: 700; color: #ffffff;">${oficialNombre}</td>
         <td>${ayudanteNombre}</td>
         <td class="num">${dosis}</td>
-        <td>${derrame === '1' ? '<span class="badge-amber">Sí (D2O)</span>' : '<span style="color:var(--text-muted)">No</span>'}</td>
+        <td>${derrame === '1' ? '<span class="badge-amber">SÍ (D2O)</span>' : '<span style="color:var(--text-muted)">NO</span>'}</td>
         <td>${desc}</td>
         <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
       `;

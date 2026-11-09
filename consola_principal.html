@@ -1011,6 +1011,104 @@
       color: var(--accent-red);
     }
 
+    
+    /* ================= ANIMACIONES FUTURISTAS & EFECTOS HUD ================= */
+    @keyframes hud-scanline {
+      0% { transform: translateX(-100%); opacity: 0; }
+      50% { opacity: 0.9; }
+      100% { transform: translateX(250%); opacity: 0; }
+    }
+
+    .kpi-card::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #34d399, #10b981, transparent);
+      animation: hud-scanline 5s infinite ease-in-out;
+      pointer-events: none;
+    }
+
+    @keyframes cyber-pulse {
+      0%, 100% { box-shadow: 0 0 6px rgba(16, 185, 129, 0.4); transform: scale(1); }
+      50% { box-shadow: 0 0 16px rgba(52, 211, 153, 0.85), 0 0 4px #10b981; transform: scale(1.08); }
+    }
+
+    .status-dot {
+      animation: cyber-pulse 2.2s infinite ease-in-out !important;
+    }
+
+    .session-dot {
+      animation: cyber-pulse 2.8s infinite ease-in-out !important;
+    }
+
+    /* Brackets tácticos en esquinas de paneles */
+    .panel-box {
+      position: relative;
+    }
+
+    .panel-box::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0;
+      width: 10px; height: 10px;
+      border-top: 2px solid var(--accent-cyan);
+      border-left: 2px solid var(--accent-cyan);
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    .panel-box::after {
+      content: "";
+      position: absolute;
+      top: 0; right: 0;
+      width: 10px; height: 10px;
+      border-top: 2px solid var(--accent-cyan);
+      border-right: 2px solid var(--accent-cyan);
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    /* Efecto shimmer en botón primario */
+    .btn-register {
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
+      transition: all 0.2s ease;
+    }
+    .btn-register:hover {
+      box-shadow: 0 0 18px rgba(52, 211, 153, 0.6);
+      transform: translateY(-1px);
+    }
+    .btn-register::after {
+      content: "";
+      position: absolute;
+      top: -50%; left: -60%;
+      width: 40%; height: 200%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+      transform: rotate(25deg);
+      transition: all 0.6s ease;
+    }
+    .btn-register:hover::after {
+      left: 140%;
+    }
+
+    @keyframes row-slide-in {
+      from { opacity: 0; transform: translateY(-8px); background: rgba(16, 185, 129, 0.25); }
+      to { opacity: 1; transform: translateY(0); background: transparent; }
+    }
+
+    .data-table tbody tr.new-row {
+      animation: row-slide-in 0.45s ease-out;
+    }
+
+    /* Forzar mayúsculas en nombres y opciones */
+    .user-name, #topbar-jefe-turno, #sidebar-user-name, select option, #tasks-table td {
+      text-transform: uppercase;
+    }
+
     /* ================= MODALES Y TOASTS ================= */
     .modal-overlay {
       display: none;
@@ -1174,7 +1272,7 @@
     </nav>
 
     <div class="sidebar-user">
-      <div class="user-name" id="sidebar-user-name">Pérez, Juan</div>
+      <div class="user-name" id="sidebar-user-name">PEÑALOZA, JOSE</div>
       <div class="user-role">Oficial de Radioprotección</div>
       <div class="session-indicator">
         <div class="session-dot" id="session-status-dot"></div>
@@ -1204,10 +1302,10 @@
       
       </div>
       <div class="topbar-right">
-        <span>Jefe de Turno: <strong style="color: #ffffff;" id="topbar-jefe-turno">Gómez, Carlos</strong></span>
+        <span>Jefe de Turno: <strong style="color: #ffffff;" id="topbar-jefe-turno">GÓMEZ, CARLOS</strong></span>
         <span>•</span>
         <span>Fecha de Guardia: <strong style="color: #ffffff;" id="topbar-latam-date">09/11/2026</strong></span>
-        <div class="clock-pill" id="live-clock">12:57:00 hs</div>
+        <div class="clock-pill" id="live-clock">14:50:00 hs</div>
       </div>
     </header>
 
@@ -1348,7 +1446,7 @@
 
               <div class="field-group">
                 <label class="field-label">Hora <button id="btn-now" type="button" style="background:none; border:none; color:var(--accent-cyan); font-size:10px; cursor:pointer;" title="Hora actual">⚡Ahora</button></label>
-                <input type="text" id="q-hora" class="field-control mono latam-timepicker-input" value="12:57" placeholder="HH:MM">
+                <input type="text" id="q-hora" class="field-control mono latam-timepicker-input" value="14:50" placeholder="HH:MM">
               </div>
 
               <div class="field-group" style="position: relative;">
@@ -1408,8 +1506,8 @@
                   <td class="num">0.00</td>
                   <td class="num">0.45</td>
                   <td class="num"><span class="badge-amber">24.0</span></td>
-                  <td style="color: var(--text-muted);">Ronda inicial de verificación</td>
-                  <td>Pérez, Juan</td>
+                  <td style="color: var(--text-muted);">RONDA INICIAL DE VERIFICACIÓN</td>
+                  <td>PEÑALOZA, JOSE</td>
                   <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
                 </tr>
                 <tr data-dosis="4.5" data-tritio="1.20" data-gases="0.0" data-recinto="R-001 - Edificio de Contención (+15m)">
@@ -1419,8 +1517,8 @@
                   <td class="num">0.00</td>
                   <td class="num"><span class="badge-amber">1.20</span></td>
                   <td class="num">4.5</td>
-                  <td style="color: var(--text-muted);">Esclusa personal cerrada</td>
-                  <td>Pérez, Juan</td>
+                  <td style="color: var(--text-muted);">ESCLUSA PERSONAL CERRADA</td>
+                  <td>PEÑALOZA, JOSE</td>
                   <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
                 </tr>
               </tbody>
@@ -1657,15 +1755,31 @@
                 </select>
               </div>
               <div class="field-group">
-                <label class="field-label">Oficial Responsable</label>
-                <input type="text" class="field-control" value="Pérez, Juan" readonly>
+                <label class="field-label">Oficial Responsable <span style="color:var(--accent-cyan); font-size:9.5px; text-transform:none;">[Seleccionar]</span></label>
+                <select id="task-oficial" class="field-control" style="font-weight:700; color:#ffffff;">
+                                  <option value="PEÑALOZA, JOSE" selected>PEÑALOZA, JOSE</option>
+                <option value="PÉREZ, JUAN">PÉREZ, JUAN</option>
+                <option value="RODRÍGUEZ, MIGUEL">RODRÍGUEZ, MIGUEL</option>
+                <option value="ALONSO, FERNANDO">ALONSO, FERNANDO</option>
+                <option value="MARTÍNEZ, ESTEBAN">MARTÍNEZ, ESTEBAN</option>
+                </select>
               </div>
               <div class="field-group">
                 <label class="field-label">Ayudante (Personal Autorizado)</label>
                 <select id="task-ayudante" class="field-control">
-                                      <option value="1">López, Ramón (P)</option>
-                    <option value="2">Fernández, Pablo (Ayudante)</option>
-                    <option value="3">Sosa, Marcelo (Parada)</option>
+                                      <option value="1">ALTUNA, LEONARDO (P)</option>
+                    <option value="2">CASTRO, DIEGO ANIBAL (P)</option>
+                    <option value="3">GIL, RUBEN EDUARDO (P)</option>
+                    <option value="4">GONZALEZ, PATRICIO OSCAR (P)</option>
+                    <option value="5">PEÑALOZA, JOSE (P)</option>
+                    <option value="6">ROJO, CARLOS (P)</option>
+                    <option value="7">VARGAS, MATIAS (P)</option>
+                    <option value="8">YEDRO, LEANDRO ADRIAN (P)</option>
+                    <option value="9">GOMEZ, FRANCO (PARADA)</option>
+                    <option value="10">MARCONI, MARIANO (PARADA)</option>
+                    <option value="11">MORENO, LEANDRO (PARADA)</option>
+                    <option value="12">OVIEDO, ANDRES (AYUDANTE)</option>
+                    <option value="13">TICERA, GUILLERMO (AYUDANTE)</option>
                 </select>
               </div>
             </div>
@@ -1698,6 +1812,7 @@
                 <tr>
                   <th>PTR</th>
                   <th>Recinto</th>
+                  <th>Oficial Responsable</th>
                   <th>Ayudante Asignado</th>
                   <th style="text-align: right;">Dosis Máx (µSv/h)</th>
                   <th>Riesgo D2O</th>
@@ -1709,9 +1824,10 @@
                 <tr>
                   <td class="num" style="font-weight: 700; color: var(--accent-cyan);">PTR-2026-0398</td>
                   <td>R-024 - Sala de Bombas PHT</td>
-                  <td>López, Ramón (P)</td>
+                  <td style="font-weight: 700;">PEÑALOZA, JOSE</td>
+                  <td>ALTUNA, LEONARDO (P)</td>
                   <td class="num">18.5</td>
-                  <td><span class="badge-amber">Sí (D2O)</span></td>
+                  <td><span class="badge-amber">SÍ (D2O)</span></td>
                   <td>Inspección de sello de bomba PHT-02</td>
                   <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
                 </tr>
@@ -1795,7 +1911,7 @@
             <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 20px;">
               Al formalizar el cierre del turno:
               <br>• Se congela la planilla y se bloquea la edición de mediciones de rutina.
-              <br>• Se estampa la firma digital del <strong>Oficial de Radioprotección (Pérez, Juan)</strong> y del <strong>Jefe de Turno (Gómez, Carlos)</strong>.
+              <br>• Se estampa la firma digital del <strong>Oficial de Radioprotección (PEÑALOZA, JOSE)</strong> y del <strong>Jefe de Turno (GÓMEZ, CARLOS)</strong>.
               <br>• Se emite el reporte oficial inmutable en formato PDF para el archivo de SyR CNE.
             </p>
             <button class="btn-register" style="padding: 10px 24px; font-size: 13px;" onclick="closeShiftFormal()">
@@ -1837,7 +1953,7 @@
         <div id="night-shift-alert" style="padding: 12px; border-radius: 6px; background: rgba(6, 182, 212, 0.12); border: 1px solid var(--accent-cyan); font-size: 11.5px; color: var(--accent-cyan); margin-bottom: 14px; ">
           <strong>ℹ️ Detección Inteligente de Turno Noche:</strong>
           <br>
-          La hora actual es de madrugada (<strong>12:57 hs</strong>). Dado que el Turno Noche inició a las 23:00 hs de ayer, el sistema asignó automáticamente la fecha operativa a <strong>AYER (09/11/2026)</strong> para evitar el error de desfase de día.
+          La hora actual es de madrugada (<strong>14:50 hs</strong>). Dado que el Turno Noche inició a las 23:00 hs de ayer, el sistema asignó automáticamente la fecha operativa a <strong>AYER (09/11/2026)</strong> para evitar el error de desfase de día.
           <div style="margin-top: 8px; display: flex; gap: 8px;">
             <button type="button" style="background: rgba(255,255,255,0.1); border: 1px solid var(--border-card); color: #fff; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" onclick="setShiftDate('today')">Usar fecha de Hoy</button>
             <button type="button" style="background: var(--accent-cyan); border: none; color: #000; font-weight:700; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" onclick="setShiftDate('yesterday')">Usar fecha de Ayer</button>
@@ -1848,17 +1964,19 @@
           <div class="field-group">
             <label class="field-label">Oficial a Cargo</label>
             <select class="field-control" id="modal-select-oficial">
-                              <option value="Pérez, Juan" selected>Pérez, Juan</option>
-                <option value="Rodríguez, Miguel">Rodríguez, Miguel</option>
-                <option value="Alonso, Fernando">Alonso, Fernando</option>
+                              <option value="PEÑALOZA, JOSE" selected>PEÑALOZA, JOSE</option>
+                <option value="PÉREZ, JUAN">PÉREZ, JUAN</option>
+                <option value="RODRÍGUEZ, MIGUEL">RODRÍGUEZ, MIGUEL</option>
+                <option value="ALONSO, FERNANDO">ALONSO, FERNANDO</option>
+                <option value="MARTÍNEZ, ESTEBAN">MARTÍNEZ, ESTEBAN</option>
             </select>
           </div>
           <div class="field-group">
             <label class="field-label">Jefe de Turno</label>
             <select class="field-control" id="modal-select-jefe">
-                              <option value="Gómez, Carlos" selected>Gómez, Carlos</option>
-                <option value="Martínez, Esteban">Martínez, Esteban</option>
-                <option value="Vázquez, Jorge">Vázquez, Jorge</option>
+                              <option value="GÓMEZ, CARLOS" selected>GÓMEZ, CARLOS</option>
+                <option value="MARTÍNEZ, ESTEBAN">MARTÍNEZ, ESTEBAN</option>
+                <option value="VÁZQUEZ, JORGE">VÁZQUEZ, JORGE</option>
             </select>
           </div>
         </div>
@@ -2249,6 +2367,7 @@
       let tritioBadge = !isNaN(tNum) ? (tNum > 1.0 ? `<span class="badge-amber">${tNum.toFixed(2)}</span>` : tNum.toFixed(2)) : '-';
 
       const tr = document.createElement('tr');
+      tr.className = 'new-row';
       tr.setAttribute('data-dosis', isNaN(dNum) ? 0 : dNum);
       tr.setAttribute('data-tritio', isNaN(tNum) ? 0 : tNum);
       tr.setAttribute('data-gases', isNaN(gNum) ? 0 : gNum);
@@ -2454,13 +2573,15 @@
 
     // ================= TAREAS DE CAMPO & PTR =================
     function registerDailyTask() {
-      const ptr = document.getElementById('task-ptr').value;
+      const ptr = document.getElementById('task-ptr').value.trim();
       const recinto = document.getElementById('task-recinto').value;
+      const oficialSelect = document.getElementById('task-oficial');
+      const oficialNombre = (oficialSelect ? oficialSelect.value : document.getElementById('sidebar-user-name').textContent).toUpperCase();
       const ayudanteSelect = document.getElementById('task-ayudante');
-      const ayudanteNombre = ayudanteSelect.options[ayudanteSelect.selectedIndex].text;
+      const ayudanteNombre = ayudanteSelect.options[ayudanteSelect.selectedIndex].text.toUpperCase();
       const dosis = document.getElementById('task-dosis').value || '0.0';
       const derrame = document.getElementById('task-derrame').value;
-      const desc = document.getElementById('task-desc').value || 'Sin descripción';
+      const desc = (document.getElementById('task-desc').value || 'Sin descripción').toUpperCase();
 
       if (!ptr) {
         showToast('⚠️ Ingrese el número de PTR');
@@ -2470,12 +2591,15 @@
 
       const tbody = document.getElementById('tasks-table-body');
       const tr = document.createElement('tr');
+      tr.className = 'new-row';
+      tr.className = 'new-row';
       tr.innerHTML = `
-        <td class="num" style="font-weight: 700; color: var(--accent-cyan);">${ptr}</td>
+        <td class="num" style="font-weight: 700; color: var(--accent-cyan);">${ptr.toUpperCase()}</td>
         <td>${recinto}</td>
+        <td style="font-weight: 700; color: #ffffff;">${oficialNombre}</td>
         <td>${ayudanteNombre}</td>
         <td class="num">${dosis}</td>
-        <td>${derrame === '1' ? '<span class="badge-amber">Sí (D2O)</span>' : '<span style="color:var(--text-muted)">No</span>'}</td>
+        <td>${derrame === '1' ? '<span class="badge-amber">SÍ (D2O)</span>' : '<span style="color:var(--text-muted)">NO</span>'}</td>
         <td>${desc}</td>
         <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
       `;
