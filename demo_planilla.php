@@ -657,6 +657,68 @@ if (file_exists($miconex_path)) {
       font-weight: 700;
     }
 
+    /* ================= SEARCHABLE DROPDOWN (BUSCADOR DE RECINTOS TIPO SELECT2) ================= */
+    .searchable-select-wrapper {
+      position: relative;
+      width: 100%;
+    }
+
+    .searchable-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      max-height: 240px;
+      overflow-y: auto;
+      background: #0f172a;
+      border: 1px solid var(--accent-cyan);
+      border-radius: 6px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.85);
+      z-index: 500;
+    }
+
+    .searchable-dropdown.open {
+      display: block;
+    }
+
+    .searchable-item {
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #f1f5f9;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      transition: background 0.1s ease;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .searchable-item:last-child {
+      border-bottom: none;
+    }
+
+    .searchable-item:hover,
+    .searchable-item.highlighted {
+      background: rgba(6, 182, 212, 0.22);
+      color: #ffffff;
+    }
+
+    .searchable-item mark {
+      background: transparent;
+      color: var(--accent-cyan);
+      font-weight: 800;
+      text-decoration: underline;
+    }
+
+    .searchable-empty {
+      padding: 12px;
+      font-size: 11.5px;
+      color: var(--text-dim);
+      text-align: center;
+      font-style: italic;
+    }
+
     .kpi-card::before {
       content: "";
       position: absolute;
@@ -1210,16 +1272,13 @@ if (file_exists($miconex_path)) {
                 <input type="text" id="q-hora" class="field-control mono" value="<?php echo $hora_actual; ?>" placeholder="HH:MM">
               </div>
 
-              <div class="field-group">
-                <label class="field-label">Recinto de Planta</label>
-                <select id="q-recinto" class="field-control">
-                  <option value="">- Seleccione recinto -</option>
-                  <?php foreach ($recintos_array as $item) { ?>
-                    <option value="<?php echo htmlspecialchars($item['recinto'], ENT_QUOTES, 'UTF-8'); ?>" data-id="<?php echo $item['id']; ?>">
-                      <?php echo htmlspecialchars($item['recinto'], ENT_QUOTES, 'UTF-8'); ?>
-                    </option>
-                  <?php } ?>
-                </select>
+              <div class="field-group" style="position: relative;">
+                <label class="field-label">Recinto de Planta <span style="color:var(--accent-cyan); font-size:9.5px; text-transform:none;">[🔍 Buscar]</span></label>
+                <div class="searchable-select-wrapper" id="recinto-search-wrapper">
+                  <input type="text" id="q-recinto" class="field-control" placeholder="Escriba código o nombre (ej: 108, R-001, G.V.)..." autocomplete="off">
+                  <input type="hidden" id="q-recinto-id" value="">
+                  <div class="searchable-dropdown" id="recinto-dropdown"></div>
+                </div>
               </div>
 
               <div class="field-group">
@@ -2367,6 +2426,131 @@ if (file_exists($miconex_path)) {
             }
           }
         });
+      }
+    });
+
+  
+    // ================= BUSCADOR INTELIGENTE DE RECINTOS (SELECT2 VANILLA OFFLINE) =================
+    const rawRecintos = <?php echo json_encode($recintos_array); ?>;
+    const recintosList = rawRecintos.map(item => {
+      if (typeof item === 'string') return { id: item, name: item };
+      return { id: item.id, name: item.recinto };
+    });
+
+    const recintoInput = document.getElementById('q-recinto');
+    const recintoIdInput = document.getElementById('q-recinto-id');
+    const recintoDropdown = document.getElementById('recinto-dropdown');
+    let highlightedIndex = -1;
+    let filteredRecintos = [];
+
+    function renderRecintosDropdown(filterText = '') {
+      const query = filterText.trim().toLowerCase();
+      if (!query) {
+        filteredRecintos = recintosList.slice(0, 60);
+      } else {
+        filteredRecintos = recintosList.filter(r => r.name.toLowerCase().includes(query)).slice(0, 60);
+      }
+
+      recintoDropdown.innerHTML = '';
+      highlightedIndex = -1;
+
+      if (filteredRecintos.length === 0) {
+        recintoDropdown.innerHTML = '<div class="searchable-empty">No se encontraron recintos con "' + filterText + '"</div>';
+      } else {
+        filteredRecintos.forEach((r, idx) => {
+          const div = document.createElement('div');
+          div.className = 'searchable-item';
+          div.setAttribute('data-index', idx);
+
+          if (query) {
+            const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            div.innerHTML = `<span>${r.name.replace(regex, '<mark>$1</mark>')}</span><span style="font-size:10px; color:var(--text-dim); font-family:var(--font-mono);">#${r.id}</span>`;
+          } else {
+            div.innerHTML = `<span>${r.name}</span><span style="font-size:10px; color:var(--text-dim); font-family:var(--font-mono);">#${r.id}</span>`;
+          }
+
+          div.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            selectRecinto(r.id, r.name);
+          });
+
+          recintoDropdown.appendChild(div);
+        });
+      }
+
+      recintoDropdown.classList.add('open');
+    }
+
+    function selectRecinto(id, name) {
+      recintoInput.value = name;
+      recintoIdInput.value = id;
+      recintoDropdown.classList.remove('open');
+      const nextInput = document.getElementById('q-gases');
+      if (nextInput) nextInput.focus();
+    }
+
+    if (recintoInput) {
+      recintoInput.addEventListener('focus', () => {
+        renderRecintosDropdown(recintoInput.value);
+      });
+
+      recintoInput.addEventListener('input', () => {
+        renderRecintosDropdown(recintoInput.value);
+      });
+
+      recintoInput.addEventListener('keydown', (e) => {
+        const items = recintoDropdown.querySelectorAll('.searchable-item');
+        if (!recintoDropdown.classList.contains('open')) {
+          if (e.key === 'ArrowDown' || e.key === 'Enter') {
+            renderRecintosDropdown(recintoInput.value);
+            e.preventDefault();
+            return;
+          }
+        }
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (items.length > 0) {
+            highlightedIndex = (highlightedIndex + 1) % items.length;
+            updateHighlighted(items);
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (items.length > 0) {
+            highlightedIndex = (highlightedIndex - 1 + items.length) % items.length;
+            updateHighlighted(items);
+          }
+        } else if (e.key === 'Enter') {
+          if (highlightedIndex >= 0 && items[highlightedIndex]) {
+            e.preventDefault();
+            const r = filteredRecintos[highlightedIndex];
+            if (r) selectRecinto(r.id, r.name);
+          } else if (filteredRecintos.length > 0 && recintoDropdown.classList.contains('open')) {
+            e.preventDefault();
+            const r = filteredRecintos[0];
+            selectRecinto(r.id, r.name);
+          }
+        } else if (e.key === 'Escape') {
+          recintoDropdown.classList.remove('open');
+        }
+      });
+    }
+
+    function updateHighlighted(items) {
+      items.forEach((it, idx) => {
+        if (idx === highlightedIndex) {
+          it.classList.add('highlighted');
+          it.scrollIntoView({ block: 'nearest' });
+        } else {
+          it.classList.remove('highlighted');
+        }
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      const wrapper = document.getElementById('recinto-search-wrapper');
+      if (wrapper && !wrapper.contains(e.target)) {
+        recintoDropdown.classList.remove('open');
       }
     });
 
