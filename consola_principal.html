@@ -1277,6 +1277,73 @@
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
       z-index: 2000;
     }
+      /* Modal Overlay & Box para visor de historial */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(5px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 10px;
+      width: 580px;
+      max-width: 92vw;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.85);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 14px 20px;
+      background: var(--bg-card-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    /* Pill interactiva de Historial en filas de medición guardadas */
+    .btn-recinto-hist-pill {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      white-space: nowrap;
+    }
+
+    .btn-recinto-hist-pill:hover {
+      background: var(--accent-cyan);
+      color: #02120e;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.45);
+      transform: scale(1.04);
+    }
+
+    .recinto-link {
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .recinto-link:hover {
+      color: var(--accent-cyan) !important;
+      text-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    }
+
   </style>
 </head>
 <body>
@@ -1567,7 +1634,16 @@
                                 <tr data-dosis="24.0" data-tritio="0.45" data-gases="0.0" data-recinto="R-024 - Sala de Bombas PHT">
                   <td>09/11/2026</td>
                   <td class="num">23:30</td>
-                  <td style="font-weight: 700; color: #ffffff;">R-024 - Sala de Bombas PHT</td>
+                  <td style="font-weight: 700; color: #ffffff;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <span class="recinto-link" onclick="openRecintoHistoryModal('R-024 - Sala de Bombas PHT')" title="Ver las últimas 3 mediciones de este recinto">
+          R-024 - Sala de Bombas PHT
+        </span>
+        <button type="button" class="btn-recinto-hist-pill" onclick="openRecintoHistoryModal('R-024 - Sala de Bombas PHT')" title="Ver últimas mediciones de este recinto">
+          <span>⏱️ 3 Últimos</span>
+        </button>
+      </div>
+    </td>
                   <td class="num">0.00</td>
                   <td class="num">0.45</td>
                   <td class="num"><span class="badge-amber">24.0</span></td>
@@ -1578,7 +1654,16 @@
                 <tr data-dosis="4.5" data-tritio="1.20" data-gases="0.0" data-recinto="R-001 - Edificio de Contención (+15m)">
                   <td>09/11/2026</td>
                   <td class="num">00:15</td>
-                  <td style="font-weight: 700; color: #ffffff;">R-001 - Edificio de Contención (+15m)</td>
+                  <td style="font-weight: 700; color: #ffffff;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <span class="recinto-link" onclick="openRecintoHistoryModal('R-001 - Edificio de Contención (+15m)')" title="Ver las últimas 3 mediciones de este recinto">
+          R-001 - Edificio de Contención (+15m)
+        </span>
+        <button type="button" class="btn-recinto-hist-pill" onclick="openRecintoHistoryModal('R-001 - Edificio de Contención (+15m)')" title="Ver últimas mediciones de este recinto">
+          <span>⏱️ 3 Últimos</span>
+        </button>
+      </div>
+    </td>
                   <td class="num">0.00</td>
                   <td class="num"><span class="badge-amber">1.20</span></td>
                   <td class="num">4.5</td>
@@ -3340,6 +3425,139 @@
       SyncEngine.flush();
     }, 2000);
 
+      // ================= MODAL INTERACTIVO DE HISTORIAL POR RECINTO GUARDADO =================
+    let activeSelectedRecintoForPrefill = '';
+
+    const mockRecintoHistoryVis = {
+      '1': [
+        { fecha: '08/11/2026', hora: '23:30', dosis: '2.5', tritio: '0.20', gases: '0.00' },
+        { fecha: '08/11/2026', hora: '15:40', dosis: '2.0', tritio: '0.15', gases: '0.00' },
+        { fecha: '08/11/2026', hora: '08:10', dosis: '1.8', tritio: '0.20', gases: '0.00' }
+      ],
+      '24': [
+        { fecha: '08/11/2026', hora: '23:30', dosis: '24.0', tritio: '0.45', gases: '0.00' },
+        { fecha: '08/11/2026', hora: '15:40', dosis: '18.5', tritio: '0.40', gases: '0.00' },
+        { fecha: '08/11/2026', hora: '08:15', dosis: '12.0', tritio: '0.25', gases: '0.00' }
+      ],
+      '5': [
+        { fecha: '08/11/2026', hora: '23:35', dosis: '18.5', tritio: '1.80', gases: '0.40' },
+        { fecha: '08/11/2026', hora: '15:50', dosis: '15.0', tritio: '1.50', gases: '0.30' },
+        { fecha: '08/11/2026', hora: '08:20', dosis: '14.0', tritio: '1.20', gases: '0.20' }
+      ],
+      '12': [
+        { fecha: '08/11/2026', hora: '23:45', dosis: '45.0', tritio: '3.40', gases: '0.85' },
+        { fecha: '08/11/2026', hora: '16:00', dosis: '42.0', tritio: '3.10', gases: '0.80' },
+        { fecha: '08/11/2026', hora: '08:30', dosis: '40.0', tritio: '2.80', gases: '0.70' }
+      ]
+    };
+
+    function openRecintoHistoryModal(recintoParam) {
+      const modal = document.getElementById('modal-recinto-historial');
+      const labelNombre = document.getElementById('mrh-recinto-nombre');
+      const container = document.getElementById('mrh-chips-container');
+      const trendBadge = document.getElementById('mrh-trend-badge');
+      if (!modal || !container) return;
+
+      activeSelectedRecintoForPrefill = recintoParam;
+      if (labelNombre) labelNombre.textContent = recintoParam;
+
+      let history = null;
+      const idMatch = (typeof recintoParam === 'string') ? recintoParam.match(/R-?(\d+)/i) : null;
+      const recintoId = idMatch ? parseInt(idMatch[1], 10).toString() : '1';
+
+      if (mockRecintoHistoryVis[recintoId]) {
+        history = mockRecintoHistoryVis[recintoId];
+      } else {
+        history = [
+          { fecha: '08/11/2026', hora: '23:30', dosis: '4.5', tritio: '0.40', gases: '0.00' },
+          { fecha: '08/11/2026', hora: '15:40', dosis: '4.0', tritio: '0.35', gases: '0.00' },
+          { fecha: '08/11/2026', hora: '08:10', dosis: '3.8', tritio: '0.30', gases: '0.00' }
+        ];
+      }
+
+      container.innerHTML = history.map((item, idx) => `
+        <div style="background: rgba(9, 28, 24, 0.85); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-cyan); border-radius: 6px; padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 11.5px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-weight: 800; color: var(--accent-cyan); font-size: 12px;">[${idx + 1}]</span>
+            <span style="color: #ffffff; font-weight: 700;">📅 ${item.fecha} &bull; ${item.hora} hs</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="color: var(--accent-amber); font-weight: 700;">${item.dosis} µSv/h</span>
+            <span style="color: var(--text-dim);">|</span>
+            <span style="color: var(--accent-cyan); font-weight: 700;">${item.tritio} DAC</span>
+            <span style="color: var(--text-dim);">|</span>
+            <span style="color: #c084fc;">${item.gases} DAC</span>
+          </div>
+        </div>
+      `).join('');
+
+      const d1 = parseFloat(history[0].dosis);
+      const d3 = parseFloat(history[2].dosis);
+      if (d1 > d3 * 1.3) {
+        trendBadge.innerHTML = '📈 Alza de Dosis (+ ' + Math.round(((d1 - d3)/d3)*100) + '%)';
+        trendBadge.style.color = 'var(--accent-amber)';
+      } else {
+        trendBadge.innerHTML = '🟢 Niveles estables';
+        trendBadge.style.color = 'var(--accent-green)';
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    function closeRecintoHistoryModal() {
+      const modal = document.getElementById('modal-recinto-historial');
+      if (modal) modal.style.display = 'none';
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeRecintoHistoryModal();
+      }
+    });
+
   </script>
-  </body>
+    <!-- MODAL HUD: HISTORIAL DE LOS ÚLTIMOS 3 VALORES DEL RECINTO SELECCIONADO -->
+  <div class="modal-overlay" id="modal-recinto-historial" style="display: none;" onclick="if(event.target===this) closeRecintoHistoryModal();">
+    <div class="modal-box" style="max-width: 620px; border-left: 4px solid var(--accent-cyan); animation: cyber-hologram-assemble 0.28s ease-out;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="font-size: 11px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.5px;">
+            📍 Historial Dosimétrico del Recinto
+          </div>
+          <div id="mrh-recinto-nombre" style="font-size: 15px; font-weight: 800; color: #ffffff; margin-top: 2px;">
+            -
+          </div>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeRecintoHistoryModal()" style="background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; padding: 4px 8px; border-radius: 4px;" title="Cerrar modal (Esc)">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: rgba(16, 185, 129, 0.08); border: 1px solid var(--border-card); border-radius: 6px; padding: 7px 12px;">
+          <span style="font-size: 11px; color: var(--text-muted); font-weight: 700;">
+            📋 Últimas 3 mediciones registradas en este recinto
+          </span>
+          <span id="mrh-trend-badge" style="font-size: 11px; font-weight: 700; color: var(--accent-green); font-family: var(--font-mono);">
+            🟢 Niveles habituales
+          </span>
+        </div>
+
+        <!-- Contenedor con las 3 tarjetas de historial (Fecha y Hora solamente, NO oficial, NO turno) -->
+        <div id="mrh-chips-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+          <!-- JS inyecta las filas -->
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
+          <span style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">
+            * Registro de Radioprotección CNE &bull; Solo Fecha y Hora
+          </span>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn-ghost" onclick="closeRecintoHistoryModal()" style="padding: 5px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border-card); background: transparent; color: var(--text-muted); cursor: pointer;">
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
 </html>

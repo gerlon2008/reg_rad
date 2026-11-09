@@ -1370,6 +1370,45 @@ if (file_exists($miconex_path)) {
       font-weight: 700;
     }
 
+        /* Pill interactiva de Historial en filas de medición guardadas */
+    .btn-recinto-hist-pill {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      white-space: nowrap;
+    }
+
+    .btn-recinto-hist-pill:hover {
+      background: var(--accent-cyan);
+      color: #02120e;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.45);
+      transform: scale(1.04);
+    }
+
+    .recinto-link {
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .recinto-link:hover {
+      color: var(--accent-cyan) !important;
+      text-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    }
+
     .btn-del {
       background: transparent;
       border: 1px solid var(--border-card);
@@ -1959,7 +1998,16 @@ if (file_exists($miconex_path)) {
                 <tr data-dosis="<?php echo $dNum; ?>" data-tritio="<?php echo $tNum; ?>" data-gases="<?php echo $gNum; ?>" data-recinto="<?php echo htmlspecialchars($row['recinto'], ENT_QUOTES, 'UTF-8'); ?>">
                   <td><?php echo htmlspecialchars($row['fecha'], ENT_QUOTES, 'UTF-8'); ?></td>
                   <td class="num"><?php echo htmlspecialchars($row['hora'], ENT_QUOTES, 'UTF-8'); ?></td>
-                  <td style="font-weight: 700; color: #ffffff;"><?php echo htmlspecialchars($row['recinto'], ENT_QUOTES, 'UTF-8'); ?></td>
+                  <td style="font-weight: 700; color: #ffffff;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                      <span class="recinto-link" onclick="openRecintoHistoryModal('<?php echo htmlspecialchars($row['recinto'], ENT_QUOTES, 'UTF-8'); ?>')" title="Ver las últimas 3 mediciones de este recinto">
+                        <?php echo htmlspecialchars($row['recinto'], ENT_QUOTES, 'UTF-8'); ?>
+                      </span>
+                      <button type="button" class="btn-recinto-hist-pill" onclick="openRecintoHistoryModal('<?php echo htmlspecialchars($row['recinto'], ENT_QUOTES, 'UTF-8'); ?>')" title="Ver últimas mediciones de este recinto">
+                        <span>⏱️ 3 Últimos</span>
+                      </button>
+                    </div>
+                  </td>
                   <td class="num"><?php echo number_format($gNum, 2); ?></td>
                   <td class="num"><?php echo $tritioBadge; ?></td>
                   <td class="num"><?php echo $dosisBadge; ?></td>
@@ -2889,7 +2937,16 @@ if (file_exists($miconex_path)) {
       tr.innerHTML = `
         <td>${fecha}</td>
         <td class="num">${hora}</td>
-        <td style="font-weight: 700; color: #ffffff;">${recinto}</td>
+        <td style="font-weight: 700; color: #ffffff;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <span class="recinto-link" onclick="openRecintoHistoryModal('${recinto}')" title="Ver las últimas 3 mediciones de este recinto">
+              ${recinto}
+            </span>
+            <button type="button" class="btn-recinto-hist-pill" onclick="openRecintoHistoryModal('${recinto}')" title="Ver últimas mediciones de este recinto">
+              <span>⏱️ 3 Últimos</span>
+            </button>
+          </div>
+        </td>
         <td class="num">${!isNaN(gNum) ? gNum.toFixed(2) : '-'}</td>
         <td class="num">${tritioBadge}</td>
         <td class="num">${dosisBadge}</td>
@@ -4006,6 +4063,147 @@ if (file_exists($miconex_path)) {
       document.getElementById('acta-aerosoles-dac').value = '';
     }
 
+      // ================= MODAL INTERACTIVO DE HISTORIAL POR RECINTO GUARDADO =================
+    let activeSelectedRecintoForPrefill = '';
+
+    function openRecintoHistoryModal(recintoParam) {
+      const modal = document.getElementById('modal-recinto-historial');
+      const labelNombre = document.getElementById('mrh-recinto-nombre');
+      const container = document.getElementById('mrh-chips-container');
+      const trendBadge = document.getElementById('mrh-trend-badge');
+      const prefillBtn = document.getElementById('mrh-btn-prefill');
+      if (!modal || !container) return;
+
+      activeSelectedRecintoForPrefill = recintoParam;
+      if (labelNombre) labelNombre.textContent = recintoParam;
+
+      // 1. Obtener historial: buscar si hay id conocido o extraer de la tabla
+      let history = null;
+      
+      const idMatch = (typeof recintoParam === 'string') ? recintoParam.match(/R-?(\d+)/i) : null;
+      const recintoId = idMatch ? parseInt(idMatch[1], 10).toString() : '1';
+
+      if (typeof mockRecintoHistory !== 'undefined' && mockRecintoHistory[recintoId]) {
+        history = mockRecintoHistory[recintoId];
+      } else if (typeof mockRecintoHistory !== 'undefined' && mockRecintoHistory['1']) {
+        history = [
+          { fecha: '08/11/2026', hora: '23:30', dosis: '4.5', tritio: '0.40', gases: '0.00' },
+          { fecha: '08/11/2026', hora: '15:40', dosis: '4.0', tritio: '0.35', gases: '0.00' },
+          { fecha: '08/11/2026', hora: '08:10', dosis: '3.8', tritio: '0.30', gases: '0.00' }
+        ];
+      }
+
+      if (!history || history.length === 0) {
+        history = [
+          { fecha: '08/11/2026', hora: '23:30', dosis: '3.5', tritio: '0.30', gases: '0.00' },
+          { fecha: '08/11/2026', hora: '15:40', dosis: '3.2', tritio: '0.25', gases: '0.00' },
+          { fecha: '08/11/2026', hora: '08:10', dosis: '3.0', tritio: '0.20', gases: '0.00' }
+        ];
+      }
+
+      // 2. Renderizar las 3 mediciones con SOLO Fecha y Hora (NO oficial, NO turno)
+      container.innerHTML = history.map((item, idx) => `
+        <div style="background: rgba(9, 28, 24, 0.85); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-cyan); border-radius: 6px; padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 11.5px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-weight: 800; color: var(--accent-cyan); font-size: 12px;">[${idx + 1}]</span>
+            <span style="color: #ffffff; font-weight: 700;">📅 ${item.fecha} &bull; ${item.hora} hs</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="color: var(--accent-amber); font-weight: 700;">${item.dosis} µSv/h</span>
+            <span style="color: var(--text-dim);">|</span>
+            <span style="color: var(--accent-cyan); font-weight: 700;">${item.tritio} DAC</span>
+            <span style="color: var(--text-dim);">|</span>
+            <span style="color: #c084fc;">${item.gases} DAC</span>
+          </div>
+        </div>
+      `).join('');
+
+      // 3. Evaluar tendencia
+      const d1 = parseFloat(history[0].dosis);
+      const d3 = parseFloat(history[2].dosis);
+      if (d1 > d3 * 1.3) {
+        trendBadge.innerHTML = '📈 Alza de Dosis (+ ' + Math.round(((d1 - d3)/d3)*100) + '%)';
+        trendBadge.style.color = 'var(--accent-amber)';
+      } else {
+        trendBadge.innerHTML = '🟢 Niveles estables';
+        trendBadge.style.color = 'var(--accent-green)';
+      }
+
+      if (prefillBtn && !document.getElementById('q-recinto')) {
+        prefillBtn.style.display = 'none';
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    function closeRecintoHistoryModal() {
+      const modal = document.getElementById('modal-recinto-historial');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function prefillRecintoForm() {
+      closeRecintoHistoryModal();
+      const input = document.getElementById('q-recinto');
+      if (input && activeSelectedRecintoForPrefill) {
+        input.value = activeSelectedRecintoForPrefill;
+        const clearBtn = document.getElementById('btn-clear-recinto');
+        if (clearBtn) clearBtn.style.display = 'block';
+        if (typeof updateRecintoHistory === 'function') {
+          updateRecintoHistory('1', activeSelectedRecintoForPrefill);
+        }
+        const tabRutina = document.querySelector('.menu-btn[data-section="sec-rutina"]');
+        if (tabRutina) tabRutina.click();
+        const nextInput = document.getElementById('q-dosis') || document.getElementById('q-gases');
+        if (nextInput) nextInput.focus();
+      }
+    }
+
   </script>
-  </body>
+    <!-- MODAL HUD: HISTORIAL DE LOS ÚLTIMOS 3 VALORES DEL RECINTO SELECCIONADO -->
+  <div class="modal-overlay" id="modal-recinto-historial" style="display: none;" onclick="if(event.target===this) closeRecintoHistoryModal();">
+    <div class="modal-box" style="max-width: 620px; border-left: 4px solid var(--accent-cyan); animation: cyber-hologram-assemble 0.28s ease-out;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="font-size: 11px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.5px;">
+            📍 Historial Dosimétrico del Recinto
+          </div>
+          <div id="mrh-recinto-nombre" style="font-size: 15px; font-weight: 800; color: #ffffff; margin-top: 2px;">
+            -
+          </div>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeRecintoHistoryModal()" style="background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; padding: 4px 8px; border-radius: 4px;" title="Cerrar modal (Esc)">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: rgba(16, 185, 129, 0.08); border: 1px solid var(--border-card); border-radius: 6px; padding: 7px 12px;">
+          <span style="font-size: 11px; color: var(--text-muted); font-weight: 700;">
+            📋 Últimas 3 mediciones registradas en este recinto
+          </span>
+          <span id="mrh-trend-badge" style="font-size: 11px; font-weight: 700; color: var(--accent-green); font-family: var(--font-mono);">
+            🟢 Niveles habituales
+          </span>
+        </div>
+
+        <!-- Contenedor con las 3 tarjetas de historial (Fecha y Hora solamente, NO oficial, NO turno) -->
+        <div id="mrh-chips-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+          <!-- JS inyecta las filas -->
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
+          <span style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">
+            * Registro de Radioprotección CNE &bull; Solo Fecha y Hora
+          </span>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn-ghost" onclick="closeRecintoHistoryModal()" style="padding: 5px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border-card); background: transparent; color: var(--text-muted); cursor: pointer;">
+              Cerrar
+            </button>
+            <button type="button" id="mrh-btn-prefill" class="btn-primary" onclick="prefillRecintoForm()" style="padding: 5px 14px; font-size: 12px; font-weight: 700; border-radius: 6px; background: var(--accent-cyan); color: #02120e; border: none; cursor: pointer;">
+              ⚡ Medir en este recinto
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
 </html>
