@@ -584,6 +584,47 @@ if (file_exists($miconex_path)) {
       font-weight: 700;
     }
 
+    .kpi-multi-values {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr 1fr;
+      gap: 6px;
+      align-items: end;
+      margin-top: 3px;
+    }
+
+    .kpi-sub-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .kpi-sub-label {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+
+    .kpi-sub-val-row {
+      display: flex;
+      align-items: baseline;
+      gap: 3px;
+    }
+
+    .kpi-sub-val {
+      font-size: 16.5px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      line-height: 1.1;
+    }
+
+    .kpi-sub-unit {
+      font-size: 9px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
     .kpi-modal-tabs {
       display: flex;
       gap: 6px;
@@ -1006,7 +1047,7 @@ if (file_exists($miconex_path)) {
       <div class="user-role">Oficial de Radioprotección</div>
       <div class="session-indicator">
         <div class="session-dot" id="session-status-dot"></div>
-        <span id="session-status-text">Sesión activa (sn-c-c55)</span>
+        <span id="session-status-text">Sistema en línea</span>
       </div>
     </div>
   </aside>
@@ -1045,17 +1086,36 @@ if (file_exists($miconex_path)) {
 
       <section class="kpi-grid">
         
-        <!-- KPI 1: Dosis Pico -->
-        <div class="kpi-card" style="--card-color: var(--accent-amber);" onclick="openKpiModal('dosis')" title="Haga clic para ver mediciones de rutina">
+        <!-- KPI 1: Picos Radiológicos del Turno (Dosis, Tritio, Gases) -->
+        <div class="kpi-card" style="--card-color: var(--accent-amber);" onclick="openKpiModal('dosis')" title="Haga clic para ver relevamientos de rutina">
           <div class="kpi-top-row">
-            <span class="kpi-label">Dosis Pico del Turno</span>
+            <span class="kpi-label">Picos Radiológicos</span>
             <span class="kpi-action-icon">📋 Ver</span>
           </div>
-          <div class="kpi-value-row">
-            <span class="kpi-value" id="kpi-max-dosis" style="color: var(--accent-amber);">24.0</span>
-            <span class="kpi-unit">µSv/h</span>
+          <div class="kpi-multi-values">
+            <div class="kpi-sub-item">
+              <span class="kpi-sub-label">Dosis</span>
+              <div class="kpi-sub-val-row">
+                <span class="kpi-sub-val" id="kpi-max-dosis" style="color: var(--accent-amber);">24.0</span>
+                <span class="kpi-sub-unit">µSv/h</span>
+              </div>
+            </div>
+            <div class="kpi-sub-item">
+              <span class="kpi-sub-label">Tritio</span>
+              <div class="kpi-sub-val-row">
+                <span class="kpi-sub-val" id="kpi-max-tritio" style="color: var(--accent-cyan);">1.20</span>
+                <span class="kpi-sub-unit">DAC</span>
+              </div>
+            </div>
+            <div class="kpi-sub-item">
+              <span class="kpi-sub-label">Gases</span>
+              <div class="kpi-sub-val-row">
+                <span class="kpi-sub-val" id="kpi-max-gases" style="color: #c084fc;">0.00</span>
+                <span class="kpi-sub-unit">DAC</span>
+              </div>
+            </div>
           </div>
-          <div class="kpi-footer" id="kpi-max-recinto">📍 R-024 (Sala Bombas PHT)</div>
+          <div class="kpi-footer" id="kpi-max-recinto">📍 R-024 (PHT) • R-001</div>
         </div>
 
         <!-- KPI 2: RO Gaseoso -->
@@ -1211,7 +1271,7 @@ if (file_exists($miconex_path)) {
                   $dosisBadge = ($dNum > 100) ? '<span class="badge-red">' . number_format($dNum, 1) . '</span>' : (($dNum > 20) ? '<span class="badge-amber">' . number_format($dNum, 1) . '</span>' : number_format($dNum, 1));
                   $tritioBadge = ($tNum > 1.0) ? '<span class="badge-amber">' . number_format($tNum, 2) . '</span>' : number_format($tNum, 2);
                 ?>
-                <tr data-dosis="<?php echo $dNum; ?>" data-tritio="<?php echo $tNum; ?>" data-recinto="<?php echo htmlspecialchars($row['recinto'], ENT_QUOTES, 'UTF-8'); ?>">
+                <tr data-dosis="<?php echo $dNum; ?>" data-tritio="<?php echo $tNum; ?>" data-gases="<?php echo $gNum; ?>" data-recinto="<?php echo htmlspecialchars($row['recinto'], ENT_QUOTES, 'UTF-8'); ?>">
                   <td><?php echo htmlspecialchars($row['fecha'], ENT_QUOTES, 'UTF-8'); ?></td>
                   <td class="num"><?php echo htmlspecialchars($row['hora'], ENT_QUOTES, 'UTF-8'); ?></td>
                   <td style="font-weight: 700; color: #ffffff;"><?php echo htmlspecialchars($row['recinto'], ENT_QUOTES, 'UTF-8'); ?></td>
@@ -1920,7 +1980,7 @@ if (file_exists($miconex_path)) {
       setTimeout(() => { t.style.display = 'none'; }, 3500);
     }
 
-    // ================= RECALCULAR KPIS =================
+    // ================= RECALCULAR KPIS (PICOS RADIOLÓGICOS: DOSIS, TRITIO, GASES) =================
     function recalculateKPIs() {
       const rows = document.querySelectorAll('#table-body tr');
       const count = rows.length;
@@ -1928,24 +1988,51 @@ if (file_exists($miconex_path)) {
 
       if (count === 0) {
         document.getElementById('kpi-max-dosis').textContent = '0.0';
+        document.getElementById('kpi-max-tritio').textContent = '0.00';
+        document.getElementById('kpi-max-gases').textContent = '0.00';
         document.getElementById('kpi-max-recinto').textContent = 'Sin mediciones';
         return;
       }
 
       let maxDosis = 0;
-      let maxRecinto = '-';
+      let recintoDosis = '-';
+      let maxTritio = 0;
+      let recintoTritio = '-';
+      let maxGases = 0;
+      let recintoGases = '-';
 
       rows.forEach(r => {
         const d = parseFloat(r.getAttribute('data-dosis'));
-        const rec = r.getAttribute('data-recinto');
-        if (!isNaN(d) && d > maxDosis) {
+        const t = parseFloat(r.getAttribute('data-tritio'));
+        const g = parseFloat(r.getAttribute('data-gases'));
+        const rec = r.getAttribute('data-recinto') || '-';
+        const recShort = rec.split(' - ')[0];
+
+        if (!isNaN(d) && d >= maxDosis) {
           maxDosis = d;
-          maxRecinto = rec;
+          recintoDosis = recShort;
+        }
+        if (!isNaN(t) && t >= maxTritio) {
+          maxTritio = t;
+          recintoTritio = recShort;
+        }
+        if (!isNaN(g) && g >= maxGases) {
+          maxGases = g;
+          recintoGases = recShort;
         }
       });
 
       document.getElementById('kpi-max-dosis').textContent = maxDosis.toFixed(1);
-      document.getElementById('kpi-max-recinto').textContent = `📍 ${maxRecinto.split(' - ')[0]}`;
+      document.getElementById('kpi-max-tritio').textContent = maxTritio.toFixed(2);
+      document.getElementById('kpi-max-gases').textContent = maxGases.toFixed(2);
+
+      if (recintoDosis === recintoTritio && recintoDosis !== '-') {
+        document.getElementById('kpi-max-recinto').textContent = `📍 ${recintoDosis}`;
+      } else if (recintoDosis !== '-' && recintoTritio !== '-') {
+        document.getElementById('kpi-max-recinto').textContent = `📍 ${recintoDosis} • ${recintoTritio}`;
+      } else {
+        document.getElementById('kpi-max-recinto').textContent = `📍 ${recintoDosis !== '-' ? recintoDosis : 'Nominal'}`;
+      }
     }
 
     // ================= CARGA DE MEDICIONES DE RUTINA =================
@@ -1962,6 +2049,7 @@ if (file_exists($miconex_path)) {
       const tr = document.createElement('tr');
       tr.setAttribute('data-dosis', isNaN(dNum) ? 0 : dNum);
       tr.setAttribute('data-tritio', isNaN(tNum) ? 0 : tNum);
+      tr.setAttribute('data-gases', isNaN(gNum) ? 0 : gNum);
       tr.setAttribute('data-recinto', recinto);
 
       const oficial = document.getElementById('sidebar-user-name').textContent;
@@ -2237,7 +2325,7 @@ if (file_exists($miconex_path)) {
           const text = document.getElementById('session-status-text');
           if (dot && text) {
             dot.style.background = 'var(--accent-green)';
-            text.textContent = 'Sesión Activa (' + data.fecha_hora.split(' ')[1] + ')';
+            text.textContent = 'Sistema en línea';
           }
         })
         .catch(err => {
