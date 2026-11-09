@@ -723,14 +723,14 @@ if (file_exists($miconex_path)) {
     .latam-datepicker-popup,
     .latam-timepicker-popup {
       display: none;
-      position: absolute;
-      background: #0f172a;
-      border: 1px solid var(--accent-cyan);
+      position: fixed !important;
+      background: #0f172a !important;
+      border: 1px solid var(--accent-cyan) !important;
       border-radius: 8px;
       padding: 12px;
-      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.85);
-      z-index: 2500;
-      width: 250px;
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.95);
+      z-index: 99999 !important;
+      width: 260px;
       user-select: none;
     }
 
@@ -2102,6 +2102,51 @@ if (file_exists($miconex_path)) {
     </div>
   </div>
 
+  <!-- ================= POPUPS FLOTANTES DE DATEPICKER Y TIMEPICKER LATAM ================= -->
+  <div id="latam-datepicker-popup" class="latam-datepicker-popup">
+    <div class="dp-header">
+      <button type="button" class="dp-nav-btn" id="dp-btn-prev">&lt;</button>
+      <span class="dp-month-title" id="dp-month-display">Noviembre 2026</span>
+      <button type="button" class="dp-nav-btn" id="dp-btn-next">&gt;</button>
+    </div>
+    <div class="dp-grid-weekdays">
+      <div>Lu</div><div>Ma</div><div>Mi</div><div>Ju</div><div>Vi</div><div>Sá</div><div>Do</div>
+    </div>
+    <div class="dp-grid-days" id="dp-days-container"></div>
+    <div class="dp-quick-footer">
+      <button type="button" class="dp-quick-btn" id="dp-btn-yesterday">⬅️ Ayer</button>
+      <button type="button" class="dp-quick-btn" id="dp-btn-today">📅 Hoy</button>
+      <button type="button" class="dp-quick-btn" id="dp-btn-close" style="color:var(--text-dim);">Cerrar</button>
+    </div>
+  </div>
+
+  <div id="latam-timepicker-popup" class="latam-timepicker-popup">
+    <div style="font-size:11px; font-weight:700; color:#fff; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+      <span>⏰ Seleccionar Hora</span>
+      <span id="tp-close-btn" style="cursor:pointer; color:var(--text-dim);">✕</span>
+    </div>
+    <div class="tp-presets">
+      <div class="tp-preset-btn" onclick="applyQuickTime('00:00')">00:00</div>
+      <div class="tp-preset-btn" onclick="applyQuickTime('04:00')">04:00</div>
+      <div class="tp-preset-btn" onclick="applyQuickTime('07:00')">07:00</div>
+      <div class="tp-preset-btn" onclick="applyQuickTime('11:00')">11:00</div>
+      <div class="tp-preset-btn" onclick="applyQuickTime('14:00')">14:00</div>
+      <div class="tp-preset-btn" onclick="applyQuickTime('19:00')">19:00</div>
+      <div class="tp-preset-btn" onclick="applyQuickTime('23:00')">23:00</div>
+      <div class="tp-preset-btn" onclick="applyNowTime()" style="color:var(--accent-cyan); font-weight:bold;">⚡Ahora</div>
+    </div>
+    <div class="tp-selector-row">
+      <div>
+        <div class="tp-col-title">Hora</div>
+        <div class="tp-col-scroll" id="tp-hours-list"></div>
+      </div>
+      <div>
+        <div class="tp-col-title">Minutos</div>
+        <div class="tp-col-scroll" id="tp-minutes-list"></div>
+      </div>
+    </div>
+  </div>
+
   <script>
     let activePlanillaId = <?php echo $id_planilla_activa ? $id_planilla_activa : 'null'; ?>;
 
@@ -2784,14 +2829,12 @@ if (file_exists($miconex_path)) {
       const firstDayOfMonth = new Date(year, month, 1);
       const lastDayOfMonth = new Date(year, month + 1, 0);
 
-      // En LatAm la semana arranca lunes (1 = Lunes, 0 = Domingo)
       let startingDay = firstDayOfMonth.getDay() - 1;
       if (startingDay === -1) startingDay = 6;
 
       const totalDays = lastDayOfMonth.getDate();
       const prevMonthLastDay = new Date(year, month, 0).getDate();
 
-      // Días del mes previo
       for (let i = startingDay - 1; i >= 0; i--) {
         const cell = document.createElement('div');
         cell.className = 'dp-day-cell other-month';
@@ -2802,7 +2845,6 @@ if (file_exists($miconex_path)) {
       const today = new Date();
       const selectedVal = dpTargetInput ? dpTargetInput.value : '';
 
-      // Días del mes actual
       for (let day = 1; day <= totalDays; day++) {
         const cell = document.createElement('div');
         cell.className = 'dp-day-cell';
@@ -2818,11 +2860,12 @@ if (file_exists($miconex_path)) {
           cell.classList.add('selected');
         }
 
-        cell.addEventListener('click', () => {
+        cell.addEventListener('click', (e) => {
+          e.stopPropagation();
           if (dpTargetInput) {
             dpTargetInput.value = cellStr;
-            dpTargetInput.dispatchEvent(new Event('input'));
-            dpTargetInput.dispatchEvent(new Event('change'));
+            dpTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
+            dpTargetInput.dispatchEvent(new Event('change', { bubbles: true }));
           }
           closeDatepicker();
         });
@@ -2832,62 +2875,77 @@ if (file_exists($miconex_path)) {
     }
 
     function openDatepicker(inputEl) {
+      closeTimepicker();
       dpTargetInput = inputEl;
       dpCurrentDate = parseLatamDate(inputEl.value);
 
       const rect = inputEl.getBoundingClientRect();
-      dpPopup.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-      dpPopup.style.left = (rect.left + window.scrollX) + 'px';
+      const popupWidth = 260;
+      let left = rect.left;
+      if (left + popupWidth > window.innerWidth) {
+        left = window.innerWidth - popupWidth - 10;
+      }
+      dpPopup.style.top = (rect.bottom + 4) + 'px';
+      dpPopup.style.left = Math.max(10, left) + 'px';
       dpPopup.style.display = 'block';
 
       renderDatepickerGrid();
     }
 
     function closeDatepicker() {
-      dpPopup.style.display = 'none';
+      if (dpPopup) dpPopup.style.display = 'none';
       dpTargetInput = null;
     }
 
-    document.getElementById('dp-btn-prev').addEventListener('click', () => {
-      dpCurrentDate.setMonth(dpCurrentDate.getMonth() - 1);
-      renderDatepickerGrid();
-    });
-
-    document.getElementById('dp-btn-next').addEventListener('click', () => {
-      dpCurrentDate.setMonth(dpCurrentDate.getMonth() + 1);
-      renderDatepickerGrid();
-    });
-
-    document.getElementById('dp-btn-yesterday').addEventListener('click', () => {
-      const y = new Date();
-      y.setDate(y.getDate() - 1);
-      if (dpTargetInput) {
-        dpTargetInput.value = formatLatamDate(y);
-        dpTargetInput.dispatchEvent(new Event('change'));
-      }
-      closeDatepicker();
-    });
-
-    document.getElementById('dp-btn-today').addEventListener('click', () => {
-      const t = new Date();
-      if (dpTargetInput) {
-        dpTargetInput.value = formatLatamDate(t);
-        dpTargetInput.dispatchEvent(new Event('change'));
-      }
-      closeDatepicker();
-    });
-
-    document.getElementById('dp-btn-close').addEventListener('click', closeDatepicker);
-
-    // Vincular todos los inputs de fecha
-    document.querySelectorAll('.latam-datepicker-input').forEach(inp => {
-      inp.setAttribute('readonly', 'readonly');
-      inp.style.cursor = 'pointer';
-      inp.addEventListener('click', (e) => {
+    if (document.getElementById('dp-btn-prev')) {
+      document.getElementById('dp-btn-prev').addEventListener('click', (e) => {
         e.stopPropagation();
-        openDatepicker(inp);
+        dpCurrentDate.setMonth(dpCurrentDate.getMonth() - 1);
+        renderDatepickerGrid();
       });
-    });
+    }
+
+    if (document.getElementById('dp-btn-next')) {
+      document.getElementById('dp-btn-next').addEventListener('click', (e) => {
+        e.stopPropagation();
+        dpCurrentDate.setMonth(dpCurrentDate.getMonth() + 1);
+        renderDatepickerGrid();
+      });
+    }
+
+    if (document.getElementById('dp-btn-yesterday')) {
+      document.getElementById('dp-btn-yesterday').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const y = new Date();
+        y.setDate(y.getDate() - 1);
+        if (dpTargetInput) {
+          dpTargetInput.value = formatLatamDate(y);
+          dpTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
+          dpTargetInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        closeDatepicker();
+      });
+    }
+
+    if (document.getElementById('dp-btn-today')) {
+      document.getElementById('dp-btn-today').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const t = new Date();
+        if (dpTargetInput) {
+          dpTargetInput.value = formatLatamDate(t);
+          dpTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
+          dpTargetInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        closeDatepicker();
+      });
+    }
+
+    if (document.getElementById('dp-btn-close')) {
+      document.getElementById('dp-btn-close').addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeDatepicker();
+      });
+    }
 
     // ================= IMPLEMENTACIÓN VANILLA TIMEPICKER LATAM (HH:MM) =================
     const tpPopup = document.getElementById('latam-timepicker-popup');
@@ -2895,31 +2953,35 @@ if (file_exists($miconex_path)) {
     const tpMinutesList = document.getElementById('tp-minutes-list');
     let tpTargetInput = null;
 
-    // Generar 00..23 horas
-    for (let h = 0; h < 24; h++) {
-      const div = document.createElement('div');
-      div.className = 'tp-item';
-      div.textContent = String(h).padStart(2, '0');
-      div.addEventListener('click', () => {
-        selectTimePart('h', div.textContent);
-      });
-      tpHoursList.appendChild(div);
+    if (tpHoursList && tpHoursList.children.length === 0) {
+      for (let h = 0; h < 24; h++) {
+        const div = document.createElement('div');
+        div.className = 'tp-item';
+        div.textContent = String(h).padStart(2, '0');
+        div.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selectTimePart('h', div.textContent);
+        });
+        tpHoursList.appendChild(div);
+      }
     }
 
-    // Generar minutos de 5 en 5 (00, 05.. 55)
-    for (let m = 0; m < 60; m += 5) {
-      const div = document.createElement('div');
-      div.className = 'tp-item';
-      div.textContent = String(m).padStart(2, '0');
-      div.addEventListener('click', () => {
-        selectTimePart('m', div.textContent);
-      });
-      tpMinutesList.appendChild(div);
+    if (tpMinutesList && tpMinutesList.children.length === 0) {
+      for (let m = 0; m < 60; m += 5) {
+        const div = document.createElement('div');
+        div.className = 'tp-item';
+        div.textContent = String(m).padStart(2, '0');
+        div.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selectTimePart('m', div.textContent);
+        });
+        tpMinutesList.appendChild(div);
+      }
     }
 
     function selectTimePart(type, val) {
       if (!tpTargetInput) return;
-      const current = tpTargetInput.value.split(':');
+      const current = (tpTargetInput.value || '00:00').split(':');
       let h = current[0] || '00';
       let m = current[1] || '00';
 
@@ -2927,13 +2989,15 @@ if (file_exists($miconex_path)) {
       if (type === 'm') m = val;
 
       tpTargetInput.value = `${h}:${m}`;
-      tpTargetInput.dispatchEvent(new Event('change'));
+      tpTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
+      tpTargetInput.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
     function applyQuickTime(hhmm) {
       if (tpTargetInput) {
         tpTargetInput.value = hhmm;
-        tpTargetInput.dispatchEvent(new Event('change'));
+        tpTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
+        tpTargetInput.dispatchEvent(new Event('change', { bubbles: true }));
       }
       closeTimepicker();
     }
@@ -2946,82 +3010,58 @@ if (file_exists($miconex_path)) {
     }
 
     function openTimepicker(inputEl) {
+      closeDatepicker();
       tpTargetInput = inputEl;
       const rect = inputEl.getBoundingClientRect();
-      tpPopup.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-      tpPopup.style.left = (rect.left + window.scrollX) + 'px';
+      const popupWidth = 260;
+      let left = rect.left;
+      if (left + popupWidth > window.innerWidth) {
+        left = window.innerWidth - popupWidth - 10;
+      }
+      tpPopup.style.top = (rect.bottom + 4) + 'px';
+      tpPopup.style.left = Math.max(10, left) + 'px';
       tpPopup.style.display = 'block';
     }
 
     function closeTimepicker() {
-      tpPopup.style.display = 'none';
+      if (tpPopup) tpPopup.style.display = 'none';
       tpTargetInput = null;
     }
 
-    document.getElementById('tp-close-btn').addEventListener('click', closeTimepicker);
-
-    document.querySelectorAll('.latam-timepicker-input').forEach(inp => {
-      inp.addEventListener('click', (e) => {
+    if (document.getElementById('tp-close-btn')) {
+      document.getElementById('tp-close-btn').addEventListener('click', (e) => {
         e.stopPropagation();
-        openTimepicker(inp);
+        closeTimepicker();
       });
-    });
+    }
 
-    // Cerrar datepicker y timepicker al hacer clic afuera
+    // Delegación global de clics para abrir Datepicker y Timepicker
     document.addEventListener('click', (e) => {
-      if (dpPopup.style.display === 'block' && !dpPopup.contains(e.target) && !e.target.classList.contains('latam-datepicker-input')) {
+      // 1. Clic en input de fecha
+      const dpInput = e.target.closest('.latam-datepicker-input');
+      if (dpInput) {
+        e.stopPropagation();
+        openDatepicker(dpInput);
+        return;
+      }
+
+      // 2. Clic en input de hora
+      const tpInput = e.target.closest('.latam-timepicker-input');
+      if (tpInput) {
+        e.stopPropagation();
+        openTimepicker(tpInput);
+        return;
+      }
+
+      // 3. Clic fuera de los popups -> cerrar
+      if (dpPopup && dpPopup.style.display === 'block' && !dpPopup.contains(e.target)) {
         closeDatepicker();
       }
-      if (tpPopup.style.display === 'block' && !tpPopup.contains(e.target) && !e.target.classList.contains('latam-timepicker-input')) {
+      if (tpPopup && tpPopup.style.display === 'block' && !tpPopup.contains(e.target)) {
         closeTimepicker();
       }
     });
 
   </script>
-  <!-- ================= POPUPS FLOTANTES DE DATEPICKER Y TIMEPICKER LATAM ================= -->
-  <div id="latam-datepicker-popup" class="latam-datepicker-popup">
-    <div class="dp-header">
-      <button type="button" class="dp-nav-btn" id="dp-btn-prev">&lt;</button>
-      <span class="dp-month-title" id="dp-month-display">Noviembre 2026</span>
-      <button type="button" class="dp-nav-btn" id="dp-btn-next">&gt;</button>
-    </div>
-    <div class="dp-grid-weekdays">
-      <div>Lu</div><div>Ma</div><div>Mi</div><div>Ju</div><div>Vi</div><div>Sá</div><div>Do</div>
-    </div>
-    <div class="dp-grid-days" id="dp-days-container"></div>
-    <div class="dp-quick-footer">
-      <button type="button" class="dp-quick-btn" id="dp-btn-yesterday">⬅️ Ayer</button>
-      <button type="button" class="dp-quick-btn" id="dp-btn-today">📅 Hoy</button>
-      <button type="button" class="dp-quick-btn" id="dp-btn-close" style="color:var(--text-dim);">Cerrar</button>
-    </div>
-  </div>
-
-  <div id="latam-timepicker-popup" class="latam-timepicker-popup">
-    <div style="font-size:11px; font-weight:700; color:#fff; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-      <span>⏰ Seleccionar Hora</span>
-      <span id="tp-close-btn" style="cursor:pointer; color:var(--text-dim);">✕</span>
-    </div>
-    <div class="tp-presets">
-      <div class="tp-preset-btn" onclick="applyQuickTime('00:00')">00:00</div>
-      <div class="tp-preset-btn" onclick="applyQuickTime('04:00')">04:00</div>
-      <div class="tp-preset-btn" onclick="applyQuickTime('07:00')">07:00</div>
-      <div class="tp-preset-btn" onclick="applyQuickTime('11:00')">11:00</div>
-      <div class="tp-preset-btn" onclick="applyQuickTime('14:00')">14:00</div>
-      <div class="tp-preset-btn" onclick="applyQuickTime('19:00')">19:00</div>
-      <div class="tp-preset-btn" onclick="applyQuickTime('23:00')">23:00</div>
-      <div class="tp-preset-btn" onclick="applyNowTime()" style="color:var(--accent-cyan); font-weight:bold;">⚡Ahora</div>
-    </div>
-    <div class="tp-selector-row">
-      <div>
-        <div class="tp-col-title">Hora</div>
-        <div class="tp-col-scroll" id="tp-hours-list"></div>
-      </div>
-      <div>
-        <div class="tp-col-title">Minutos</div>
-        <div class="tp-col-scroll" id="tp-minutes-list"></div>
-      </div>
-    </div>
-  </div>
-
-</body>
+  </body>
 </html>
