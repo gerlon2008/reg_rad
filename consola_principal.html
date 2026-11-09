@@ -215,7 +215,36 @@
     .topbar-left {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
+    }
+    .theme-switcher-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border-card);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      margin-left: 10px;
+    }
+    .theme-pill {
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 2px 7px;
+      border-radius: 4px;
+      transition: all 0.12s ease;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+    }
+    .theme-pill:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .theme-pill.active {
+      background: var(--accent-cyan);
+      color: #000 !important;
+      font-weight: 700;
     }
 
     .topbar-title {
@@ -1087,6 +1116,15 @@
         <span class="topbar-title" id="current-section-title">Relevamiento de Rutina</span>
         <span class="shift-tag" id="topbar-shift-tag">Turno 3 (23:00 - 07:00)</span>
         <button class="btn-new-shift" onclick="openShiftModal()">⚙️ Configurar / Iniciar Turno</button>
+      <div class="theme-switcher-bar">
+        <span style="font-size:10px; color:var(--text-dim); font-weight:700;">🎨 PALETA:</span>
+        <a href="demo_planilla.php" class="theme-pill active">Original Cian</a>
+        <a href="demo_palette_1_slate_titanio.php" class="theme-pill">1. Titanio Pizarra</a>
+        <a href="demo_palette_2_ambar_scada.php" class="theme-pill">2. Ámbar SCADA</a>
+        <a href="demo_palette_3_esmeralda_monocromo.php" class="theme-pill">3. Esmeralda Obsidiana</a>
+      </div>
+      
+      
       </div>
       <div class="topbar-right">
         <span>Jefe de Turno: <strong style="color: #ffffff;" id="topbar-jefe-turno">Gómez, Carlos</strong></span>
