@@ -1070,11 +1070,65 @@ if (file_exists($miconex_path)) {
     }
 
     /* ================= SECCIÓN / PANELES ACTIVOS ================= */
+    /* ================= ANIMACIONES FUTURISTAS HUD EN CAMBIO DE PESTAÑAS ================= */
     .section-panel {
       display: none;
     }
+
     .section-panel.active {
       display: block;
+      animation: hud-panel-reveal 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      position: relative;
+    }
+
+    @keyframes hud-panel-reveal {
+      0% {
+        opacity: 0;
+        transform: translateY(12px) scale(0.994);
+        filter: blur(4px) brightness(1.25);
+      }
+      50% {
+        filter: blur(0.5px) brightness(1.08);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: none;
+      }
+    }
+
+    /* Haz de barrido láser cian en el borde superior del panel activo */
+    .section-panel.active .panel-box::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-cyan), #ffffff, var(--accent-cyan), transparent);
+      animation: hud-laser-scan 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    @keyframes hud-laser-scan {
+      0% { left: -100%; opacity: 1; }
+      100% { left: 100%; opacity: 0; }
+    }
+
+    /* Brillo táctico y pulso activo en el botón de navegación del Sidebar */
+    .menu-btn {
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+
+    .menu-btn.active {
+      background: rgba(16, 185, 129, 0.16) !important;
+      border-color: var(--accent-cyan) !important;
+      color: var(--accent-cyan) !important;
+      font-weight: 700;
+      box-shadow: inset 3px 0 0 var(--accent-cyan), 0 0 16px rgba(16, 185, 129, 0.22);
+      transform: translateX(4px);
     }
 
     .panel-box {
@@ -1707,17 +1761,25 @@ if (file_exists($miconex_path)) {
           <div class="kpi-footer" id="kpi-c14-footer">Muestreo acumulado turno</div>
         </div>
 
-        <!-- KPI 6: Dedo Frío 73120 (Métrica de Planta) -->
-        <div class="kpi-card" style="--card-color: #ec4899;" onclick="openKpiModal('dedofrio')" title="Haga clic para actualizar Dedo Frío 73120">
+        <!-- KPI 6: Dedo Frío 73120 (Métrica de Planta con Últimos 5 Datos) -->
+        <div class="kpi-card" style="--card-color: #ec4899;" onclick="openKpiModal('dedofrio')" title="Haga clic para ver histórico y actualizar Dedo Frío 73120">
           <div class="kpi-top-row">
             <span class="kpi-label">Dedo Frío 73120</span>
-            <span class="kpi-action-icon">✏️ Cargar</span>
+            <span class="kpi-action-icon">📊 Últimos 5</span>
           </div>
           <div class="kpi-value-row">
-            <span class="kpi-value" id="kpi-dedo-frio">18.5</span>
+            <span class="kpi-value" id="kpi-dedo-frio">&lt; 12</span>
             <span class="kpi-unit">ppm</span>
           </div>
-          <div class="kpi-footer" id="kpi-dedo-frio-footer">Muestreo criogénico D2O</div>
+          <!-- Micro-barra visual de los últimos 5 registros criogénicos -->
+          <div class="kpi-mini-history" style="display: flex; gap: 3px; margin: 2px 0 3px;">
+            <span title="Hoy 04:15 (ALTUNA): < 12 ppm" style="background: rgba(236,72,153,0.3); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px; font-weight: 800; border: 1px solid rgba(236,72,153,0.5);">&lt;12</span>
+            <span title="Ayer 20:30 (ROLHAUSER): < 10 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">&lt;10</span>
+            <span title="Ayer 12:45 (GATICA): 15 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">15</span>
+            <span title="Ayer 05:00 (CISTERNA): < 11 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">&lt;11</span>
+            <span title="07/11 21:10 (PASCUAL): 14 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">14</span>
+          </div>
+          <div class="kpi-footer" id="kpi-dedo-frio-footer">Histórico 5 guardias nominal</div>
         </div>
 
       </section>
@@ -2382,22 +2444,80 @@ if (file_exists($miconex_path)) {
 
         <!-- TAB 3: Dedo Frío 73120 -->
         <div class="kpi-tab-content" id="tab-dedofrio" style="display: none;">
-          <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px;">
+          <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 12px;">
             Concentración de agua pesada D2O en gas de muestreo criogénico 73120:
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 12px; margin-bottom: 12px;">
+          <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 12px; margin-bottom: 10px;">
             <div class="field-group">
               <label class="field-label">Hora de Medición (HH:MM)</label>
               <input type="text" id="kpi-in-dedofrio-hora" class="field-control mono latam-timepicker-input" value="04:30">
             </div>
             <div class="field-group">
               <label class="field-label">Concentración (ppm)</label>
-              <input type="text" id="kpi-in-dedofrio-val" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #f472b6;" value="18.5">
+              <input type="text" id="kpi-in-dedofrio-val" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #f472b6;" value="12">
             </div>
           </div>
-          <label style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--text-muted); cursor: pointer; margin-top: 6px;">
-            <input type="checkbox" id="kpi-in-dedofrio-menor" style="accent-color: var(--accent-cyan);"> Valor por debajo del límite de detección ( &lt; ppm )
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--text-muted); cursor: pointer; margin-top: 4px; margin-bottom: 14px;">
+            <input type="checkbox" id="kpi-in-dedofrio-menor" checked style="accent-color: var(--accent-cyan);"> Valor por debajo del límite de detección ( &lt; ppm )
           </label>
+
+          <!-- TABLA DE LOS ÚLTIMOS 5 DATOS HISTÓRICOS DE DEDO FRÍO -->
+          <div style="background: rgba(9, 28, 24, 0.7); border: 1px solid var(--border-card); border-radius: 6px; padding: 10px 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-size: 10.5px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase;">
+                📊 Últimos 5 Registros Criogénicos (Dedo Frío 73120)
+              </span>
+              <span style="font-size: 9.5px; color: var(--text-dim); font-family: var(--font-mono);">Límite Op: &lt; 50 ppm</span>
+            </div>
+            <table class="data-table" style="font-size: 11px;">
+              <thead>
+                <tr>
+                  <th style="padding: 5px 8px;">Fecha</th>
+                  <th style="padding: 5px 8px;">Hora</th>
+                  <th style="padding: 5px 8px;">Oficial Responsable</th>
+                  <th style="padding: 5px 8px; text-align: right;">PPM</th>
+                  <th style="padding: 5px 8px; text-align: center;">Estado</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-dedofrio-modal-5">
+                <tr>
+                  <td class="mono">Hoy</td>
+                  <td class="mono">04:15</td>
+                  <td style="font-weight: 700;">ALTUNA, LEONARDO (P)</td>
+                  <td class="mono" style="text-align: right; color: #f472b6; font-weight: 700;">&lt; 12</td>
+                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
+                </tr>
+                <tr>
+                  <td class="mono">Ayer</td>
+                  <td class="mono">20:30</td>
+                  <td>ROLHAUSER, MARIANO</td>
+                  <td class="mono" style="text-align: right; color: #f472b6;">&lt; 10</td>
+                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
+                </tr>
+                <tr>
+                  <td class="mono">Ayer</td>
+                  <td class="mono">12:45</td>
+                  <td>GATICA, CARLOS</td>
+                  <td class="mono" style="text-align: right; color: #f472b6;">15</td>
+                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
+                </tr>
+                <tr>
+                  <td class="mono">Ayer</td>
+                  <td class="mono">05:00</td>
+                  <td>CISTERNA, GUSTAVO</td>
+                  <td class="mono" style="text-align: right; color: #f472b6;">&lt; 11</td>
+                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
+                </tr>
+                <tr>
+                  <td class="mono">07/11</td>
+                  <td class="mono">21:10</td>
+                  <td>PASCUAL, SEBASTIAN</td>
+                  <td class="mono" style="text-align: right; color: #f472b6;">14</td>
+                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <!-- TAB 4: % Restricción Operacional -->

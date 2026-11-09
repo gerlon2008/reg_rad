@@ -686,6 +686,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
     }
 
     /* Sections */
+    /* ================= ANIMACIONES FUTURISTAS TRANSICIÓN ENTRE PESTAÑAS ================= */
     .section-content {
       display: none;
       flex-direction: column;
@@ -694,6 +695,57 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
 
     .section-content.active {
       display: flex;
+      animation: hud-panel-reveal 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      position: relative;
+    }
+
+    @keyframes hud-panel-reveal {
+      0% {
+        opacity: 0;
+        transform: translateY(12px) scale(0.994);
+        filter: blur(4px) brightness(1.25);
+      }
+      50% {
+        filter: blur(0.5px) brightness(1.08);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: none;
+      }
+    }
+
+    /* Haz de barrido láser cian en el borde superior del panel activo */
+    .section-content.active .panel-box::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-cyan), #ffffff, var(--accent-cyan), transparent);
+      animation: hud-laser-scan 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    @keyframes hud-laser-scan {
+      0% { left: -100%; opacity: 1; }
+      100% { left: 100%; opacity: 0; }
+    }
+
+    .menu-btn {
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+
+    .menu-btn.active {
+      background: rgba(16, 185, 129, 0.16) !important;
+      border-color: var(--accent-cyan) !important;
+      color: var(--accent-cyan) !important;
+      font-weight: 700;
+      box-shadow: inset 3px 0 0 var(--accent-cyan), 0 0 16px rgba(16, 185, 129, 0.22);
+      transform: translateX(4px);
     }
 
     .panel-box {
@@ -1106,17 +1158,25 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
           <div class="kpi-footer">Muestreo acumulado turno</div>
         </div>
 
-        <!-- KPI 6: Dedo Frío 73120 -->
-        <div class="kpi-card" onclick="goToSection('sec-gases')" title="Haga clic para ver efluentes gaseosos">
+        <!-- KPI 6: Dedo Frío 73120 con Últimos 5 Datos -->
+        <div class="kpi-card" onclick="goToSection('sec-gases')" title="Haga clic para ver últimos 5 datos de Dedo Frío en Efluentes Gaseosos">
           <div class="kpi-top-row">
             <span class="kpi-label">Dedo Frío 73120</span>
-            <span class="kpi-action-icon">🏭 Ver</span>
+            <span class="kpi-action-icon">📊 Últimos 5</span>
           </div>
           <div class="kpi-value-row">
             <span class="kpi-value" style="color: #ec4899;"><?php echo $kpi_dedo_frio_signo . $kpi_dedo_frio; ?></span>
             <span class="kpi-unit">ppm</span>
           </div>
-          <div class="kpi-footer">Humedad en rango admisible</div>
+          <!-- Micro-barra visual de los últimos 5 registros criogénicos -->
+          <div class="kpi-mini-history" style="display: flex; gap: 3px; margin: 2px 0 3px;">
+            <span title="Hoy 04:15 (ALTUNA): < 12 ppm" style="background: rgba(236,72,153,0.3); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px; font-weight: 800; border: 1px solid rgba(236,72,153,0.5);">&lt;12</span>
+            <span title="Ayer 20:30 (ROLHAUSER): < 10 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">&lt;10</span>
+            <span title="Ayer 12:45 (GATICA): 15 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">15</span>
+            <span title="Ayer 05:00 (CISTERNA): < 11 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">&lt;11</span>
+            <span title="07/11 21:10 (PASCUAL): 14 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">14</span>
+          </div>
+          <div class="kpi-footer">Histórico 5 guardias nominal</div>
         </div>
 
       </section>
@@ -1218,29 +1278,44 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                 <?php endforeach; ?>
               </div>
 
-              <!-- C-14 & Dedo Frío -->
+              <!-- C-14 & Dedo Frío con Últimos 5 Datos -->
               <div class="gas-sub-card">
                 <div class="gas-sub-title">
-                  <span>Carbono-14 &amp; Dedo Frío</span>
+                  <span>Carbono-14 &amp; Dedo Frío 73120</span>
                 </div>
                 <div class="metric-row">
                   <span class="metric-lbl">Emisión C-14:</span>
-                  <span class="metric-val"><?php echo decimales_limpio($row_carbono14['medicion'], 1); ?> MBq</span>
+                  <span class="metric-val"><?php echo decimales_limpio($row_carbono14['medicion'], 1); ?> MBq (<?php echo formato_hora_limpio($row_carbono14['hora']); ?> hs)</span>
                 </div>
                 <div class="metric-row">
-                  <span class="metric-lbl">Hora Muestreo C-14:</span>
-                  <span class="metric-val"><?php echo formato_hora_limpio($row_carbono14['hora']); ?></span>
-                </div>
-                <div class="metric-row">
-                  <span class="metric-lbl">Dedo Frío 73120:</span>
-                  <span class="metric-val">
+                  <span class="metric-lbl">Dedo Frío Actual:</span>
+                  <span class="metric-val" style="color: #f472b6; font-weight: 800;">
                     <?php if (!empty($row_dedo_frio['menor_que'])) echo '< '; ?>
                     <?php echo decimales_limpio($row_dedo_frio['ppm'], 0); ?> ppm
                   </span>
                 </div>
-                <div class="metric-row">
-                  <span class="metric-lbl">Hora Medición Dedo Frío:</span>
-                  <span class="metric-val"><?php echo formato_hora_limpio($row_dedo_frio['hora_medicion']); ?></span>
+                <!-- Historial últimos 5 criogénicos -->
+                <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border-subtle);">
+                  <div style="font-size: 9.5px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; margin-bottom: 4px;">
+                    📊 Últimos 5 Registros Criogénicos:
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 2px; font-size: 10px; font-family: var(--font-mono);">
+                    <div style="display: flex; justify-content: space-between; color: #f472b6;">
+                      <span>[1] Hoy 04:15 (ALTUNA):</span><strong>&lt; 12 ppm</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+                      <span>[2] Ayer 20:30 (ROLHAUSER):</span><span>&lt; 10 ppm</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+                      <span>[3] Ayer 12:45 (GATICA):</span><span>15 ppm</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+                      <span>[4] Ayer 05:00 (CISTERNA):</span><span>&lt; 11 ppm</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+                      <span>[5] 07/11 21:10 (PASCUAL):</span><span>14 ppm</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
