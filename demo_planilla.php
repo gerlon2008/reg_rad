@@ -1184,24 +1184,36 @@ if (file_exists($miconex_path)) {
     }
 
     .data-table th {
-      background: var(--bg-card-subtle);
+      background: var(--bg-sidebar);
       color: var(--text-muted);
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
-      font-size: 10.5px;
+      font-size: 10px;
       letter-spacing: 0.5px;
       padding: 10px 12px;
-      border-bottom: 1px solid var(--border-card);
+      border-bottom: 2px solid var(--border-card);
+    }
+
+    /* Filas intercaladas (Zebra Striping de Alto Contraste) */
+    .data-table tbody tr:nth-child(odd) td {
+      background-color: rgba(14, 39, 34, 0.45);
+    }
+
+    .data-table tbody tr:nth-child(even) td {
+      background-color: rgba(25, 66, 58, 0.65);
     }
 
     .data-table td {
-      padding: 10px 12px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 9px 12px;
+      border-bottom: 1px solid rgba(31, 77, 67, 0.45);
       color: var(--text-main);
+      transition: background-color 0.1s ease;
     }
 
-    .data-table tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
+    /* Resaltado interactivo de fila completa */
+    .data-table tbody tr:hover td {
+      background-color: rgba(16, 185, 129, 0.22) !important;
+      color: #ffffff;
     }
 
     .data-table td.num {

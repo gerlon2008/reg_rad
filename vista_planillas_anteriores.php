@@ -511,13 +511,23 @@ if (empty($registros_historicos)) {
       white-space: nowrap;
     }
 
+    /* Filas intercaladas (Zebra Striping de Alto Contraste) */
+    .hud-table tbody tr:nth-child(odd) td {
+      background-color: rgba(14, 39, 34, 0.45);
+    }
+
+    .hud-table tbody tr:nth-child(even) td {
+      background-color: rgba(25, 66, 58, 0.65);
+    }
+
     .hud-table tbody tr {
-      border-bottom: 1px solid var(--border-subtle);
+      border-bottom: 1px solid rgba(31, 77, 67, 0.45);
       transition: background-color 0.1s ease;
     }
 
-    .hud-table tbody tr:hover {
-      background-color: var(--bg-card-subtle);
+    .hud-table tbody tr:hover td {
+      background-color: rgba(16, 185, 129, 0.22) !important;
+      color: #ffffff;
     }
 
     .hud-table td {

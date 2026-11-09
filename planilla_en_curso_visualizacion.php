@@ -751,13 +751,23 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       border-right: none;
     }
 
+    /* Filas intercaladas (Zebra Striping de Alto Contraste) */
+    .data-table tbody tr:nth-child(odd) td {
+      background-color: rgba(14, 39, 34, 0.45);
+    }
+
+    .data-table tbody tr:nth-child(even) td {
+      background-color: rgba(25, 66, 58, 0.65);
+    }
+
     .data-table tbody td {
-      padding: 7px 10px;
+      padding: 8px 10px;
       font-size: 12px;
-      border-bottom: 1px solid var(--border-subtle);
+      border-bottom: 1px solid rgba(31, 77, 67, 0.45);
       border-right: 1px solid var(--border-subtle);
       color: var(--text-main);
       text-align: center;
+      transition: background-color 0.1s ease;
     }
 
     .data-table tbody td:last-child {
@@ -772,8 +782,9 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       font-family: var(--font-mono);
     }
 
-    .data-table tbody tr:hover {
-      background: var(--bg-card-subtle);
+    .data-table tbody tr:hover td {
+      background-color: rgba(16, 185, 129, 0.22) !important;
+      color: #ffffff;
     }
 
     /* Badges */
