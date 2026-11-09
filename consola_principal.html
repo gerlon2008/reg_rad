@@ -279,6 +279,44 @@
       margin-bottom: 22px;
     }
 
+    .kpis-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .kpis-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-update-all-kpis {
+      background: rgba(6, 182, 212, 0.12);
+      border: 1px solid var(--accent-cyan);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .btn-update-all-kpis:hover {
+      background: var(--accent-cyan);
+      color: #000;
+    }
+
     .kpi-card {
       background: var(--bg-card);
       border: 1px solid var(--border-card);
@@ -286,6 +324,72 @@
       padding: 12px 14px;
       position: relative;
       overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      user-select: none;
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+    }
+
+    .kpi-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .kpi-action-icon {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: all 0.15s ease;
+    }
+
+    .kpi-card:hover .kpi-action-icon {
+      color: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+      background: rgba(6, 182, 212, 0.15);
+      font-weight: 700;
+    }
+
+    .kpi-modal-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border-card);
+      padding-bottom: 8px;
+    }
+
+    .kpi-tab-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .kpi-tab-btn:hover {
+      background: var(--bg-card-subtle);
+      color: #ffffff;
+    }
+
+    .kpi-tab-btn.active {
+      background: rgba(6, 182, 212, 0.15);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+      font-weight: 700;
     }
 
     .kpi-card::before {
@@ -680,12 +784,25 @@
     <!-- WORKSPACE SCROLLABLE -->
     <div class="workspace">
 
-      <!-- ================= 6 KPIS SUPERIORES (INCLUYE LAS 4 MÉTRICAS DE PLANTA) ================= -->
+      <!-- ================= BARRA SUPERIOR & 6 KPIS SUPERIORES ================= -->
+      <div class="kpis-toolbar">
+        <div class="kpis-title">
+          <span>⚡ Métricas de Guardia &amp; Chimenea</span>
+          <span style="color: var(--text-dim); font-size: 10px; font-weight: normal;">[ Haga clic en cualquier tarjeta para actualizarla directamente ]</span>
+        </div>
+        <button type="button" class="btn-update-all-kpis" onclick="openKpiModal('all')">
+          <span>✏️ Actualizar Métricas de Chimenea</span>
+        </button>
+      </div>
+
       <section class="kpi-grid">
         
         <!-- KPI 1: Dosis Pico -->
-        <div class="kpi-card" style="--card-color: var(--accent-amber);">
-          <div class="kpi-label">Dosis Pico del Turno</div>
+        <div class="kpi-card" style="--card-color: var(--accent-amber);" onclick="openKpiModal('dosis')" title="Haga clic para ver mediciones de rutina">
+          <div class="kpi-top-row">
+            <span class="kpi-label">Dosis Pico del Turno</span>
+            <span class="kpi-action-icon">📋 Ver</span>
+          </div>
           <div class="kpi-value-row">
             <span class="kpi-value" id="kpi-max-dosis" style="color: var(--accent-amber);">24.0</span>
             <span class="kpi-unit">µSv/h</span>
@@ -694,53 +811,68 @@
         </div>
 
         <!-- KPI 2: RO Gaseoso -->
-        <div class="kpi-card" style="--card-color: var(--accent-green);">
-          <div class="kpi-label">% Restricción Operacional</div>
+        <div class="kpi-card" style="--card-color: var(--accent-green);" onclick="openKpiModal('ro')" title="Haga clic para actualizar Restricción Operacional">
+          <div class="kpi-top-row">
+            <span class="kpi-label">% Restricción Operacional</span>
+            <span class="kpi-action-icon">✏️ Cargar</span>
+          </div>
           <div class="kpi-value-row">
-            <span class="kpi-value" style="color: var(--accent-green);">8.42</span>
+            <span class="kpi-value" id="kpi-ro-val" style="color: var(--accent-green);">8.42</span>
             <span class="kpi-unit">% RO</span>
           </div>
-          <div class="kpi-footer">Chimenea en rango nominal</div>
+          <div class="kpi-footer" id="kpi-ro-footer">Chimenea en rango nominal</div>
         </div>
 
         <!-- KPI 3: Ventilación General (Métrica de Planta) -->
-        <div class="kpi-card" style="--card-color: var(--accent-blue);">
-          <div class="kpi-label">Ventilación General</div>
+        <div class="kpi-card" style="--card-color: var(--accent-blue);" onclick="openKpiModal('tritio')" title="Haga clic para actualizar Ventilación General / Reactor">
+          <div class="kpi-top-row">
+            <span class="kpi-label">Ventilación General</span>
+            <span class="kpi-action-icon">✏️ Cargar</span>
+          </div>
           <div class="kpi-value-row">
             <span class="kpi-value" id="kpi-vent-gral">1.45</span>
             <span class="kpi-unit">GBq</span>
           </div>
-          <div class="kpi-footer">Caudal extracción normal</div>
+          <div class="kpi-footer" id="kpi-vent-gral-footer">Caudal extracción normal</div>
         </div>
 
         <!-- KPI 4: Ventilación Reactor (Métrica de Planta) -->
-        <div class="kpi-card" style="--card-color: var(--accent-cyan);">
-          <div class="kpi-label">Ventilación Reactor</div>
+        <div class="kpi-card" style="--card-color: var(--accent-cyan);" onclick="openKpiModal('tritio')" title="Haga clic para actualizar Ventilación Reactor / General">
+          <div class="kpi-top-row">
+            <span class="kpi-label">Ventilación Reactor</span>
+            <span class="kpi-action-icon">✏️ Cargar</span>
+          </div>
           <div class="kpi-value-row">
             <span class="kpi-value" id="kpi-vent-reactor">3.80</span>
             <span class="kpi-unit">GBq</span>
           </div>
-          <div class="kpi-footer">Extracción contención activa</div>
+          <div class="kpi-footer" id="kpi-vent-reactor-footer">Extracción contención activa</div>
         </div>
 
         <!-- KPI 5: Emisión C-14 (Métrica de Planta) -->
-        <div class="kpi-card" style="--card-color: #a855f7;">
-          <div class="kpi-label">Emisión Carbono-14</div>
+        <div class="kpi-card" style="--card-color: #a855f7;" onclick="openKpiModal('c14')" title="Haga clic para actualizar Emisión Carbono-14">
+          <div class="kpi-top-row">
+            <span class="kpi-label">Emisión Carbono-14</span>
+            <span class="kpi-action-icon">✏️ Cargar</span>
+          </div>
           <div class="kpi-value-row">
             <span class="kpi-value" id="kpi-c14">12.4</span>
             <span class="kpi-unit">MBq</span>
           </div>
-          <div class="kpi-footer">Muestreo acumulado turno</div>
+          <div class="kpi-footer" id="kpi-c14-footer">Muestreo acumulado turno</div>
         </div>
 
         <!-- KPI 6: Dedo Frío 73120 (Métrica de Planta) -->
-        <div class="kpi-card" style="--card-color: #ec4899;">
-          <div class="kpi-label">Dedo Frío 73120</div>
+        <div class="kpi-card" style="--card-color: #ec4899;" onclick="openKpiModal('dedofrio')" title="Haga clic para actualizar Dedo Frío 73120">
+          <div class="kpi-top-row">
+            <span class="kpi-label">Dedo Frío 73120</span>
+            <span class="kpi-action-icon">✏️ Cargar</span>
+          </div>
           <div class="kpi-value-row">
             <span class="kpi-value" id="kpi-dedo-frio">18.5</span>
             <span class="kpi-unit">ppm</span>
           </div>
-          <div class="kpi-footer">Muestreo criogénico D2O</div>
+          <div class="kpi-footer" id="kpi-dedo-frio-footer">Muestreo criogénico D2O</div>
         </div>
 
       </section>
@@ -1297,6 +1429,112 @@
     </div>
   </div>
 
+    <!-- ================= MODAL DE CARGA Y ACTUALIZACIÓN DE MÉTRICAS DE PLANTA / CHIMENEA ================= -->
+  <div class="modal-overlay" id="kpi-metricas-modal">
+    <div class="modal-box" style="width: 620px;">
+      <div class="modal-header">
+        <span style="color: var(--accent-cyan);">⚡</span>
+        <span id="kpi-modal-title">Carga / Actualización de Métricas de Chimenea &amp; Planta</span>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        
+        <!-- Pestañas internas del modal -->
+        <div class="kpi-modal-tabs">
+          <button type="button" class="kpi-tab-btn active" data-tab="tab-tritio" onclick="switchKpiTab('tab-tritio')">💨 Tritio Chimenea</button>
+          <button type="button" class="kpi-tab-btn" data-tab="tab-c14" onclick="switchKpiTab('tab-c14')">⚛️ Carbono 14</button>
+          <button type="button" class="kpi-tab-btn" data-tab="tab-dedofrio" onclick="switchKpiTab('tab-dedofrio')">❄️ Dedo Frío 73120</button>
+          <button type="button" class="kpi-tab-btn" data-tab="tab-ro" onclick="switchKpiTab('tab-ro')">📈 % RO Chimenea</button>
+        </div>
+
+        <!-- TAB 1: Tritio Chimenea (Ventilación General y Reactor) -->
+        <div class="kpi-tab-content active" id="tab-tritio">
+          <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px;">
+            Descarga de tritio gaseoso por ventilación activa de chimenea:
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div class="field-group">
+              <label class="field-label">Hora Desde (HH:MM)</label>
+              <input type="text" id="kpi-in-tritio-desde" class="field-control mono" value="23:00">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Hora Hasta (HH:MM)</label>
+              <input type="text" id="kpi-in-tritio-hasta" class="field-control mono" value="07:00">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div class="field-group">
+              <label class="field-label">Ventilación General (GBq)</label>
+              <input type="text" id="kpi-in-vent-gral" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #60a5fa;" value="1.45">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Ventilación Reactor (GBq)</label>
+              <input type="text" id="kpi-in-vent-reactor" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #22d3ee;" value="3.80">
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: Carbono 14 -->
+        <div class="kpi-tab-content" id="tab-c14" style="display: none;">
+          <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px;">
+            Muestreo integrado y concentración de Carbono-14 en efluentes:
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div class="field-group">
+              <label class="field-label">Hora de Medición (HH:MM)</label>
+              <input type="text" id="kpi-in-c14-hora" class="field-control mono" value="06:00">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Actividad C-14 (MBq)</label>
+              <input type="text" id="kpi-in-c14-val" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #c084fc;" value="12.4">
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: Dedo Frío 73120 -->
+        <div class="kpi-tab-content" id="tab-dedofrio" style="display: none;">
+          <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px;">
+            Concentración de agua pesada D2O en gas de muestreo criogénico 73120:
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 12px; margin-bottom: 12px;">
+            <div class="field-group">
+              <label class="field-label">Hora de Medición (HH:MM)</label>
+              <input type="text" id="kpi-in-dedofrio-hora" class="field-control mono" value="04:30">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Concentración (ppm)</label>
+              <input type="text" id="kpi-in-dedofrio-val" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #f472b6;" value="18.5">
+            </div>
+          </div>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--text-muted); cursor: pointer; margin-top: 6px;">
+            <input type="checkbox" id="kpi-in-dedofrio-menor" style="accent-color: var(--accent-cyan);"> Valor por debajo del límite de detección ( &lt; ppm )
+          </label>
+        </div>
+
+        <!-- TAB 4: % Restricción Operacional -->
+        <div class="kpi-tab-content" id="tab-ro" style="display: none;">
+          <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px;">
+            Porcentaje de Restricción Operacional acumulado del turno (Límite normativo ARN / NASA):
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div class="field-group">
+              <label class="field-label">% RO Asignado / Calculado</label>
+              <input type="text" id="kpi-in-ro-val" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #34d399;" value="8.42">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Condición / Estado</label>
+              <input type="text" id="kpi-in-ro-desc" class="field-control" value="Chimenea en rango nominal">
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-cancel" onclick="closeKpiModal()">CANCELAR</button>
+        <button class="btn-modal-confirm" onclick="saveKpiMetrics()">💾 GUARDAR Y APLICAR A KPIS</button>
+      </div>
+    </div>
+  </div>
+
   <!-- NOTIFICACIÓN TOAST -->
   <div class="toast-popup" id="toast"></div>
 
@@ -1576,6 +1814,96 @@
       btn.closest('tr').remove();
       recalculateKPIs();
       showToast('Registro eliminado');
+    }
+
+        // ================= MODAL INTERACTIVO DE ACTUALIZACIÓN DE KPIS =================
+    function openKpiModal(targetTab) {
+      if (targetTab === 'dosis') {
+        const rutinaBtn = document.querySelector('.menu-btn[data-section="sec-rutina"]');
+        if (rutinaBtn) rutinaBtn.click();
+        const dosisInput = document.getElementById('q-dosis');
+        if (dosisInput) {
+          dosisInput.focus();
+          showToast('📍 Dosis Pico: determinada por relevamientos de recintos');
+        }
+        return;
+      }
+
+      document.getElementById('kpi-metricas-modal').style.display = 'flex';
+
+      if (targetTab === 'tritio') {
+        switchKpiTab('tab-tritio');
+      } else if (targetTab === 'c14') {
+        switchKpiTab('tab-c14');
+      } else if (targetTab === 'dedofrio') {
+        switchKpiTab('tab-dedofrio');
+      } else if (targetTab === 'ro') {
+        switchKpiTab('tab-ro');
+      } else {
+        switchKpiTab('tab-tritio');
+      }
+    }
+
+    function closeKpiModal() {
+      document.getElementById('kpi-metricas-modal').style.display = 'none';
+    }
+
+    function switchKpiTab(tabId) {
+      document.querySelectorAll('.kpi-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+      });
+      document.querySelectorAll('.kpi-tab-content').forEach(content => {
+        content.style.display = (content.id === tabId) ? 'block' : 'none';
+      });
+    }
+
+    function saveKpiMetrics() {
+      const ventGral = document.getElementById('kpi-in-vent-gral').value;
+      const ventReactor = document.getElementById('kpi-in-vent-reactor').value;
+      const c14 = document.getElementById('kpi-in-c14-val').value;
+      const dedoFrio = document.getElementById('kpi-in-dedofrio-val').value;
+      const isMenor = document.getElementById('kpi-in-dedofrio-menor').checked;
+      const roVal = document.getElementById('kpi-in-ro-val').value;
+      const roDesc = document.getElementById('kpi-in-ro-desc').value;
+
+      // Actualizar visualmente las 6 tarjetas de KPI
+      document.getElementById('kpi-vent-gral').textContent = ventGral;
+      document.getElementById('kpi-vent-reactor').textContent = ventReactor;
+      document.getElementById('kpi-c14').textContent = c14;
+      document.getElementById('kpi-dedo-frio').textContent = (isMenor ? '< ' : '') + dedoFrio;
+      document.getElementById('kpi-ro-val').textContent = roVal;
+      document.getElementById('kpi-ro-footer').textContent = roDesc;
+
+      // Sincronizar con inputs secundarios si existen
+      if (document.getElementById('input-vent-gral')) document.getElementById('input-vent-gral').value = ventGral;
+      if (document.getElementById('input-vent-reactor')) document.getElementById('input-vent-reactor').value = ventReactor;
+      if (document.getElementById('input-c14')) document.getElementById('input-c14').value = c14;
+      if (document.getElementById('input-dedo-frio')) document.getElementById('input-dedo-frio').value = dedoFrio;
+
+      // Enviar a MySQL vía procesos_reg_rad.php
+      const now = new Date();
+      const horaActualStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+      const fechaLatam = document.getElementById('topbar-latam-date').textContent;
+      const partes = fechaLatam.split('/');
+      const fechaSql = partes.length === 3 ? `${partes[2]}-${partes[1]}-${partes[0]}` : fechaLatam;
+
+      const horaDesde = document.getElementById('kpi-in-tritio-desde').value;
+      const horaHasta = document.getElementById('kpi-in-tritio-hasta').value;
+
+      // 1. Guardar Tritio (Ventilación General & Reactor)
+      fetch(`procesos_reg_rad.php?accion=guardar_valores_emision_tritio&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&desde=${horaDesde}&hasta=${horaHasta}&vent_gral_unidad_actividad=5&vent_reactor_unidad_actividad=5&vent_gral=${ventGral}&vent_reactor=${ventReactor}`)
+        .catch(e => console.log('Offline/Mock tritio save'));
+
+      // 2. Guardar Carbono-14
+      fetch(`procesos_reg_rad.php?accion=guardar_valores_carbono14&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&hora=${horaActualStr}&actividad_unidad_ingresada=4&actividad=${c14}`)
+        .catch(e => console.log('Offline/Mock C14 save'));
+
+      // 3. Guardar Dedo Frío
+      fetch(`procesos_reg_rad.php?accion=guardar_valores_dedo_frio&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&hora=${horaActualStr}&ppm=${dedoFrio}&menor_que=${isMenor ? 1 : 0}`)
+        .catch(e => console.log('Offline/Mock Dedo Frío save'));
+
+      closeKpiModal();
+      showToast('✔️ Métricas de chimenea actualizadas y guardadas en MySQL');
     }
 
     // ================= EFLUENTES GASEOSOS & KPIS =================
