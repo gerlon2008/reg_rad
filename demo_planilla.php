@@ -1781,6 +1781,21 @@ if (file_exists($miconex_path)) {
               </button>
             </div>
 
+            <!-- Pastilla HUD: Últimos 3 valores registrados en este recinto -->
+            <div id="recinto-history-panel" style="display: none; margin-bottom: 14px; background: rgba(9, 28, 24, 0.7); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-cyan); border-radius: 6px; padding: 8px 12px; font-size: 11px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;">
+                <span style="font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; font-size: 10px;">
+                  📍 Últimos 3 Registros en: <strong id="rh-recinto-label" style="color: #ffffff;">-</strong>
+                </span>
+                <span id="rh-trend-badge" style="font-size: 10px; font-weight: 700; color: var(--text-muted); font-family: var(--font-mono);">
+                  🟢 Nivel habitual
+                </span>
+              </div>
+              <div id="rh-chips-list" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <!-- Chips inyectados por JS -->
+              </div>
+            </div>
+
             <!-- Tabla de Mediciones -->
             <table class="data-table" id="rutina-table">
               <thead>
@@ -2003,118 +2018,153 @@ if (file_exists($miconex_path)) {
       </section>
 
       <!-- ================= SECCIÓN 5: TAREAS & PTR ================= -->
-      <section class="section-panel" id="sec-tareas">
+      <!-- ================= SECCIÓN 5: LIBRO DE ACTAS & NOVEDADES DE GUARDIA ================= -->
+      <section class="section-panel" id="sec-actas">
         <div class="panel-box">
           <div class="panel-header">
-            <div class="panel-title"><span>⚠️</span> Control de Tareas Radiológicas &amp; Permisos PTR</div>
+            <div class="panel-title"><span>📖</span> Libro de Actas &amp; Novedades de Guardia (SyR)</div>
+            <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);" id="actas-counter-badge">
+              0 actas asentadas en este turno
+            </span>
           </div>
           <div class="panel-body">
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px;">
-              <div class="field-group">
-                <label class="field-label">N° de PTR Asociado</label>
-                <input type="text" id="task-ptr" class="field-control mono" placeholder="ej: PTR-2026-0412">
+            
+            <!-- FORMULARIO DE CARGA DE ACTA -->
+            <div style="background: var(--bg-card-subtle); border: 1px solid var(--border-card); border-radius: 8px; padding: 14px; margin-bottom: 18px;">
+              <div style="font-size: 11px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px;">
+                + Cargar Nueva Acta / Registro de Guardia
               </div>
-              <div class="field-group">
-                <label class="field-label">Recinto de Trabajo</label>
-                <select id="task-recinto" class="field-control">
-                  <?php foreach ($recintos_array as $item) { ?>
-                    <option value="<?php echo htmlspecialchars($item['recinto'], ENT_QUOTES, 'UTF-8'); ?>">
-                      <?php echo htmlspecialchars($item['recinto'], ENT_QUOTES, 'UTF-8'); ?>
-                    </option>
-                  <?php } ?>
-                </select>
+
+              <!-- Texto del Acta -->
+              <div class="field-group" style="margin-bottom: 12px;">
+                <label class="field-label" style="font-weight: 700; color: #ffffff;">Descripción del Evento / Novedad / Acta <span style="color: var(--accent-red);">*</span></label>
+                <textarea id="acta-texto" class="field-control" style="height: 75px; padding: 8px 10px; resize: vertical; font-size: 12px;" placeholder="Describa el trabajo realizado, novedad de guardia, inspección o evento..."></textarea>
               </div>
-              <div class="field-group">
-                <label class="field-label">Oficial Responsable <span style="color:var(--accent-cyan); font-size:9.5px; text-transform:none;">[Seleccionar]</span></label>
-                <select id="task-oficial" class="field-control" style="font-weight:700; color:#ffffff;">
-                  <?php foreach ($oficiales_array as $of) { ?>
-                    <option value="<?php echo htmlspecialchars($of['nombre'], ENT_QUOTES, 'UTF-8'); ?>" <?php if($of['nombre'] == $oficial_actual) echo "selected"; ?>>
-                      <?php echo htmlspecialchars($of['nombre'], ENT_QUOTES, 'UTF-8'); ?>
-                    </option>
-                  <?php } ?>
-                </select>
+
+              <!-- Metadata: Oficial, Ayudante, Recinto, PTR -->
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px;">
+                <div class="field-group">
+                  <label class="field-label">Oficial Responsable</label>
+                  <select id="acta-oficial" class="field-control" style="font-weight:700; color:#ffffff;">
+                    <?php foreach ($oficiales_array as $of) { ?>
+                      <option value="<?php echo htmlspecialchars($of['nombre'], ENT_QUOTES, 'UTF-8'); ?>" <?php if($of['nombre'] == $oficial_actual) echo "selected"; ?>>
+                        <?php echo htmlspecialchars($of['nombre'], ENT_QUOTES, 'UTF-8'); ?>
+                      </option>
+                    <?php } ?>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Personal que Asistió / Ayudante</label>
+                  <select id="acta-ayudante" class="field-control">
+                    <option value="">-- Sin ayudante / N/A --</option>
+                    <?php foreach ($ayudantes_array as $ayu) { ?>
+                      <option value="<?php echo $ayu['id']; ?>">
+                        <?php echo htmlspecialchars($ayu['nombre'], ENT_QUOTES, 'UTF-8'); ?>
+                      </option>
+                    <?php } ?>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Recinto Asociado <span style="color:var(--text-dim);">(Opcional)</span></label>
+                  <select id="acta-recinto" class="field-control">
+                    <option value="">-- General de Planta / Sin recinto específico --</option>
+                    <?php foreach ($recintos_array as $item) { ?>
+                      <option value="<?php echo htmlspecialchars($item['recinto'], ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php echo htmlspecialchars($item['recinto'], ENT_QUOTES, 'UTF-8'); ?>
+                      </option>
+                    <?php } ?>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">N° PTR Asociado <span style="color:var(--text-dim); font-size:9.5px;">(Opcional)</span></label>
+                  <input type="text" id="acta-ptr" class="field-control mono" placeholder="ej: 1042">
+                </div>
               </div>
-              <div class="field-group">
-                <label class="field-label">Ayudante (Personal Autorizado)</label>
-                <select id="task-ayudante" class="field-control">
-                  <?php foreach ($ayudantes_array as $ayu) { ?>
-                    <option value="<?php echo $ayu['id']; ?>">
-                      <?php echo htmlspecialchars($ayu['nombre'], ENT_QUOTES, 'UTF-8'); ?>
-                    </option>
-                  <?php } ?>
-                </select>
+
+              <!-- Parámetros Radiológicos Opcionales & Flags -->
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr) 2fr; gap: 12px; align-items: flex-end;">
+                <div class="field-group">
+                  <label class="field-label">Dosis (µSv/h)</label>
+                  <input type="text" id="acta-dosis" class="field-control mono" placeholder="0.0">
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Tritio (DAC)</label>
+                  <input type="text" id="acta-tritio" class="field-control mono" placeholder="0.0">
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Cont. β+γ (Bq/cm²)</label>
+                  <input type="text" id="acta-cont-beta" class="field-control mono" placeholder="0.0">
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Cont. α (Bq/cm²)</label>
+                  <input type="text" id="acta-cont-alfa" class="field-control mono" placeholder="0.0">
+                </div>
+
+                <!-- Checkboxes de Seguridad -->
+                <div style="display: flex; gap: 14px; align-items: center; padding-bottom: 6px;">
+                  <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; color: var(--text-main);">
+                    <input type="checkbox" id="acta-derrame" style="accent-color: var(--accent-amber); cursor: pointer;">
+                    <span>Derrame D2O</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; color: var(--text-main);">
+                    <input type="checkbox" id="acta-aerosoles" onchange="toggleAerosolesInput(this)" style="accent-color: var(--accent-cyan); cursor: pointer;">
+                    <span>Aerosoles</span>
+                  </label>
+                  <input type="text" id="acta-aerosoles-dac" class="field-control mono" placeholder="DAC aer." style="display: none; width: 80px; height: 30px; font-size: 11px;">
+                </div>
               </div>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 14px; margin-bottom: 16px;">
-              <div class="field-group">
-                <label class="field-label">Tasa Dosis Máx Prevista (µSv/h)</label>
-                <input type="text" id="task-dosis" class="field-control mono" placeholder="0.0">
+
+              <div style="margin-top: 14px; text-align: right;">
+                <button type="button" class="btn-register" onclick="asentarNuevaActa()">
+                  💾 ASENTAR ACTA EN LIBRO DE GUARDIA
+                </button>
               </div>
-              <div class="field-group">
-                <label class="field-label">Riesgo Derrame Agua Pesada D2O</label>
-                <select id="task-derrame" class="field-control">
-                  <option value="0">No / Sin riesgo</option>
-                  <option value="1">Sí / Riesgo potencial</option>
-                </select>
-              </div>
-              <div class="field-group">
-                <label class="field-label">Descripción de la Tarea</label>
-                <input type="text" id="task-desc" class="field-control" placeholder="Detalle del trabajo de campo...">
-              </div>
-            </div>
-            <div style="text-align: right;">
-              <button class="btn-register" onclick="registerDailyTask()">
-                + REGISTRAR TRABAJO CON RADIACIÓN
-              </button>
             </div>
 
-            <!-- Tabla de Tareas Registradas -->
-            <table class="data-table" style="margin-top: 18px;" id="tasks-table">
+            <!-- TABLA DE ACTAS ASENTADAS EN EL TURNO -->
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">
+              📋 Actas Registradas en Esta Guardia:
+            </div>
+            <table class="data-table" id="tabla-actas-guardia">
               <thead>
                 <tr>
-                  <th>PTR</th>
+                  <th style="width: 65px;">Hora</th>
+                  <th style="width: 80px;">PTR</th>
                   <th>Recinto</th>
-                  <th>Oficial Responsable</th>
-                  <th>Ayudante Asignado</th>
-                  <th style="text-align: right;">Dosis Máx (µSv/h)</th>
-                  <th>Riesgo D2O</th>
-                  <th>Descripción</th>
-                  <th style="text-align: center;">Acción</th>
+                  <th>Oficial</th>
+                  <th>Asistió</th>
+                  <th style="text-align: left;">Descripción / Novedad</th>
+                  <th style="width: 90px; text-align: right;">Dosis (µSv/h)</th>
+                  <th style="width: 90px;">D2O / Aer.</th>
+                  <th style="width: 50px; text-align: center;">Acción</th>
                 </tr>
               </thead>
-              <tbody id="tasks-table-body">
+              <tbody id="tbody-actas-guardia">
                 <tr>
-                  <td class="num" style="font-weight: 700; color: var(--accent-cyan);">PTR-2026-0398</td>
-                  <td>R-024 - Sala de Bombas PHT</td>
-                  <td style="font-weight: 700;">PEÑALOZA, JOSE</td>
-                  <td>ALTUNA, LEONARDO (P)</td>
-                  <td class="num">18.5</td>
-                  <td><span class="badge-amber">SÍ (D2O)</span></td>
-                  <td>Inspección de sello de bomba PHT-02</td>
+                  <td class="mono">23:35</td>
+                  <td class="mono" style="color: var(--accent-cyan); font-weight: 700;">1042</td>
+                  <td>R-005 - Sistema D2O</td>
+                  <td style="font-weight: 700;">ALTUNA, LEONARDO (P)</td>
+                  <td>GOMEZ, FACUNDO</td>
+                  <td class="text-left">Mantenimiento preventivo de bomba de purificación. Sin goteo ni aerosoles.</td>
+                  <td class="mono" style="text-align: right; color: var(--accent-amber); font-weight: 700;">18.5</td>
+                  <td><span style="color: var(--text-dim);">-</span></td>
+                  <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
+                </tr>
+                <tr>
+                  <td class="mono">02:10</td>
+                  <td class="mono" style="color: var(--text-dim);">-</td>
+                  <td>Planta General</td>
+                  <td style="font-weight: 700;">ALTUNA, LEONARDO (P)</td>
+                  <td>-</td>
+                  <td class="text-left">Inspección de precintos y ronda perimetral de zona controlada. Todas las puertas intactas.</td>
+                  <td class="mono" style="text-align: right; color: var(--text-dim);">0.0</td>
+                  <td><span style="color: var(--text-dim);">-</span></td>
                   <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
                 </tr>
               </tbody>
             </table>
-          </div>
-        </div>
-      </section>
 
-      <!-- ================= SECCIÓN 6: LIBRO DE ACTAS ================= -->
-      <section class="section-panel" id="sec-actas">
-        <div class="panel-box">
-          <div class="panel-header">
-            <div class="panel-title"><span>📖</span> Libro de Actas / Novedades de Guardia</div>
-          </div>
-          <div class="panel-body">
-            <div style="margin-bottom: 12px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">
-              Bitácora oficial de novedades para el traspaso de turno a la guardia entrante:
-            </div>
-            <textarea id="actas-text" class="field-control mono" style="height: 140px; padding: 12px; resize: vertical;" placeholder="Ingrese las novedades del turno...">Guardia iniciada en condiciones nominales. Reactor en 100% FP. Se completó ronda de rutina en edificio de contención sin anomalías.</textarea>
-            <div style="margin-top: 14px; text-align: right;">
-              <button class="btn-register" onclick="saveActas()">
-                💾 GUARDAR EN LIBRO DE ACTAS
-              </button>
-            </div>
           </div>
         </div>
       </section>
@@ -3026,6 +3076,9 @@ if (file_exists($miconex_path)) {
       recintoInput.value = name;
       recintoIdInput.value = id;
       recintoDropdown.classList.remove('open');
+      if (typeof updateRecintoHistory === 'function') {
+        updateRecintoHistory(id, name);
+      }
       const nextInput = document.getElementById('q-gases');
       if (nextInput) nextInput.focus();
     }
@@ -3394,6 +3447,8 @@ if (file_exists($miconex_path)) {
 
   
     // ================= MOTOR DE COLA OFFLINE Y SINCRONIZACIÓN AUTOMÁTICA (OUTBOX) =================
+    const IS_DEMO_MODE = true; // true = MODO PRUEBA/DEMO: Protege la base de datos real contra cualquier escritura
+
     const SyncEngine = {
       QUEUE_KEY: 'regrad_offline_queue_v1',
       isSyncing: false,
@@ -3454,6 +3509,24 @@ if (file_exists($miconex_path)) {
         for (let i = 0; i < queue.length; i++) {
           const item = queue[i];
           try {
+            if (IS_DEMO_MODE) {
+              // MODO DEMO PROTEGIDO: Simula éxito en LocalStorage sin tocar MySQL
+              console.log(`[DEMO PROTEGIDA] Acción simulada [${item.actionType}] en LocalStorage - Base de Datos MySQL INTACTA`);
+              successCount++;
+              if (item.meta && item.meta.rowId) {
+                const rowEl = document.getElementById(item.meta.rowId);
+                if (rowEl) {
+                  const b = rowEl.querySelector('.sync-badge');
+                  if (b) {
+                    b.className = 'sync-badge synced';
+                    b.innerHTML = '● Guardado (Demo)';
+                    b.title = 'Guardado simulado en LocalStorage (Base de datos real protegida)';
+                  }
+                }
+              }
+              continue;
+            }
+
             let response;
             if (item.method === 'POST') {
               let formData = new FormData();
@@ -3519,8 +3592,8 @@ if (file_exists($miconex_path)) {
           pill.title = 'Datos guardados localmente. Haga clic para intentar enviar ahora al servidor';
         } else {
           pill.className = 'sync-pill synced';
-          pill.innerHTML = `☁️ Servidor sincronizado`;
-          pill.title = 'Todos los datos están guardados en MySQL';
+          pill.innerHTML = IS_DEMO_MODE ? `🛡️ Modo Demo (BD Protegida)` : `☁️ Servidor sincronizado`;
+          pill.title = IS_DEMO_MODE ? 'Modo simulación activo: no se escribe nada en MySQL' : 'Todos los datos están guardados en MySQL';
         }
       }
     };
@@ -3541,6 +3614,181 @@ if (file_exists($miconex_path)) {
       SyncEngine.updateSyncUI();
       SyncEngine.flush();
     }, 2000);
+
+
+    // ================= HISTÓRICO DE LOS ÚLTIMOS 3 VALORES DEL RECINTO =================
+    const mockRecintoHistory = {
+      '1': [
+        { fecha: 'Ayer 23:30', hora: '23:30', oficial: 'ALTUNA', dosis: '2.5', tritio: '0.20', gases: '0.00' },
+        { fecha: 'Ayer 15:40', hora: '15:40', oficial: 'ROLHAUSER', dosis: '2.0', tritio: '0.15', gases: '0.00' },
+        { fecha: 'Ayer 08:10', hora: '08:10', oficial: 'GATICA', dosis: '1.8', tritio: '0.20', gases: '0.00' }
+      ],
+      '24': [
+        { fecha: 'Ayer 23:30', hora: '23:30', oficial: 'ALTUNA', dosis: '24.0', tritio: '0.45', gases: '0.00' },
+        { fecha: 'Ayer 15:40', hora: '15:40', oficial: 'ROLHAUSER', dosis: '18.5', tritio: '0.40', gases: '0.00' },
+        { fecha: 'Ayer 08:15', hora: '08:15', oficial: 'GATICA', dosis: '12.0', tritio: '0.25', gases: '0.00' }
+      ],
+      '5': [
+        { fecha: 'Ayer 23:35', hora: '23:35', oficial: 'ALTUNA', dosis: '18.5', tritio: '1.80', gases: '0.40' },
+        { fecha: 'Ayer 15:50', hora: '15:50', oficial: 'ROLHAUSER', dosis: '15.0', tritio: '1.50', gases: '0.30' },
+        { fecha: 'Ayer 08:20', hora: '08:20', oficial: 'GATICA', dosis: '14.0', tritio: '1.20', gases: '0.20' }
+      ],
+      '12': [
+        { fecha: 'Ayer 23:45', hora: '23:45', oficial: 'ALTUNA', dosis: '45.0', tritio: '3.40', gases: '0.85' },
+        { fecha: 'Ayer 16:00', hora: '16:00', oficial: 'ROLHAUSER', dosis: '42.0', tritio: '3.10', gases: '0.80' },
+        { fecha: 'Ayer 08:30', hora: '08:30', oficial: 'GATICA', dosis: '40.0', tritio: '2.80', gases: '0.70' }
+      ]
+    };
+
+    function updateRecintoHistory(recintoId, recintoName) {
+      const panel = document.getElementById('recinto-history-panel');
+      const label = document.getElementById('rh-recinto-label');
+      const chipsList = document.getElementById('rh-chips-list');
+      const trendBadge = document.getElementById('rh-trend-badge');
+      if (!panel || !chipsList) return;
+
+      if (!recintoName || recintoName.trim() === '') {
+        panel.style.display = 'none';
+        return;
+      }
+
+      label.textContent = recintoName.split(' - ')[0];
+
+      // Buscar historial o generar valores consistentes para el recinto
+      const history = mockRecintoHistory[recintoId] || [
+        { fecha: 'Turno 3', hora: '23:30', oficial: 'ALTUNA', dosis: '4.5', tritio: '0.40', gases: '0.00' },
+        { fecha: 'Turno 2', hora: '15:40', oficial: 'ROLHAUSER', dosis: '4.0', tritio: '0.35', gases: '0.00' },
+        { fecha: 'Turno 1', hora: '08:10', oficial: 'GATICA', dosis: '3.8', tritio: '0.30', gases: '0.00' }
+      ];
+
+      chipsList.innerHTML = history.map((item, idx) => `
+        <div style="background: rgba(22, 54, 48, 0.6); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 4px 8px; display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono);">
+          <span style="font-weight: 800; color: var(--accent-cyan);">[${idx + 1}]</span>
+          <span style="color: var(--text-muted); font-size: 10px;">${item.fecha} (${item.oficial}):</span>
+          <span style="color: var(--accent-amber); font-weight: 700;">${item.dosis} µSv/h</span>
+          <span style="color: var(--text-dim);">|</span>
+          <span style="color: var(--accent-cyan);">${item.tritio} DAC</span>
+          <span style="color: var(--text-dim);">|</span>
+          <span style="color: #c084fc;">${item.gases} DAC</span>
+        </div>
+      `).join('');
+
+      // Calcular tendencia rápida
+      const d1 = parseFloat(history[0].dosis);
+      const d3 = parseFloat(history[2].dosis);
+      if (d1 > d3 * 1.3) {
+        trendBadge.innerHTML = '📈 Alza de Dosis (+ ' + Math.round(((d1 - d3)/d3)*100) + '%)';
+        trendBadge.style.color = 'var(--accent-amber)';
+      } else {
+        trendBadge.innerHTML = '🟢 Niveles estables';
+        trendBadge.style.color = 'var(--accent-green)';
+      }
+
+      panel.style.display = 'block';
+    }
+
+    // Escuchar cambios en selector de recinto
+    const qRecintoInput = document.getElementById('q-recinto');
+    if (qRecintoInput) {
+      qRecintoInput.addEventListener('change', () => {
+        const idVal = document.getElementById('q-recinto-id').value;
+        updateRecintoHistory(idVal, qRecintoInput.value);
+      });
+    }
+
+    // ================= FUNCIONES DE CARGA Y GESTIÓN DE ACTAS =================
+    function toggleAerosolesInput(cb) {
+      const input = document.getElementById('acta-aerosoles-dac');
+      if (input) {
+        input.style.display = cb.checked ? 'inline-block' : 'none';
+        if (cb.checked) input.focus();
+        else input.value = '';
+      }
+    }
+
+    function asentarNuevaActa() {
+      const texto = document.getElementById('acta-texto').value.trim();
+      const oficialSelect = document.getElementById('acta-oficial');
+      const oficial = oficialSelect ? oficialSelect.value.toUpperCase() : 'OFICIAL DE GUARDIA';
+      const ayudanteSelect = document.getElementById('acta-ayudante');
+      const ayudanteId = ayudanteSelect ? ayudanteSelect.value : '';
+      const ayudanteNombre = ayudanteSelect && ayudanteSelect.selectedIndex > 0 ? ayudanteSelect.options[ayudanteSelect.selectedIndex].text.toUpperCase() : '-';
+      const recinto = document.getElementById('acta-recinto').value || 'General de Planta';
+      const ptr = document.getElementById('acta-ptr').value.trim();
+      const dosis = document.getElementById('acta-dosis').value.trim() || '0.0';
+      const tritio = document.getElementById('acta-tritio').value.trim() || '0.0';
+      const contBeta = document.getElementById('acta-cont-beta').value.trim() || '0.0';
+      const contAlfa = document.getElementById('acta-cont-alfa').value.trim() || '0.0';
+      const derrame = document.getElementById('acta-derrame').checked ? 1 : 0;
+      const aerosoles = document.getElementById('acta-aerosoles').checked ? 1 : 0;
+      const aerosolesDac = document.getElementById('acta-aerosoles-dac').value.trim() || '0.0';
+
+      if (!texto) {
+        showToast('⚠️ Ingrese la descripción o texto del Acta');
+        document.getElementById('acta-texto').focus();
+        return;
+      }
+
+      const now = new Date();
+      const horaStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+
+      // 1. Agregar a la tabla de actas en pantalla
+      const tbody = document.getElementById('tbody-actas-guardia');
+      const tr = document.createElement('tr');
+      tr.className = 'new-row';
+      tr.innerHTML = `
+        <td class="mono">${horaStr}</td>
+        <td class="mono" style="${ptr ? 'color: var(--accent-cyan); font-weight:700;' : 'color: var(--text-dim);'}">${ptr ? ptr : '-'}</td>
+        <td style="font-weight:600;">${recinto.split(' - ')[0]}</td>
+        <td style="font-weight:700;">${oficial}</td>
+        <td>${ayudanteNombre}</td>
+        <td class="text-left" style="font-size: 11px;">${texto}</td>
+        <td class="mono" style="text-align: right; color: ${parseFloat(dosis) > 0 ? 'var(--accent-amber); font-weight:700;' : 'var(--text-dim);'}">${dosis}</td>
+        <td>${derrame ? '<span class="badge-amber">SÍ (D2O)</span>' : '<span style="color:var(--text-dim)">-</span>'}</td>
+        <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
+      `;
+      tbody.prepend(tr);
+
+      // 2. Actualizar badge contador
+      const count = tbody.querySelectorAll('tr').length;
+      const badge = document.getElementById('menu-badge-actas');
+      if (badge) badge.textContent = count;
+      const countHeader = document.getElementById('actas-counter-badge');
+      if (countHeader) countHeader.textContent = count + ' actas asentadas en este turno';
+
+      // 3. Encolar en SyncEngine
+      SyncEngine.enqueue('acta_tarea', 'procesos_reg_rad_post.php', 'POST', {
+        accion: 'insertar_tarea_diaria',
+        id_planilla: (typeof activePlanillaId !== 'undefined' ? activePlanillaId : 1),
+        id_usuario: 1,
+        texto: texto,
+        recinto: recinto,
+        ptr: ptr,
+        dosis: dosis,
+        tritio: tritio,
+        cont_beta: contBeta,
+        cont_alfa: contAlfa,
+        derrame: derrame,
+        aerosoles: aerosoles,
+        aerosoles_dac: aerosolesDac,
+        id_oficial_asociado: (oficialSelect ? oficialSelect.value : ''),
+        id_ayudante: ayudanteId
+      });
+
+      showToast('✔️ Acta de guardia asentada correctamente');
+
+      // Limpiar formulario
+      document.getElementById('acta-texto').value = '';
+      document.getElementById('acta-ptr').value = '';
+      document.getElementById('acta-dosis').value = '';
+      document.getElementById('acta-tritio').value = '';
+      document.getElementById('acta-cont-beta').value = '';
+      document.getElementById('acta-cont-alfa').value = '';
+      document.getElementById('acta-derrame').checked = false;
+      document.getElementById('acta-aerosoles').checked = false;
+      document.getElementById('acta-aerosoles-dac').style.display = 'none';
+      document.getElementById('acta-aerosoles-dac').value = '';
+    }
 
   </script>
   </body>
