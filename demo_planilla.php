@@ -276,6 +276,30 @@ if (file_exists($miconex_path)) {
                 $estado_planta = $row_abierta['nombre_estado'];
             }
 
+            // RESETEAR VARIABLES: Si la planilla activa en MySQL aún no tiene registros en alguna tabla,
+            // se mantendrá VACÍA ("") para mostrarse como "○ Pendiente", en vez de arrastrar datos demo.
+            $vent_gral_db = "";
+            $vent_reactor_db = "";
+            $c14_db = "";
+            $dedo_frio_ppm_db = "";
+            $dedo_frio_menor_que_db = 0;
+            $met_vel_db = "";
+            $met_dir_db = "";
+            $met_pasquill_db = "";
+            $gn_id_db = "";
+            $gn_desde_db = "";
+            $gn_hasta_db = "";
+            $gn_ar41_db = "";
+            $gn_kr85_db = "";
+            $gn_kr85m_db = "";
+            $gn_xe133_db = "";
+            $gn_xe135_db = "";
+            $gn_xe135m_db = "";
+            $hay_gases_nobles_db = false;
+            $rows_espectrometria_db = array();
+            $relevamientos_rutina_iniciales = array();
+            $actas_tareas_iniciales = array();
+
             // 7. Catálogo completo de Estados de Planta para el selector
             $res_est = mysql_query("SELECT nombre_estado FROM `regrad_estados_planta` WHERE habilitada = 1 ORDER BY nombre_estado", $miconex);
             if ($res_est && mysql_num_rows($res_est) > 0) {
@@ -388,6 +412,41 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                         'oficial' => ($r['of_apellido'] ? ($r['of_apellido'] . ", " . $r['of_nombre']) : $oficial_actual)
                     );
                 }
+            } else if ($id_planilla_activa) {
+                $relevamientos_rutina_iniciales = array();
+            }
+
+            // 14. Actas y Tareas Diarias de la planilla abierta
+            $q_tar = "SELECT a.*, b.recinto as recinto_nombre, c.of_apellido, c.of_nombre, d.apellido as ay_apellido, d.nombre as ay_nombre
+                      FROM regrad_actas_tareas_diarias a
+                      LEFT JOIN graf_tritio_recintos b ON b.id = a.id_recinto
+                      LEFT JOIN regrad_of_rad c ON c.id_of_rad = a.id_oficial_asociado
+                      LEFT JOIN vista_personal_radioproteccion d ON d.id = a.id_ayudante
+                      WHERE a.id_planilla_diaria = $id_planilla_activa 
+                      ORDER BY a.fecha_hora_carga ASC";
+            $res_tar = mysql_query($q_tar, $miconex);
+            if ($res_tar && mysql_num_rows($res_tar) > 0) {
+                $actas_tareas_iniciales = array();
+                while ($r_t = mysql_fetch_assoc($res_tar)) {
+                    $hora_acta = !empty($r_t['fecha_hora_carga']) ? date('H:i', strtotime($r_t['fecha_hora_carga'])) : '--:--';
+                    $of_nom = !empty($r_t['of_apellido']) ? ($r_t['of_apellido'] . ", " . $r_t['of_nombre']) : $oficial_actual;
+                    $ay_nom = !empty($r_t['ay_apellido']) ? ($r_t['ay_apellido'] . ", " . $r_t['ay_nombre']) : '-';
+                    $actas_tareas_iniciales[] = array(
+                        'id' => $r_t['id_tarea'],
+                        'hora' => $hora_acta,
+                        'ptr' => $r_t['id_ptr'] ? $r_t['id_ptr'] : '-',
+                        'recinto' => $r_t['recinto_nombre'] ? $r_t['recinto_nombre'] : 'General de Planta',
+                        'oficial' => $of_nom,
+                        'ayudante' => $ay_nom,
+                        'texto' => $r_t['texto_tarea'],
+                        'dosis' => $r_t['tasa_dosis'] !== null ? $r_t['tasa_dosis'] : 0,
+                        'tritio' => $r_t['tritio_dac'] !== null ? $r_t['tritio_dac'] : 0,
+                        'derrame' => $r_t['derrame_agua'],
+                        'aerosoles' => $r_t['aerosoles_dac']
+                    );
+                }
+            } else if ($id_planilla_activa) {
+                $actas_tareas_iniciales = array();
             }
         } else {
             // No hay ninguna planilla abierta en la base de datos
@@ -1556,6 +1615,124 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       box-shadow: 0 1px 0 var(--border-card);
     }
 
+    /* ================= ESTILOS DEL BOTÓN Y MODAL CHECKLIST ================= */
+    .btn-checklist-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: var(--accent-amber);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn-checklist-trigger:hover {
+      background: rgba(245, 158, 11, 0.22);
+      border-color: var(--accent-amber);
+      transform: translateY(-1px);
+    }
+    .badge-checklist-pill {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: var(--accent-amber);
+      color: #000;
+    }
+    .badge-checklist-pill.success {
+      background: var(--accent-green);
+      color: #000;
+    }
+
+    .checklist-row-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      background: rgba(14, 39, 34, 0.5);
+      border: 1px solid var(--border-card);
+      border-radius: 6px;
+      margin-bottom: 8px;
+      transition: all 0.15s ease;
+    }
+    .checklist-row-item:hover {
+      background: rgba(25, 66, 58, 0.6);
+      border-color: rgba(6, 182, 212, 0.4);
+    }
+    .checklist-item-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
+    }
+    .checklist-item-icon {
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .checklist-item-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 2px;
+    }
+    .checklist-item-desc {
+      font-size: 10.5px;
+      color: var(--text-muted);
+    }
+    .checklist-item-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .checklist-status-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .checklist-status-badge.complete {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--accent-green);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+    .checklist-status-badge.pending {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--accent-amber);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+    .checklist-status-badge.optional {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-dim);
+      border: 1px solid var(--border-card);
+    }
+    .btn-checklist-action {
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      color: var(--accent-cyan);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .btn-checklist-action:hover {
+      background: var(--accent-cyan);
+      color: #000;
+    }
+
     /* Filas intercaladas (Zebra Striping de Alto Contraste) */
     .data-table tbody tr:nth-child(odd) td {
       background-color: rgba(14, 39, 34, 0.45);
@@ -2243,7 +2420,12 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       </button>
       <button class="menu-btn" data-section="sec-actas" id="btn-sidebar-actas">
         <span>📖 LIBRO DE ACTAS &amp; TAREAS PTR</span>
-        <span class="menu-badge" id="menu-badge-actas">2</span>
+        <span class="menu-badge" id="menu-badge-actas">0</span>
+      </button>
+      
+      <button type="button" class="menu-btn menu-btn-checklist" onclick="openChecklistModal()" style="border-left: 3px solid var(--accent-amber); background: rgba(245, 158, 11, 0.08); margin-top: 6px;">
+        <span>📋 CHECKLIST DE GUARDIA</span>
+        <span class="menu-badge" id="sidebar-checklist-badge" style="background: var(--accent-amber); color: #000; font-weight: 800;">Pendientes</span>
       </button>
 
       <div class="menu-header" style="margin-top: 14px;">Administración &amp; Cierre</div>
@@ -2283,6 +2465,13 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     <header class="topbar">
       <div class="topbar-left">
         <span class="topbar-title" id="current-section-title">RELEVAMIENTO DE RUTINA</span>
+        
+        <!-- BOTÓN VERIFICADOR / CHECKLIST DE CARGAS DEL TURNO -->
+        <button type="button" class="btn-checklist-trigger" onclick="openChecklistModal()" title="Abrir Asistente de Verificación de Cargas del Turno">
+          <span>📋 ESTADO DE CARGAS</span>
+          <span class="badge-checklist-pill" id="topbar-checklist-badge">Verificando...</span>
+        </button>
+
         <div class="theme-switcher-bar" id="theme-switcher-bar">
         <span style="font-size:10px; color:var(--text-dim); font-weight:700; text-transform:uppercase;">🎨 FONDO:</span>
         <button type="button" class="theme-pill active" data-theme="petrol" onclick="setAppTheme('petrol')">🌲 Verde Radiológico (Oficial)</button>
@@ -2395,15 +2584,15 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             <div class="kpi-sub-item">
               <span class="kpi-sub-label">General</span>
               <div class="kpi-sub-val-row">
-                <span class="kpi-sub-val" id="kpi-vent-gral" style="color: #60a5fa;"><?php echo isset($vent_gral_db) && $vent_gral_db !== "" ? htmlspecialchars($vent_gral_db, ENT_QUOTES, 'UTF-8') : "-"; ?></span>
-                <span class="kpi-sub-unit" id="kpi-vent-gral-unit">GBq</span>
+                <span class="kpi-sub-val" id="kpi-vent-gral" style="color: #60a5fa;"><?php echo (isset($vent_gral_db) && $vent_gral_db !== "") ? htmlspecialchars($vent_gral_db, ENT_QUOTES, 'UTF-8') : '<span style="font-size:11.5px;color:var(--accent-amber);font-weight:700;">○ Pendiente</span>'; ?></span>
+                <span class="kpi-sub-unit" id="kpi-vent-gral-unit" style="<?php echo (empty($vent_gral_db)) ? 'display:none;' : ''; ?>">GBq</span>
               </div>
             </div>
             <div class="kpi-sub-item">
               <span class="kpi-sub-label">Reactor</span>
               <div class="kpi-sub-val-row">
-                <span class="kpi-sub-val" id="kpi-vent-reactor" style="color: #22d3ee;"><?php echo isset($vent_reactor_db) && $vent_reactor_db !== "" ? htmlspecialchars($vent_reactor_db, ENT_QUOTES, 'UTF-8') : "-"; ?></span>
-                <span class="kpi-sub-unit" id="kpi-vent-reactor-unit">GBq</span>
+                <span class="kpi-sub-val" id="kpi-vent-reactor" style="color: #22d3ee;"><?php echo (isset($vent_reactor_db) && $vent_reactor_db !== "") ? htmlspecialchars($vent_reactor_db, ENT_QUOTES, 'UTF-8') : '<span style="font-size:11.5px;color:var(--accent-amber);font-weight:700;">○ Pendiente</span>'; ?></span>
+                <span class="kpi-sub-unit" id="kpi-vent-reactor-unit" style="<?php echo (empty($vent_reactor_db)) ? 'display:none;' : ''; ?>">GBq</span>
               </div>
             </div>
           </div>
@@ -2417,10 +2606,10 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             <span class="kpi-action-icon">✏️ Cargar</span>
           </div>
           <div class="kpi-value-row">
-            <span class="kpi-value" id="kpi-met-val" style="color: #f59e0b; font-size: 15px; font-weight: 800;"><?php echo isset($met_dir_db) && $met_dir_db !== "" ? htmlspecialchars($met_dir_db . " • " . $met_vel_db, ENT_QUOTES, 'UTF-8') : "-"; ?></span>
-            <span class="kpi-unit" id="kpi-met-unit">km/h</span>
+            <span class="kpi-value" id="kpi-met-val" style="color: #f59e0b; font-size: 15px; font-weight: 800;"><?php echo (isset($met_vel_db) && $met_vel_db !== "") ? htmlspecialchars($met_dir_db . " • " . $met_vel_db, ENT_QUOTES, 'UTF-8') : '<span style="font-size:13px;color:var(--accent-amber);font-weight:700;">○ Pendiente</span>'; ?></span>
+            <span class="kpi-unit" id="kpi-met-unit" style="<?php echo (empty($met_vel_db)) ? 'display:none;' : ''; ?>">km/h</span>
           </div>
-          <div class="kpi-footer" id="kpi-met-footer"><?php echo isset($met_pasquill_db) && $met_pasquill_db !== "" ? htmlspecialchars($met_pasquill_db, ENT_QUOTES, 'UTF-8') : "Pasquill Clase D (Neutral)"; ?></div>
+          <div class="kpi-footer" id="kpi-met-footer"><?php echo (isset($met_pasquill_db) && $met_pasquill_db !== "") ? htmlspecialchars($met_pasquill_db, ENT_QUOTES, 'UTF-8') : "Condición no registrada"; ?></div>
         </div>
 
         <!-- KPI 5: Emisión C-14 (Métrica de Planta) -->
@@ -2430,8 +2619,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             <span class="kpi-action-icon">✏️ Cargar</span>
           </div>
           <div class="kpi-value-row">
-            <span class="kpi-value" id="kpi-c14"><?php echo isset($c14_db) && $c14_db !== "" ? htmlspecialchars($c14_db, ENT_QUOTES, 'UTF-8') : "-"; ?></span>
-            <span class="kpi-unit">MBq</span>
+            <span class="kpi-value" id="kpi-c14"><?php echo (isset($c14_db) && $c14_db !== "") ? htmlspecialchars($c14_db, ENT_QUOTES, 'UTF-8') : '<span style="font-size:13px;color:var(--accent-amber);font-weight:700;">○ Pendiente</span>'; ?></span>
+            <span class="kpi-unit" style="<?php echo (empty($c14_db)) ? 'display:none;' : ''; ?>">MBq</span>
           </div>
           <div class="kpi-footer" id="kpi-c14-footer">Muestreo acumulado turno</div>
         </div>
@@ -2443,8 +2632,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             <span class="kpi-action-icon">📊 Últimos 5</span>
           </div>
           <div class="kpi-value-row">
-            <span class="kpi-value" id="kpi-dedo-frio"><?php echo isset($dedo_frio_ppm_db) && $dedo_frio_ppm_db !== "" ? htmlspecialchars(($dedo_frio_menor_que_db ? "< " : "") . $dedo_frio_ppm_db, ENT_QUOTES, 'UTF-8') : "-"; ?></span>
-            <span class="kpi-unit">ppm</span>
+            <span class="kpi-value" id="kpi-dedo-frio"><?php echo (isset($dedo_frio_ppm_db) && $dedo_frio_ppm_db !== "") ? htmlspecialchars(($dedo_frio_menor_que_db ? "< " : "") . $dedo_frio_ppm_db, ENT_QUOTES, 'UTF-8') : '<span style="font-size:13px;color:var(--accent-amber);font-weight:700;">○ Pendiente</span>'; ?></span>
+            <span class="kpi-unit" style="<?php echo (empty($dedo_frio_ppm_db)) ? 'display:none;' : ''; ?>">ppm</span>
           </div>
           <!-- Micro-barra visual de los últimos 5 registros criogénicos -->
           <div class="kpi-mini-history" style="display: flex; gap: 3px; margin: 2px 0 3px;">
@@ -2551,6 +2740,13 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                 </tr>
               </thead>
               <tbody id="table-body">
+                <?php if (empty($relevamientos_rutina_iniciales)) { ?>
+                  <tr id="row-empty">
+                    <td colspan="9" style="text-align: center; padding: 24px; color: var(--text-dim); font-style: italic;">
+                      - No se registraron relevamientos de rutina en esta guardia (Pendiente) -
+                    </td>
+                  </tr>
+                <?php } else { ?>
                 <?php foreach ($relevamientos_rutina_iniciales as $row) { 
                   $dNum = (float)$row['dosis'];
                   $tNum = (float)$row['tritio'];
@@ -2579,6 +2775,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                   <td><?php echo htmlspecialchars($row['oficial'], ENT_QUOTES, 'UTF-8'); ?></td>
                   <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
                 </tr>
+                <?php } ?>
                 <?php } ?>
               </tbody>
               </table>
@@ -3070,50 +3267,45 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                 </tr>
               </thead>
                             <tbody id="tbody-actas-guardia">
-                <tr class="acta-clickable-row" onclick="abrirModalDetalleActaFromRow(this)"
-                    data-hora="23:35" data-ptr="1042" data-recinto="R-005 - Sistema D2O"
-                    data-oficial="ALTUNA, LEONARDO (P)" data-ayudante="GOMEZ, FACUNDO"
-                    data-texto="Mantenimiento preventivo de bomba de purificación de agua pesada. Verificación de sellos mecánicos y líneas de recirculación. Sin presencia de goteo visible ni aerosoles en aire de sala. Se autoriza retiro de herramientas bajo control dosimétrico."
-                    data-dosis="18.5" data-tritio="1.80" data-derrame="0" data-aerosoles="0.00">
-                  <td class="mono">23:35</td>
-                  <td class="mono" style="color: var(--accent-cyan); font-weight: 700;">1042</td>
-                  <td>R-005 - Sistema D2O</td>
-                  <td style="font-weight: 700;">ALTUNA, LEONARDO (P)</td>
-                  <td>GOMEZ, FACUNDO</td>
-                  <td class="text-left" style="max-width: 320px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                      <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px; display: inline-block;">
-                        Mantenimiento preventivo de bomba de purificación. Sin goteo ni aerosoles...
-                      </span>
-                      <button type="button" class="btn-acta-open" title="Abrir y ver acta completa">🔍 Ver</button>
-                    </div>
-                  </td>
-                  <td class="mono" style="text-align: right; color: var(--accent-amber); font-weight: 700;">18.5</td>
-                  <td><span style="color: var(--text-dim);">-</span></td>
-                  <td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
-                </tr>
-                <tr class="acta-clickable-row" onclick="abrirModalDetalleActaFromRow(this)"
-                    data-hora="02:10" data-ptr="-" data-recinto="Planta General"
-                    data-oficial="ALTUNA, LEONARDO (P)" data-ayudante="-"
-                    data-texto="Inspección de precintos y ronda perimetral de zona controlada. Todas las puertas de acceso verificadas intactas y enclavamientos normales. Monitores de área 7923 registrando fondo natural sin anomalías."
-                    data-dosis="0.0" data-tritio="0.00" data-derrame="0" data-aerosoles="0.00">
-                  <td class="mono">02:10</td>
-                  <td class="mono" style="color: var(--text-dim);">-</td>
-                  <td>Planta General</td>
-                  <td style="font-weight: 700;">ALTUNA, LEONARDO (P)</td>
-                  <td>-</td>
-                  <td class="text-left" style="max-width: 320px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                      <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px; display: inline-block;">
-                        Inspección de precintos y ronda perimetral de zona controlada...
-                      </span>
-                      <button type="button" class="btn-acta-open" title="Abrir y ver acta completa">🔍 Ver</button>
-                    </div>
-                  </td>
-                  <td class="mono" style="text-align: right; color: var(--text-dim);">0.0</td>
-                  <td><span style="color: var(--text-dim);">-</span></td>
-                  <td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
-                </tr>
+                <?php if (empty($actas_tareas_iniciales)) { ?>
+                  <tr id="row-actas-empty">
+                    <td colspan="9" style="text-align: center; padding: 24px; color: var(--text-dim); font-style: italic;">
+                      - No se asentaron actas o novedades en esta guardia (Pendiente) -
+                    </td>
+                  </tr>
+                <?php } else { ?>
+                  <?php foreach ($actas_tareas_iniciales as $acta) { ?>
+                    <tr class="acta-clickable-row" onclick="abrirModalDetalleActaFromRow(this)"
+                        data-id="<?php echo $acta['id']; ?>"
+                        data-hora="<?php echo htmlspecialchars($acta['hora'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-ptr="<?php echo htmlspecialchars($acta['ptr'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-recinto="<?php echo htmlspecialchars($acta['recinto'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-oficial="<?php echo htmlspecialchars($acta['oficial'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-ayudante="<?php echo htmlspecialchars($acta['ayudante'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-texto="<?php echo htmlspecialchars($acta['texto'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-dosis="<?php echo $acta['dosis']; ?>"
+                        data-tritio="<?php echo $acta['tritio']; ?>"
+                        data-derrame="<?php echo htmlspecialchars($acta['derrame'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-aerosoles="<?php echo $acta['aerosoles']; ?>">
+                      <td class="mono"><?php echo htmlspecialchars($acta['hora'], ENT_QUOTES, 'UTF-8'); ?></td>
+                      <td class="mono" style="color: var(--accent-cyan); font-weight: 700;"><?php echo htmlspecialchars($acta['ptr'], ENT_QUOTES, 'UTF-8'); ?></td>
+                      <td><?php echo htmlspecialchars($acta['recinto'], ENT_QUOTES, 'UTF-8'); ?></td>
+                      <td style="font-weight: 700;"><?php echo htmlspecialchars($acta['oficial'], ENT_QUOTES, 'UTF-8'); ?></td>
+                      <td><?php echo htmlspecialchars($acta['ayudante'], ENT_QUOTES, 'UTF-8'); ?></td>
+                      <td class="text-left" style="max-width: 320px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px; display: inline-block;">
+                            <?php echo htmlspecialchars(mb_substr($acta['texto'], 0, 75), ENT_QUOTES, 'UTF-8') . (mb_strlen($acta['texto']) > 75 ? '...' : ''); ?>
+                          </span>
+                          <button type="button" class="btn-acta-open" title="Abrir y ver acta completa">🔍 Ver</button>
+                        </div>
+                      </td>
+                      <td class="mono" style="text-align: right; color: var(--accent-amber); font-weight: 700;"><?php echo number_format($acta['dosis'], 1); ?></td>
+                      <td><span style="color: var(--text-dim);"><?php echo $acta['tritio'] > 0 ? number_format($acta['tritio'], 2) : '-'; ?></span></td>
+                      <td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
+                    </tr>
+                  <?php } ?>
+                <?php } ?>
               </tbody>
               </table>
             </div>
@@ -3669,6 +3861,210 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
   <!-- NOTIFICACIÓN TOAST -->
   <div class="toast-popup" id="toast"></div>
 
+  <!-- ================= MODAL CHECKLIST & VERIFICADOR DE CARGAS ================= -->
+  <div class="modal-overlay" id="modal-checklist" style="display: none;">
+    <div class="modal-box" style="width: 640px; max-width: 95vw;">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <span style="color: var(--accent-amber); font-size: 16px;">📋</span>
+          <div>
+            <span style="font-weight: 800; color: #ffffff;">Checklist &amp; Estado de Cargas del Turno</span>
+            <div style="font-size: 10px; color: var(--text-muted); font-weight: normal; margin-top: 2px;">
+              Planilla activa #<?php echo $id_planilla_activa ? $id_planilla_activa : '-'; ?> &bull; <?php echo htmlspecialchars($turno_actual_nombre, ENT_QUOTES, 'UTF-8'); ?> &bull; Oficial: <?php echo htmlspecialchars($oficial_actual, ENT_QUOTES, 'UTF-8'); ?>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeChecklistModal()" title="Cerrar (Esc)">✕</button>
+      </div>
+
+      <div class="modal-body" style="padding: 16px 20px; max-height: 70vh; overflow-y: auto;">
+        
+        <!-- RESUMEN DE PROGRESO DE GUARDIA -->
+        <div style="background: rgba(9, 28, 24, 0.7); border: 1px solid var(--border-card); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Completitud General de Turno</span>
+            <span id="chk-progress-pct" style="font-size: 13px; font-weight: 800; color: var(--accent-cyan); font-family: var(--font-mono);">0%</span>
+          </div>
+          <div style="height: 7px; width: 100%; background: rgba(255,255,255,0.08); border-radius: 10px; overflow: hidden; margin-bottom: 6px;">
+            <div id="chk-progress-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent-amber), var(--accent-green)); border-radius: 10px; transition: width 0.3s ease;"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-muted);">
+            <span id="chk-progress-text">Evaluando parámetros...</span>
+            <span id="chk-pending-count" style="font-weight: 700; color: var(--accent-amber);">0 pendientes</span>
+          </div>
+        </div>
+
+        <!-- SECCIÓN A: PARÁMETROS CRÍTICOS DE PLANTA Y CHIMENEA -->
+        <div style="font-size: 10.5px; font-weight: 800; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+          ⚡ Parámetros Principales de Chimenea &amp; Planta
+        </div>
+
+        <!-- 1. Ventilación Chimenea -->
+        <div class="checklist-row-item" id="chk-item-vent">
+          <div class="checklist-item-left">
+            <span class="checklist-item-icon">💨</span>
+            <div>
+              <div class="checklist-item-title">Ventilación Chimenea (General &amp; Reactor)</div>
+              <div class="checklist-item-desc" id="chk-val-vent">Extracción activa de chimenea (GBq)</div>
+            </div>
+          </div>
+          <div class="checklist-item-right">
+            <span class="checklist-status-badge pending" id="chk-badge-vent">○ Pendiente</span>
+            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('kpi-tritio')">Cargar ↗</button>
+          </div>
+        </div>
+
+        <!-- 2. Gases Nobles Chimenea -->
+        <div class="checklist-row-item" id="chk-item-gn">
+          <div class="checklist-item-left">
+            <span class="checklist-item-icon">🧪</span>
+            <div>
+              <div class="checklist-item-title">Gases Nobles (Ar-41, Kr, Xe)</div>
+              <div class="checklist-item-desc" id="chk-val-gn">Espectrometría gamma de efluentes gaseosos</div>
+            </div>
+          </div>
+          <div class="checklist-item-right">
+            <span class="checklist-status-badge pending" id="chk-badge-gn">○ Pendiente</span>
+            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('sec-gaseosos')">Cargar ↗</button>
+          </div>
+        </div>
+
+        <!-- 3. Carbono-14 -->
+        <div class="checklist-row-item" id="chk-item-c14">
+          <div class="checklist-item-left">
+            <span class="checklist-item-icon">⚛️</span>
+            <div>
+              <div class="checklist-item-title">Emisión Carbono-14 (MBq)</div>
+              <div class="checklist-item-desc" id="chk-val-c14">Muestreo integrado continuo de chimenea</div>
+            </div>
+          </div>
+          <div class="checklist-item-right">
+            <span class="checklist-status-badge pending" id="chk-badge-c14">○ Pendiente</span>
+            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('kpi-c14')">Cargar ↗</button>
+          </div>
+        </div>
+
+        <!-- 4. Dedo Frío 73120 -->
+        <div class="checklist-row-item" id="chk-item-df">
+          <div class="checklist-item-left">
+            <span class="checklist-item-icon">❄️</span>
+            <div>
+              <div class="checklist-item-title">Dedo Frío 73120 (ppm)</div>
+              <div class="checklist-item-desc" id="chk-val-df">Muestreo criogénico de D2O en gas</div>
+            </div>
+          </div>
+          <div class="checklist-item-right">
+            <span class="checklist-status-badge pending" id="chk-badge-df">○ Pendiente</span>
+            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('kpi-dedofrio')">Cargar ↗</button>
+          </div>
+        </div>
+
+        <!-- 5. Condición Meteorológica -->
+        <div class="checklist-row-item" id="chk-item-met">
+          <div class="checklist-item-left">
+            <span class="checklist-item-icon">🌤️</span>
+            <div>
+              <div class="checklist-item-title">Condición Meteorológica</div>
+              <div class="checklist-item-desc" id="chk-val-met">Dirección, velocidad y Pasquill en CNE</div>
+            </div>
+          </div>
+          <div class="checklist-item-right">
+            <span class="checklist-status-badge pending" id="chk-badge-met">○ Pendiente</span>
+            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('kpi-met')">Cargar ↗</button>
+          </div>
+        </div>
+
+        <!-- 6. Relevamientos de Rutina -->
+        <div class="checklist-row-item" id="chk-item-rutina">
+          <div class="checklist-item-left">
+            <span class="checklist-item-icon">📋</span>
+            <div>
+              <div class="checklist-item-title">Relevamientos de Rutina en Recintos</div>
+              <div class="checklist-item-desc" id="chk-val-rutina">Monitoreo de tasa de dosis, tritio y gases en recintos</div>
+            </div>
+          </div>
+          <div class="checklist-item-right">
+            <span class="checklist-status-badge pending" id="chk-badge-rutina">○ Pendiente</span>
+            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('sec-rutina')">Relevar ↗</button>
+          </div>
+        </div>
+
+        <!-- 7. Libro de Actas / Novedades -->
+        <div class="checklist-row-item" id="chk-item-actas">
+          <div class="checklist-item-left">
+            <span class="checklist-item-icon">📖</span>
+            <div>
+              <div class="checklist-item-title">Libro de Actas &amp; Novedades de Guardia</div>
+              <div class="checklist-item-desc" id="chk-val-actas">Eventos de guardia, tareas PTR y autorizaciones</div>
+            </div>
+          </div>
+          <div class="checklist-item-right">
+            <span class="checklist-status-badge pending" id="chk-badge-actas">○ Pendiente</span>
+            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('sec-actas')">Asentar ↗</button>
+          </div>
+        </div>
+
+        <!-- SECCIÓN B: CONTROLES SECUNDARIOS (SEGÚN ACTIVIDAD) -->
+        <div style="font-size: 10.5px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px;">
+          🔬 Controles Específicos &amp; Eventuales
+        </div>
+
+        <!-- 8. Espectrometría del Aire (ZC) -->
+        <div class="checklist-row-item" id="chk-item-esp">
+          <div class="checklist-item-left">
+            <span class="checklist-item-icon">🔬</span>
+            <div>
+              <div class="checklist-item-title">Espectrometría del Aire (Zona Controlada)</div>
+              <div class="checklist-item-desc" id="chk-val-esp">Análisis isotópico gamma en recintos controlados</div>
+            </div>
+          </div>
+          <div class="checklist-item-right">
+            <span class="checklist-status-badge optional" id="chk-badge-esp">○ Opcional</span>
+            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('sec-espectrometria')">Ver ↗</button>
+          </div>
+        </div>
+
+        <!-- 9. Efluentes Líquidos -->
+        <div class="checklist-row-item" id="chk-item-liq">
+          <div class="checklist-item-left">
+            <span class="checklist-item-icon">💧</span>
+            <div>
+              <div class="checklist-item-title">Emisión de Efluentes Líquidos</div>
+              <div class="checklist-item-desc" id="chk-val-liq">Descargas de tanques activos y % RoDD</div>
+            </div>
+          </div>
+          <div class="checklist-item-right">
+            <span class="checklist-status-badge optional" id="chk-badge-liq">○ Sin descargas</span>
+            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('sec-liquidos')">Ver ↗</button>
+          </div>
+        </div>
+
+        <!-- 10. Contaminación Superficial & Dryers -->
+        <div class="checklist-row-item" id="chk-item-contam">
+          <div class="checklist-item-left">
+            <span class="checklist-item-icon">🧽</span>
+            <div>
+              <div class="checklist-item-title">Contaminación Superficial (Frotis) &amp; Dryers</div>
+              <div class="checklist-item-desc" id="chk-val-contam">Frotis beta/gamma/alfa y secadores de aire pesado</div>
+            </div>
+          </div>
+          <div class="checklist-item-right">
+            <span class="checklist-status-badge optional" id="chk-badge-contam">○ Opcional</span>
+            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('sec-contaminacion')">Ver ↗</button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <span style="font-size: 11px; color: var(--text-dim);">
+          💡 Los parámetros opcionales sólo se requieren ante tareas específicas o descargas de tanques.
+        </span>
+        <button type="button" class="btn-modal-cancel" onclick="closeChecklistModal()">CERRAR CHECKLIST</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= MODAL DE CARGA / EDICIÓN DE ESPECTROMETRÍA ================= -->
   <div class="modal-overlay" id="modal-espectrometria" style="display: none;">
     <div class="modal-box" style="width: 540px;">
@@ -4076,15 +4472,16 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
     // ================= RECALCULAR KPIS (PICOS RADIOLÓGICOS: DOSIS, TRITIO, GASES) =================
     function recalculateKPIs() {
-      const rows = document.querySelectorAll('#table-body tr');
+      const rows = document.querySelectorAll('#table-body tr:not(#row-empty)');
       const count = rows.length;
       document.getElementById('menu-badge-rutina').textContent = count;
 
       if (count === 0) {
-        document.getElementById('kpi-max-dosis').textContent = '0.0';
-        document.getElementById('kpi-max-tritio').textContent = '0.00';
-        document.getElementById('kpi-max-gases').textContent = '0.00';
-        document.getElementById('kpi-max-recinto').textContent = 'Sin mediciones';
+        document.getElementById('kpi-max-dosis').textContent = '-';
+        document.getElementById('kpi-max-tritio').textContent = '-';
+        document.getElementById('kpi-max-gases').textContent = '-';
+        document.getElementById('kpi-max-recinto').textContent = '📍 Sin mediciones registradas';
+        if (typeof updateChecklistStatus === 'function') updateChecklistStatus();
         return;
       }
 
@@ -4127,6 +4524,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       } else {
         document.getElementById('kpi-max-recinto').textContent = `📍 ${recintoDosis !== '-' ? recintoDosis : 'Nominal'}`;
       }
+      if (typeof updateChecklistStatus === 'function') updateChecklistStatus();
     }
 
     // ================= CARGA DE MEDICIONES DE RUTINA & DETECCIÓN DE DISCREPANCIAS =================
@@ -5256,6 +5654,159 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       showToast('🗑️ Mediciones de chimenea eliminadas (pendientes)');
     }
 
+    // ================= SISTEMA DINÁMICO DE CHECKLIST Y CONTROL DE CARGAS =================
+    function openChecklistModal() {
+      updateChecklistStatus();
+      const modal = document.getElementById('modal-checklist');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeChecklistModal() {
+      const modal = document.getElementById('modal-checklist');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function goToChecklistTarget(target) {
+      closeChecklistModal();
+      if (target.startsWith('kpi-')) {
+        const tab = target.replace('kpi-', '');
+        openKpiModal(tab);
+      } else if (target.startsWith('sec-')) {
+        const btn = document.querySelector(`.menu-btn[data-section="${target}"]`);
+        if (btn) btn.click();
+      }
+    }
+
+    function updateChecklistStatus() {
+      // 1. Ventilación Chimenea
+      const vg = (document.getElementById('input-vent-gral')?.value || '').trim();
+      const vr = (document.getElementById('input-vent-reactor')?.value || '').trim();
+      const hasVent = (vg !== '' && vr !== '');
+      const badgeVent = document.getElementById('chk-badge-vent');
+      const valVent = document.getElementById('chk-val-vent');
+      if (badgeVent) {
+        badgeVent.className = hasVent ? 'checklist-status-badge complete' : 'checklist-status-badge pending';
+        badgeVent.textContent = hasVent ? '● Cargado' : '○ Pendiente';
+      }
+      if (valVent) valVent.textContent = hasVent ? `V. General: ${vg} GBq | V. Reactor: ${vr} GBq` : 'Ventilación de chimenea pendiente de asentar';
+
+      // 2. Gases Nobles
+      const gnAr = (document.getElementById('input-gn-ar41')?.value || '').trim();
+      const gnStatus = document.getElementById('badge-gases-nobles-status')?.textContent || '';
+      const hasGn = (gnStatus.includes('Registrado') || (gnAr !== '' && parseFloat(gnAr) > 0));
+      const badgeGn = document.getElementById('chk-badge-gn');
+      const valGn = document.getElementById('chk-val-gn');
+      if (badgeGn) {
+        badgeGn.className = hasGn ? 'checklist-status-badge complete' : 'checklist-status-badge pending';
+        badgeGn.textContent = hasGn ? '● Cargado' : '○ Pendiente';
+      }
+      if (valGn) valGn.textContent = hasGn ? 'Isótopos de Gases Nobles (Ar-41, Kr, Xe) registrados' : 'Gases Nobles de chimenea pendientes de asentar';
+
+      // 3. Carbono-14
+      const c14 = (document.getElementById('input-c14')?.value || '').trim();
+      const hasC14 = (c14 !== '');
+      const badgeC14 = document.getElementById('chk-badge-c14');
+      const valC14 = document.getElementById('chk-val-c14');
+      if (badgeC14) {
+        badgeC14.className = hasC14 ? 'checklist-status-badge complete' : 'checklist-status-badge pending';
+        badgeC14.textContent = hasC14 ? '● Cargado' : '○ Pendiente';
+      }
+      if (valC14) valC14.textContent = hasC14 ? `Actividad C-14: ${c14} MBq` : 'Emisión de Carbono-14 pendiente de carga';
+
+      // 4. Dedo Frío 73120
+      const df = (document.getElementById('input-dedo-frio')?.value || '').trim();
+      const hasDf = (df !== '');
+      const badgeDf = document.getElementById('chk-badge-df');
+      const valDf = document.getElementById('chk-val-df');
+      if (badgeDf) {
+        badgeDf.className = hasDf ? 'checklist-status-badge complete' : 'checklist-status-badge pending';
+        badgeDf.textContent = hasDf ? '● Cargado' : '○ Pendiente';
+      }
+      if (valDf) valDf.textContent = hasDf ? `Concentración: ${df} ppm` : 'Muestreo criogénico 73120 pendiente de carga';
+
+      // 5. Meteorología
+      const metVel = (document.getElementById('input-met-vel')?.value || '').trim();
+      const metDir = document.getElementById('input-met-dir')?.value || 'S';
+      const hasMet = (metVel !== '');
+      const badgeMet = document.getElementById('chk-badge-met');
+      const valMet = document.getElementById('chk-val-met');
+      if (badgeMet) {
+        badgeMet.className = hasMet ? 'checklist-status-badge complete' : 'checklist-status-badge pending';
+        badgeMet.textContent = hasMet ? '● Cargado' : '○ Pendiente';
+      }
+      if (valMet) valMet.textContent = hasMet ? `Viento: ${metDir} a ${metVel} km/h` : 'Condición meteorológica pendiente de carga';
+
+      // 6. Relevamientos de Rutina
+      const rutinaRows = document.querySelectorAll('#table-body tr:not(#row-empty)');
+      const hasRutina = (rutinaRows.length > 0);
+      const badgeRutina = document.getElementById('chk-badge-rutina');
+      const valRutina = document.getElementById('chk-val-rutina');
+      if (badgeRutina) {
+        badgeRutina.className = hasRutina ? 'checklist-status-badge complete' : 'checklist-status-badge pending';
+        badgeRutina.textContent = hasRutina ? `● ${rutinaRows.length} Cargados` : '○ Pendiente';
+      }
+      if (valRutina) valRutina.textContent = hasRutina ? `${rutinaRows.length} relevamientos radiológicos registrados en recintos` : 'Sin mediciones de rutina asentadas en esta guardia';
+
+      // 7. Libro de Actas
+      const actasRows = document.querySelectorAll('#tbody-actas-guardia tr:not(#row-actas-empty)');
+      const hasActas = (actasRows.length > 0);
+      const badgeActas = document.getElementById('chk-badge-actas');
+      const valActas = document.getElementById('chk-val-actas');
+      if (badgeActas) {
+        badgeActas.className = hasActas ? 'checklist-status-badge complete' : 'checklist-status-badge pending';
+        badgeActas.textContent = hasActas ? `● ${actasRows.length} Actas` : '○ Pendiente';
+      }
+      if (valActas) valActas.textContent = hasActas ? `${actasRows.length} novedades / actas asentadas en el turno` : 'Sin novedades asentadas en el libro de actas';
+
+      // 8. Espectrometría ZC
+      const espRows = document.querySelectorAll('#tbody-espectrometria tr:not(#row-esp-empty)');
+      const hasEsp = (espRows.length > 0);
+      const badgeEsp = document.getElementById('chk-badge-esp');
+      const valEsp = document.getElementById('chk-val-esp');
+      if (badgeEsp) {
+        badgeEsp.className = hasEsp ? 'checklist-status-badge complete' : 'checklist-status-badge optional';
+        badgeEsp.textContent = hasEsp ? `● ${espRows.length} Cargados` : '○ Opcional';
+      }
+      if (valEsp) valEsp.textContent = hasEsp ? `${espRows.length} análisis de espectrometría registrados` : 'Sin espectrometrías específicas requeridas en este turno';
+
+      // Calcular completitud de los 7 módulos obligatorios
+      const obligatorios = [hasVent, hasGn, hasC14, hasDf, hasMet, hasRutina, hasActas];
+      const completedCount = obligatorios.filter(Boolean).length;
+      const pendingCount = obligatorios.length - completedCount;
+      const pct = Math.round((completedCount / obligatorios.length) * 100);
+
+      const progBar = document.getElementById('chk-progress-bar');
+      const progPct = document.getElementById('chk-progress-pct');
+      const progText = document.getElementById('chk-progress-text');
+      const pendText = document.getElementById('chk-pending-count');
+
+      if (progBar) progBar.style.width = `${pct}%`;
+      if (progPct) progPct.textContent = `${pct}%`;
+      if (progText) progText.textContent = `${completedCount} de ${obligatorios.length} parámetros obligatorios completos`;
+      if (pendText) {
+        pendText.textContent = pendingCount === 0 ? '¡Todo completo ✓!' : `${pendingCount} pendiente${pendingCount > 1 ? 's' : ''}`;
+        pendText.style.color = pendingCount === 0 ? 'var(--accent-green)' : 'var(--accent-amber)';
+      }
+
+      // Actualizar badges en Topbar y Sidebar
+      const topBadge = document.getElementById('topbar-checklist-badge');
+      if (topBadge) {
+        if (pendingCount === 0) {
+          topBadge.className = 'badge-checklist-pill success';
+          topBadge.textContent = '100% Completo ✓';
+        } else {
+          topBadge.className = 'badge-checklist-pill';
+          topBadge.textContent = `${pendingCount} Pendiente${pendingCount > 1 ? 's' : ''}`;
+        }
+      }
+
+      const sideBadge = document.getElementById('sidebar-checklist-badge');
+      if (sideBadge) {
+        sideBadge.textContent = pendingCount === 0 ? 'Completo ✓' : `${pendingCount} Pendientes`;
+        sideBadge.style.background = pendingCount === 0 ? 'var(--accent-green)' : 'var(--accent-amber)';
+      }
+    }
+
     // ================= FUNCIONES DE ESPECTROMETRÍA DEL AIRE (ZC) =================
     function calcEspectrometriaTotal() {
       const ar = parseFloat(document.getElementById('esp-in-ar41')?.value) || 0;
@@ -5632,6 +6183,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     setTimeout(sendHeartbeat, 3000);
 
     recalculateKPIs();
+    if (typeof updateChecklistStatus === 'function') updateChecklistStatus();
   
     // ================= CIERRE DE MODALES AL CLICKEAR AFUERA (BACKDROP) Y CON TECLA ESCAPE =================
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
