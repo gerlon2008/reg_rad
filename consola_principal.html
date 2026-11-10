@@ -2612,7 +2612,7 @@
         <td class="num">${!isNaN(gNum) ? gNum.toFixed(2) : '-'}</td>
         <td class="num">${tritioBadge}</td>
         <td class="num">${dosisBadge}</td>
-        <td style="color: var(--text-muted);">${obs || 'Sin observaciones'}</td>
+        <td style="color: var(--text-muted);">${(!obs || obs.trim() === '' || obs.trim() === 'Sin observaciones') ? '--Sin observaciones--' : obs.trim()}</td>
         <td>${oficial}</td>
         <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
       `;
@@ -2628,7 +2628,8 @@
       const rowTempId = 'row_' + Date.now();
       tr.id = rowTempId;
 
-      const urlRutina = `procesos_reg_rad.php?accion=guardar_valores_rutina&id_user=1&fecha=${fechaSql}&hora=${hora}&ubicacion=${recintoId}&gases_nobles=${gNum || 0}&tritio=${tNum || 0}&tasa_dosis=${dNum || 0}&observaciones=${encodeURIComponent(obs)}&relevado_por=1&id_planilla=${activePlanillaId || 1}`;
+      const cleanObs = (!obs || obs.trim() === '' || obs.trim() === 'Sin observaciones') ? '--Sin observaciones--' : obs.trim();
+      const urlRutina = `procesos_reg_rad.php?accion=guardar_valores_rutina&id_user=1&fecha=${fechaSql}&hora=${hora}&ubicacion=${recintoId}&gases_nobles=${gNum || 0}&tritio=${tNum || 0}&tasa_dosis=${dNum || 0}&observaciones=${encodeURIComponent(cleanObs)}&relevado_por=1&id_planilla=${activePlanillaId || 1}`;
 
       SyncEngine.enqueue('rutina', urlRutina, 'GET', null, { rowId: rowTempId, recinto, fecha, hora });
 
@@ -2642,15 +2643,22 @@
     function handleRegister() {
       const fecha = document.getElementById('q-fecha').value;
       const hora = document.getElementById('q-hora').value;
-      const recinto = document.getElementById('q-recinto').value;
-      const gases = document.getElementById('q-gases').value;
-      const tritio = document.getElementById('q-tritio').value;
-      const dosis = document.getElementById('q-dosis').value;
-      const obs = document.getElementById('q-obs').value;
+      const recinto = document.getElementById('q-recinto').value.trim();
+      const gases = document.getElementById('q-gases').value.trim();
+      const tritio = document.getElementById('q-tritio').value.trim();
+      const dosis = document.getElementById('q-dosis').value.trim();
+      const obs = document.getElementById('q-obs').value.trim();
 
       if (!recinto) {
         showToast('⚠️ Seleccione una ubicación / recinto');
         document.getElementById('q-recinto').focus();
+        return;
+      }
+
+      // Validar que al menos uno de los 3 parámetros radiológicos haya sido ingresado
+      if (gases === '' && tritio === '' && dosis === '') {
+        showToast('⚠️ Debe introducir al menos un valor (Gases, Tritio o Tasa Dosis)');
+        document.getElementById('q-gases').focus();
         return;
       }
 

@@ -1450,7 +1450,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                     <td class="mono"><?php echo decimales_limpio($r['gases_nobles'], 2); ?></td>
                     <td class="mono"><?php echo decimales_limpio($r['tritio'], 2); ?></td>
                     <td class="mono" style="font-weight: 700; color: var(--accent-cyan);"><?php echo decimales_limpio($r['tasa_dosis'], 1); ?></td>
-                    <td class="text-left" style="color: var(--text-muted);"><?php echo htmlspecialchars(!empty($r['observaciones']) ? $r['observaciones'] : '-', ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="text-left" style="color: var(--text-muted);"><?php echo htmlspecialchars((!empty($r['observaciones']) && $r['observaciones'] !== 'Sin observaciones' && $r['observaciones'] !== '-') ? $r['observaciones'] : '--Sin observaciones--', ENT_QUOTES, 'UTF-8'); ?></td>
                     <td style="text-transform: uppercase; font-size: 11px;">
                       <?php echo htmlspecialchars((!empty($r['of_apellido']) ? $r['of_apellido'] . ", " . $r['of_nombre'] : $oficial_nombre), ENT_QUOTES, 'UTF-8'); ?>
                     </td>
