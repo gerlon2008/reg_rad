@@ -217,8 +217,16 @@ foreach ($rows_rutina as $r) {
     if ($g > $max_gases) $max_gases = $g;
 }
 
-$kpi_vent_gral = !empty($rows_tritio[0]['vent_gral']) ? decimales_limpio($rows_tritio[0]['vent_gral'], 2) : '1.45';
-$kpi_vent_reactor = !empty($rows_tritio[0]['vent_reactor']) ? decimales_limpio($rows_tritio[0]['vent_reactor'], 2) : '0.88';
+function formato_valor_gbq($val) {
+    if (empty($val)) return '';
+    $num = floatval($val);
+    if ($num > 10000000) {
+        $num = $num / 1000000000.0; // Conversión de Bq a GBq para registros históricos
+    }
+    return decimales_limpio($num, 2);
+}
+$kpi_vent_gral = !empty($rows_tritio[0]['vent_gral']) ? formato_valor_gbq($rows_tritio[0]['vent_gral']) : '1.45';
+$kpi_vent_reactor = !empty($rows_tritio[0]['vent_reactor']) ? formato_valor_gbq($rows_tritio[0]['vent_reactor']) : '0.88';
 $kpi_c14 = !empty($row_carbono14['medicion']) ? decimales_limpio($row_carbono14['medicion'], 1) : '3.1';
 $kpi_dedo_frio = !empty($row_dedo_frio['ppm']) ? decimales_limpio($row_dedo_frio['ppm'], 0) : '12';
 $kpi_dedo_frio_signo = (!empty($row_dedo_frio['menor_que']) && $row_dedo_frio['menor_que'] == 1) ? '< ' : '';
@@ -1544,15 +1552,8 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                   <tr>
                     <td class="mono"><?php echo formafecha_latam($r['fecha']); ?></td>
                     <td class="mono"><?php echo formato_hora_limpio($r['hora']); ?></td>
-                    <td class="text-left" style="font-weight: 600;">
-                      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                        <span class="recinto-link" onclick="openRecintoHistoryModal('<?php echo htmlspecialchars($r['recinto_nombre'], ENT_QUOTES, 'UTF-8'); ?>')" title="Ver las últimas 3 mediciones de este recinto">
-                          <?php echo htmlspecialchars($r['recinto_nombre'], ENT_QUOTES, 'UTF-8'); ?>
-                        </span>
-                        <button type="button" class="btn-recinto-hist-pill" onclick="openRecintoHistoryModal('<?php echo htmlspecialchars($r['recinto_nombre'], ENT_QUOTES, 'UTF-8'); ?>')" title="Ver últimas mediciones de este recinto">
-                          <span>⏱️ 3 Últimos</span>
-                        </button>
-                      </div>
+                    <td class="text-left" style="font-weight: 600; color: #ffffff;">
+                      <?php echo htmlspecialchars($r['recinto_nombre'], ENT_QUOTES, 'UTF-8'); ?>
                     </td>
                     <td class="mono"><?php echo decimales_limpio($r['gases_nobles'], 2); ?></td>
                     <td class="mono"><?php echo decimales_limpio($r['tritio'], 2); ?></td>
@@ -1591,11 +1592,11 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                 <?php foreach ($rows_tritio as $tr): ?>
                   <div class="metric-row">
                     <span class="metric-lbl">Ventilación Gral:</span>
-                    <span class="metric-val"><?php echo decimales_limpio($tr['vent_gral'], 2); ?> GBq</span>
+                    <span class="metric-val"><?php echo formato_valor_gbq($tr['vent_gral']); ?> GBq</span>
                   </div>
                   <div class="metric-row">
                     <span class="metric-lbl">Ventilación Reactor (ER):</span>
-                    <span class="metric-val"><?php echo decimales_limpio($tr['vent_reactor'], 2); ?> GBq</span>
+                    <span class="metric-val"><?php echo formato_valor_gbq($tr['vent_reactor']); ?> GBq</span>
                   </div>
                   <div class="metric-row">
                     <span class="metric-lbl">Período de Muestreo:</span>
