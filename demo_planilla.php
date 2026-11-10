@@ -1846,6 +1846,17 @@ if (file_exists($miconex_path)) {
     </nav>
 
     <div class="sidebar-user">
+      <!-- Turno Activo & Botón de Configuración -->
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 10px; background: rgba(9, 28, 24, 0.7); border: 1px solid var(--border-card); border-radius: 6px; padding: 6px 10px;">
+        <div style="display: flex; flex-direction: column; min-width: 0;">
+          <span style="font-size: 8.5px; text-transform: uppercase; color: var(--text-dim); font-weight: 700; letter-spacing: 0.5px;">Turno de Guardia</span>
+          <span class="shift-tag" id="sidebar-shift-tag" style="border: none; background: transparent; padding: 0; font-size: 11px; font-weight: 700; color: var(--accent-cyan); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?php echo htmlspecialchars($turno_actual_nombre, ENT_QUOTES, 'UTF-8'); ?></span>
+        </div>
+        <button type="button" class="btn-new-shift" onclick="openShiftModal()" style="padding: 3px 8px; font-size: 10.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; height: 26px; border-radius: 4px; white-space: nowrap; flex-shrink: 0;" title="Configurar turno, jefe u oficial">
+          ⚙️ <span>Configurar</span>
+        </button>
+      </div>
+
       <div class="user-name" id="sidebar-user-name"><?php echo htmlspecialchars($oficial_actual, ENT_QUOTES, 'UTF-8'); ?></div>
       <div class="user-role">Oficial de Radioprotección</div>
       <div class="session-indicator">
@@ -1861,10 +1872,8 @@ if (file_exists($miconex_path)) {
     <!-- TOPBAR -->
     <header class="topbar">
       <div class="topbar-left">
-        <span class="topbar-title" id="current-section-title">Relevamiento de Rutina</span>
-        <span class="shift-tag" id="topbar-shift-tag"><?php echo htmlspecialchars($turno_actual_nombre, ENT_QUOTES, 'UTF-8'); ?></span>
-        <button class="btn-new-shift" onclick="openShiftModal()">⚙️ Configurar / Iniciar Turno</button>
-      <div class="theme-switcher-bar" id="theme-switcher-bar">
+        <span class="topbar-title" id="current-section-title">RELEVAMIENTO DE RUTINA</span>
+        <div class="theme-switcher-bar" id="theme-switcher-bar">
         <span style="font-size:10px; color:var(--text-dim); font-weight:700; text-transform:uppercase;">🎨 FONDO:</span>
         <button type="button" class="theme-pill active" data-theme="petrol" onclick="setAppTheme('petrol')">🌲 Verde Radiológico (Oficial)</button>
         <button type="button" class="theme-pill" data-theme="navy" onclick="setAppTheme('navy')">🌊 Azul Abisal</button>
@@ -2957,7 +2966,10 @@ if (file_exists($miconex_path)) {
 
       document.getElementById('topbar-latam-date').textContent = fecha;
       document.getElementById('q-fecha').value = fecha;
-      document.getElementById('topbar-shift-tag').textContent = turnoText;
+      const shiftTagSidebar = document.getElementById('sidebar-shift-tag');
+      if (shiftTagSidebar) shiftTagSidebar.textContent = turnoText;
+      const shiftTagTopbar = document.getElementById('topbar-shift-tag');
+      if (shiftTagTopbar) shiftTagTopbar.textContent = turnoText;
       document.getElementById('topbar-jefe-turno').textContent = jefe;
       document.getElementById('sidebar-user-name').textContent = oficial;
       document.getElementById('sidebar-plant-status').textContent = planta;
