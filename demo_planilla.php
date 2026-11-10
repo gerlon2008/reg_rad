@@ -51,7 +51,12 @@ $recintos_array = array(
   array('id' => 80, 'recinto' => 'R-080 - Área Tanques D2O'),
   array('id' => 95, 'recinto' => 'R-095 - Sala de Purificación'),
   array('id' => 110, 'recinto' => 'R-110 - Muestreador de Efluentes Chimenea'),
-  array('id' => 125, 'recinto' => 'R-125 - Sala de Filtros de Ventilación Activa')
+  array('id' => 125, 'recinto' => 'R-125 - Sala de Filtros de Ventilación Activa'),
+  array('id' => 107, 'recinto' => 'R-107 112m'),
+  array('id' => 108, 'recinto' => 'R-108 112m'),
+  array('id' => 111, 'recinto' => 'R-111'),
+  array('id' => 112, 'recinto' => 'R-112'),
+  array('id' => 501, 'recinto' => 'R-501')
 );
 
 $turnos_array = array(
@@ -2810,8 +2815,8 @@ if (file_exists($miconex_path)) {
   <!-- MODAL DE ALERTA DE SEGURIDAD RADIOLÓGICA -->
   <div class="modal-overlay" id="confirm-modal">
     <div class="modal-box">
-      <div class="modal-header" style="color: var(--accent-red);">
-        <div class="modal-header-left">
+      <div class="modal-header" id="confirm-modal-header" style="color: var(--accent-red);">
+        <div class="modal-header-left" id="confirm-modal-title">
           ⚠️ ALERTA DE SEGURIDAD RADIOLÓGICA
         </div>
         <button type="button" class="btn-modal-close" onclick="document.getElementById('confirm-modal').style.display='none'" title="Cerrar modal (Esc)">✕</button>
@@ -3052,16 +3057,178 @@ if (file_exists($miconex_path)) {
       }
     }
 
-    // ================= CARGA DE MEDICIONES DE RUTINA =================
+    // ================= CARGA DE MEDICIONES DE RUTINA & DETECCIÓN DE DISCREPANCIAS =================
     let pendingEntry = null;
 
-    function commitRow(fecha, hora, recinto, gases, tritio, dosis, obs) {
+    /**
+     * Obtiene mediciones previas del recinto desde la tabla viva o desde el histórico
+     */
+    function getPreviousMeasurementsForRecinto(recintoName, recintoId) {
+      const norm = (recintoName || '').toLowerCase().trim();
+      const rows = Array.from(document.querySelectorAll('#table-body tr')).filter(tr => {
+        const r = (tr.getAttribute('data-recinto') || '').toLowerCase().trim();
+        return r === norm || r.startsWith(norm) || norm.startsWith(r);
+      });
+
+      if (rows.length > 0) {
+        return rows.map(tr => ({
+          dosis: parseFloat(tr.getAttribute('data-dosis') || 0),
+          tritio: parseFloat(tr.getAttribute('data-tritio') || 0),
+          gases: parseFloat(tr.getAttribute('data-gases') || 0)
+        }));
+      }
+
+      // Buscar en mockRecintoHistory por ID o nombre
+      if (typeof mockRecintoHistory !== 'undefined') {
+        const byId = mockRecintoHistory[recintoId];
+        if (byId && byId.length > 0) {
+          return byId.map(h => ({
+            dosis: parseFloat(h.dosis || 0),
+            tritio: parseFloat(h.tritio || 0),
+            gases: parseFloat(h.gases || 0)
+          }));
+        }
+      }
+
+      // Valores de línea de base estándar según tipo de recinto
+      if (norm.includes('107') || norm.includes('108') || norm.includes('111')) {
+        return [{ dosis: 0.0, tritio: 0.20, gases: 0.00 }];
+      } else if (norm.includes('501')) {
+        return [{ dosis: 0.0, tritio: 0.30, gases: 0.00 }];
+      } else if (norm.includes('112')) {
+        return [{ dosis: 0.0, tritio: 0.80, gases: 0.00 }];
+      }
+
+      return [{ dosis: 2.0, tritio: 0.25, gases: 0.00 }];
+    }
+
+    /**
+     * Compara los valores ingresados contra el registro anterior del recinto para detectar saltos atípicos
+     */
+    function checkDiscrepancies(recinto, gases, tritio, dosis) {
+      const gVal = parseFloat(gases);
+      const tVal = parseFloat(tritio);
+      const dVal = parseFloat(dosis);
+
+      const recintoIdInput = document.getElementById('q-recinto-id');
+      const prevList = getPreviousMeasurementsForRecinto(recinto, recintoIdInput ? recintoIdInput.value : '');
+      if (!prevList || prevList.length === 0) return null;
+
+      const prev = prevList[0];
+      const warnings = [];
+
+      // 1. Evaluar Tritio
+      if (!isNaN(tVal)) {
+        const pTritio = !isNaN(prev.tritio) ? prev.tritio : 0;
+        if (pTritio > 0) {
+          const pct = Math.round(((tVal - pTritio) / pTritio) * 100);
+          if (pct >= 100 && (tVal - pTritio) >= 0.25) {
+            warnings.push({
+              param: 'Tritio',
+              unit: 'DAC',
+              val: tVal,
+              prevVal: pTritio,
+              diffPct: pct,
+              type: 'spike'
+            });
+          }
+        } else if (tVal >= 0.5) {
+          warnings.push({
+            param: 'Tritio',
+            unit: 'DAC',
+            val: tVal,
+            prevVal: 0,
+            diffPct: null,
+            type: 'spike_from_zero'
+          });
+        }
+      }
+
+      // 2. Evaluar Tasa de Dosis
+      if (!isNaN(dVal)) {
+        const pDosis = !isNaN(prev.dosis) ? prev.dosis : 0;
+        if (pDosis > 0) {
+          const pct = Math.round(((dVal - pDosis) / pDosis) * 100);
+          if (pct >= 100 && (dVal - pDosis) >= 5.0) {
+            warnings.push({
+              param: 'Tasa Dosis',
+              unit: 'µSv/h',
+              val: dVal,
+              prevVal: pDosis,
+              diffPct: pct,
+              type: 'spike'
+            });
+          }
+        } else if (dVal >= 10.0) {
+          warnings.push({
+            param: 'Tasa Dosis',
+            unit: 'µSv/h',
+            val: dVal,
+            prevVal: 0,
+            diffPct: null,
+            type: 'spike_from_zero'
+          });
+        }
+      }
+
+      // 3. Evaluar Gases Nobles
+      if (!isNaN(gVal)) {
+        const pGases = !isNaN(prev.gases) ? prev.gases : 0;
+        if (pGases > 0) {
+          const pct = Math.round(((gVal - pGases) / pGases) * 100);
+          if (pct >= 100 && (gVal - pGases) >= 0.2) {
+            warnings.push({
+              param: 'Gases Nobles',
+              unit: 'DAC',
+              val: gVal,
+              prevVal: pGases,
+              diffPct: pct,
+              type: 'spike'
+            });
+          }
+        } else if (gVal >= 0.3) {
+          warnings.push({
+            param: 'Gases Nobles',
+            unit: 'DAC',
+            val: gVal,
+            prevVal: 0,
+            diffPct: null,
+            type: 'spike_from_zero'
+          });
+        }
+      }
+
+      return warnings.length > 0 ? warnings : null;
+    }
+
+    function commitRow(fecha, hora, recinto, gases, tritio, dosis, obs, warnings = null) {
       const dNum = parseFloat(dosis);
       const tNum = parseFloat(tritio);
       const gNum = parseFloat(gases);
 
-      let dosisBadge = !isNaN(dNum) ? (dNum > 100 ? `<span class="badge-red">${dNum.toFixed(1)}</span>` : (dNum > 20 ? `<span class="badge-amber">${dNum.toFixed(1)}</span>` : dNum.toFixed(1))) : '-';
-      let tritioBadge = !isNaN(tNum) ? (tNum > 1.0 ? `<span class="badge-amber">${tNum.toFixed(2)}</span>` : tNum.toFixed(2)) : '-';
+      const tWarn = warnings ? warnings.find(w => w.param === 'Tritio') : null;
+      const dWarn = warnings ? warnings.find(w => w.param === 'Tasa Dosis') : null;
+      const gWarn = warnings ? warnings.find(w => w.param === 'Gases Nobles') : null;
+
+      let dosisBadge = !isNaN(dNum) 
+        ? (dNum > 100 
+            ? `<span class="badge-red" title="${dWarn ? 'Alza de +' + dWarn.diffPct + '% vs previo' : 'Supera 100 µSv/h'}">${dNum.toFixed(1)} ⚠️</span>` 
+            : ((dNum > 20 || dWarn) 
+                ? `<span class="badge-amber" title="${dWarn ? 'Alza de +' + dWarn.diffPct + '% vs anterior' : 'Nivel elevado'}">${dNum.toFixed(1)}${dWarn ? ' ⚠️' : ''}</span>` 
+                : dNum.toFixed(1))) 
+        : '-';
+
+      let tritioBadge = !isNaN(tNum) 
+        ? ((tNum > 1.0 || tWarn) 
+            ? `<span class="badge-amber" title="${tWarn ? 'Alza de +' + tWarn.diffPct + '% respecto a medición previa (' + tWarn.prevVal + ' DAC)' : 'Nivel > 1.0 DAC'}">${tNum.toFixed(2)}${tWarn ? ' ⚠️' : ''}</span>` 
+            : tNum.toFixed(2)) 
+        : '-';
+
+      let gasesBadge = !isNaN(gNum) 
+        ? (gWarn 
+            ? `<span class="badge-amber" title="Alza de +${gWarn.diffPct}% vs anterior">${gNum.toFixed(2)} ⚠️</span>` 
+            : gNum.toFixed(2)) 
+        : '-';
 
       const tr = document.createElement('tr');
       tr.className = 'new-row';
@@ -3087,7 +3254,7 @@ if (file_exists($miconex_path)) {
             </button>
           </div>
         </td>
-        <td class="num">${!isNaN(gNum) ? gNum.toFixed(2) : '-'}</td>
+        <td class="num">${gasesBadge}</td>
         <td class="num">${tritioBadge}</td>
         <td class="num">${dosisBadge}</td>
         <td style="color: var(--text-muted);">${cleanObs}</td>
@@ -3140,18 +3307,76 @@ if (file_exists($miconex_path)) {
       }
 
       const dNum = parseFloat(dosis);
+      const discWarnings = checkDiscrepancies(recinto, gases, tritio, dosis);
+
+      // Caso 1: Umbral de emergencia por alta dosis (> 100 µSv/h)
       if (!isNaN(dNum) && dNum > 100) {
-        pendingEntry = { fecha, hora, recinto, gases, tritio, dosis, obs };
+        pendingEntry = { fecha, hora, recinto, gases, tritio, dosis, obs, warnings: discWarnings };
+        const hdr = document.getElementById('confirm-modal-header');
+        if (hdr) hdr.style.color = 'var(--accent-red)';
+        const tit = document.getElementById('confirm-modal-title');
+        if (tit) tit.innerHTML = '☢️ ALERTA DE SEGURIDAD RADIOLÓGICA (> 100 µSv/h)';
+        const btnConf = document.getElementById('btn-modal-confirm');
+        if (btnConf) {
+          btnConf.style.background = 'var(--accent-red)';
+          btnConf.style.color = '#ffffff';
+          btnConf.textContent = 'CONFIRMAR VALOR';
+        }
+        const btnCanc = document.getElementById('btn-modal-cancel');
+        if (btnCanc) btnCanc.textContent = 'CANCELAR Y CORREGIR';
+
         document.getElementById('modal-desc').innerHTML = `
           La tasa de dosis ingresada para <strong>${recinto}</strong> es de <span style="color: var(--accent-red); font-weight:800;">${dNum} µSv/h</span>.
           <br><br>
-          Este valor supera el umbral estándar (> 100 µSv/h). ¿Confirma que la medición es correcta?
+          Este valor supera el umbral estándar (> 100 µSv/h). ¿Confirma que la medición es correcta o desea verificarla?
         `;
         document.getElementById('confirm-modal').style.display = 'flex';
         return;
       }
 
-      commitRow(fecha, hora, recinto, gases, tritio, dosis, obs);
+      // Caso 2: Alerta por Discrepancia / Alza Abrupta respecto a valores previos
+      if (discWarnings && discWarnings.length > 0) {
+        pendingEntry = { fecha, hora, recinto, gases, tritio, dosis, obs, warnings: discWarnings };
+        const hdr = document.getElementById('confirm-modal-header');
+        if (hdr) hdr.style.color = 'var(--accent-amber)';
+        const tit = document.getElementById('confirm-modal-title');
+        if (tit) tit.innerHTML = '⚠️ ATENCIÓN OFICIAL: VARIACIÓN RADIOLÓGICA SIGNIFICATIVA';
+        const btnConf = document.getElementById('btn-modal-confirm');
+        if (btnConf) {
+          btnConf.style.background = 'var(--accent-amber)';
+          btnConf.style.color = '#041613';
+          btnConf.textContent = 'CONFIRMAR Y AGREGAR';
+        }
+        const btnCanc = document.getElementById('btn-modal-cancel');
+        if (btnCanc) btnCanc.textContent = 'CANCELAR Y CORREGIR';
+
+        document.getElementById('modal-desc').innerHTML = `
+          <div style="font-size: 13px; line-height: 1.5; color: #ffffff;">
+            Se detectó una <strong>variación atípica / alza importante</strong> respecto al historial del recinto <strong>${recinto}</strong>:
+            <div style="margin: 14px 0; background: rgba(245, 158, 11, 0.12); border: 1px solid var(--accent-amber); border-left: 4px solid var(--accent-amber); border-radius: 6px; padding: 12px 14px;">
+              ${discWarnings.map(w => `
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px;">
+                  <span style="font-weight: 700; color: #ffffff;">📊 ${w.param}:</span>
+                  <span style="font-family: var(--font-mono); font-size: 13.5px;">
+                    <strong style="color: var(--accent-amber); font-size: 14.5px;">${w.val} ${w.unit}</strong> 
+                    <span style="color: var(--text-dim); font-size: 11px;">(anterior: ${w.prevVal} ${w.unit})</span>
+                  </span>
+                  <span class="badge-amber" style="font-size: 11px; font-weight: 800; padding: 3px 8px;">
+                    ${w.diffPct !== null ? '+' + w.diffPct + '%' : 'NUEVO PICO'}
+                  </span>
+                </div>
+              `).join('')}
+            </div>
+            <p style="color: var(--text-muted); font-size: 12px; margin: 0;">
+              Por favor, verifique si este valor corresponde a una condición operacional real de la planta o si se trata de un error de tipeo.
+            </p>
+          </div>
+        `;
+        document.getElementById('confirm-modal').style.display = 'flex';
+        return;
+      }
+
+      commitRow(fecha, hora, recinto, gases, tritio, dosis, obs, null);
     }
 
     document.getElementById('btn-add').addEventListener('click', handleRegister);
@@ -3167,15 +3392,57 @@ if (file_exists($miconex_path)) {
 
     document.getElementById('btn-modal-cancel').onclick = () => {
       document.getElementById('confirm-modal').style.display = 'none';
-      document.getElementById('q-dosis').focus();
+      if (pendingEntry && pendingEntry.warnings && pendingEntry.warnings.length > 0) {
+        const first = pendingEntry.warnings[0];
+        if (first.param === 'Tritio') {
+          const el = document.getElementById('q-tritio');
+          if (el) { el.focus(); el.select(); }
+        } else if (first.param === 'Gases Nobles') {
+          const el = document.getElementById('q-gases');
+          if (el) { el.focus(); el.select(); }
+        } else {
+          const el = document.getElementById('q-dosis');
+          if (el) { el.focus(); el.select(); }
+        }
+      } else {
+        const el = document.getElementById('q-dosis');
+        if (el) { el.focus(); el.select(); }
+      }
+      pendingEntry = null;
     };
+
     document.getElementById('btn-modal-confirm').onclick = () => {
       document.getElementById('confirm-modal').style.display = 'none';
       if (pendingEntry) {
-        commitRow(pendingEntry.fecha, pendingEntry.hora, pendingEntry.recinto, pendingEntry.gases, pendingEntry.tritio, pendingEntry.dosis, pendingEntry.obs);
+        commitRow(pendingEntry.fecha, pendingEntry.hora, pendingEntry.recinto, pendingEntry.gases, pendingEntry.tritio, pendingEntry.dosis, pendingEntry.obs, pendingEntry.warnings);
         pendingEntry = null;
       }
     };
+
+    // Alerta en vivo en el panel HUD mientras el oficial tipea
+    function evalRealtimeDiscrepancy() {
+      const recinto = document.getElementById('q-recinto')?.value;
+      const gases = document.getElementById('q-gases')?.value;
+      const tritio = document.getElementById('q-tritio')?.value;
+      const dosis = document.getElementById('q-dosis')?.value;
+      const trendBadge = document.getElementById('rh-trend-badge');
+      if (!trendBadge || !recinto) return;
+
+      const warnings = checkDiscrepancies(recinto, gases, tritio, dosis);
+      if (warnings && warnings.length > 0) {
+        const w = warnings[0];
+        trendBadge.innerHTML = `⚠️ Variación de ${w.param} (${w.diffPct !== null ? '+' + w.diffPct + '%' : 'Pico'}) vs anterior`;
+        trendBadge.style.color = 'var(--accent-amber)';
+      } else {
+        trendBadge.innerHTML = '🟢 Niveles habituales';
+        trendBadge.style.color = 'var(--accent-green)';
+      }
+    }
+
+    ['q-gases', 'q-tritio', 'q-dosis'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', evalRealtimeDiscrepancy);
+    });
 
     function deleteRow(btn) {
       btn.closest('tr').remove();
