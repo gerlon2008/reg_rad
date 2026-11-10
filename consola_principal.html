@@ -1432,6 +1432,38 @@
       gap: 12px;
     }
 
+        .kpi-field-alert {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      color: #fffbeb;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-family: var(--font-mono);
+      line-height: 1.4;
+      margin-top: 10px;
+      margin-bottom: 12px;
+      animation: cyber-hologram-assemble 0.22s ease-out;
+    }
+
+    .kpi-field-alert.danger {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.55);
+      color: #fee2e2;
+    }
+
+    .field-control.input-alert-spike {
+      border-color: var(--accent-amber) !important;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.4) !important;
+    }
+
+    .field-control.input-alert-limit {
+      border-color: var(--accent-red) !important;
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.5) !important;
+    }
     .kpi-pending-pill {
       display: inline-flex;
       align-items: center;
@@ -2309,6 +2341,7 @@
                 <option value="VÁZQUEZ, JORGE">VÁZQUEZ, JORGE</option>
             </select>
           </div>
+          <div id="alert-tab-met" class="kpi-field-alert"></div>
         </div>
 
         <div class="field-group">
@@ -2375,6 +2408,7 @@
               <input type="text" id="kpi-in-vent-reactor" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #22d3ee;" value="3.80">
             </div>
           </div>
+          <div id="alert-tab-tritio" class="kpi-field-alert"></div>
         </div>
 
         <!-- TAB 2: Carbono 14 -->
@@ -2392,26 +2426,86 @@
               <input type="text" id="kpi-in-c14-val" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #c084fc;" value="12.4">
             </div>
           </div>
+          <div id="alert-tab-c14" class="kpi-field-alert"></div>
         </div>
 
         <!-- TAB 3: Dedo Frío 73120 -->
         <div class="kpi-tab-content" id="tab-dedofrio" style="display: none;">
-          <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px;">
+          <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 12px;">
             Concentración de agua pesada D2O en gas de muestreo criogénico 73120:
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 12px; margin-bottom: 12px;">
+          <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 12px; margin-bottom: 10px;">
             <div class="field-group">
               <label class="field-label">Hora de Medición (HH:MM)</label>
               <input type="text" id="kpi-in-dedofrio-hora" class="field-control mono latam-timepicker-input" value="04:30">
             </div>
             <div class="field-group">
               <label class="field-label">Concentración (ppm)</label>
-              <input type="text" id="kpi-in-dedofrio-val" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #f472b6;" value="18.5">
+              <input type="text" id="kpi-in-dedofrio-val" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #f472b6;" value="12">
             </div>
           </div>
-          <label style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--text-muted); cursor: pointer; margin-top: 6px;">
-            <input type="checkbox" id="kpi-in-dedofrio-menor" style="accent-color: var(--accent-cyan);"> Valor por debajo del límite de detección ( &lt; ppm )
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--text-muted); cursor: pointer; margin-top: 4px; margin-bottom: 14px;">
+            <input type="checkbox" id="kpi-in-dedofrio-menor" checked style="accent-color: var(--accent-cyan);"> Valor por debajo del límite de detección ( &lt; ppm )
           </label>
+
+          <div id="alert-tab-dedofrio" class="kpi-field-alert"></div>
+          <!-- TABLA DE LOS ÚLTIMOS 5 DATOS HISTÓRICOS DE DEDO FRÍO -->
+          <div style="background: rgba(9, 28, 24, 0.7); border: 1px solid var(--border-card); border-radius: 6px; padding: 10px 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-size: 10.5px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase;">
+                📊 Últimos 5 Registros Criogénicos (Dedo Frío 73120)
+              </span>
+              <span style="font-size: 9.5px; color: var(--text-dim); font-family: var(--font-mono);">Límite Op: &lt; 50 ppm</span>
+            </div>
+            <table class="data-table" style="font-size: 11px;">
+              <thead>
+                <tr>
+                  <th style="padding: 5px 8px;">Fecha</th>
+                  <th style="padding: 5px 8px;">Hora</th>
+                  <th style="padding: 5px 8px;">Oficial Responsable</th>
+                  <th style="padding: 5px 8px; text-align: right;">PPM</th>
+                  <th style="padding: 5px 8px; text-align: center;">Estado</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-dedofrio-modal-5">
+                <tr>
+                  <td class="mono">Hoy</td>
+                  <td class="mono">04:15</td>
+                  <td style="font-weight: 700;">ALTUNA, LEONARDO (P)</td>
+                  <td class="mono" style="text-align: right; color: #f472b6; font-weight: 700;">&lt; 12</td>
+                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
+                </tr>
+                <tr>
+                  <td class="mono">Ayer</td>
+                  <td class="mono">20:30</td>
+                  <td>ROLHAUSER, MARIANO</td>
+                  <td class="mono" style="text-align: right; color: #f472b6;">&lt; 10</td>
+                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
+                </tr>
+                <tr>
+                  <td class="mono">Ayer</td>
+                  <td class="mono">12:45</td>
+                  <td>GATICA, CARLOS</td>
+                  <td class="mono" style="text-align: right; color: #f472b6;">15</td>
+                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
+                </tr>
+                <tr>
+                  <td class="mono">Ayer</td>
+                  <td class="mono">05:00</td>
+                  <td>CISTERNA, GUSTAVO</td>
+                  <td class="mono" style="text-align: right; color: #f472b6;">&lt; 11</td>
+                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
+                </tr>
+                <tr>
+                  <td class="mono">07/11</td>
+                  <td class="mono">21:10</td>
+                  <td>PASCUAL, SEBASTIAN</td>
+                  <td class="mono" style="text-align: right; color: #f472b6;">14</td>
+                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <!-- TAB 4: % Restricción Operacional -->
@@ -2429,6 +2523,7 @@
               <input type="text" id="kpi-in-ro-desc" class="field-control" value="Chimenea en rango nominal">
             </div>
           </div>
+          <div id="alert-tab-ro" class="kpi-field-alert"></div>
         </div>
 
         <!-- TAB 5: Condición Meteorológica -->
@@ -3059,6 +3154,25 @@
       if (pendingEntry) {
         commitRow(pendingEntry.fecha, pendingEntry.hora, pendingEntry.recinto, pendingEntry.gases, pendingEntry.tritio, pendingEntry.dosis, pendingEntry.obs, pendingEntry.warnings);
         pendingEntry = null;
+      } else if (pendingKpiEntry) {
+        applyKpiMetricsToDom(pendingKpiEntry.metrics, pendingKpiEntry.warnings);
+        pendingKpiEntry = null;
+      }
+    };
+
+    document.getElementById('btn-modal-cancel').onclick = () => {
+      document.getElementById('confirm-modal').style.display = 'none';
+      if (pendingEntry) {
+        const el = document.getElementById('q-dosis');
+        if (el) { el.focus(); el.select(); }
+        pendingEntry = null;
+      } else if (pendingKpiEntry) {
+        if (pendingKpiEntry.warnings && pendingKpiEntry.warnings.length > 0) {
+          switchKpiTab(pendingKpiEntry.warnings[0].tab);
+          const inp = document.getElementById(pendingKpiEntry.warnings[0].inputId);
+          if (inp) { inp.focus(); inp.select(); }
+        }
+        pendingKpiEntry = null;
       }
     };
 
@@ -3135,6 +3249,212 @@
       });
     }
 
+    let pendingKpiEntry = null;
+
+    function checkKpiDiscrepancies(metrics) {
+      const warnings = [];
+
+      // 1. Dedo Frío 73120 (Previo: 12 ppm, Límite Operacional: 50 ppm)
+      if (metrics.dedoFrio !== '') {
+        const dfVal = parseFloat(metrics.dedoFrio);
+        const prevDf = 12.0;
+        const limitDf = 50.0;
+
+        if (!isNaN(dfVal)) {
+          if (dfVal > limitDf) {
+            warnings.push({
+              tab: 'tab-dedofrio',
+              inputId: 'kpi-in-dedofrio-val',
+              param: 'Dedo Frío 73120',
+              unit: 'ppm',
+              val: (metrics.isMenor ? '< ' : '') + dfVal,
+              prevVal: '< ' + prevDf + ' ppm',
+              diffPct: Math.round(((dfVal - prevDf) / prevDf) * 100),
+              isOverLimit: true,
+              limitVal: limitDf + ' ppm',
+              msg: `Supera el Límite Operacional de Planta (${limitDf} ppm)`
+            });
+          } else if (dfVal >= prevDf * 2 && (dfVal - prevDf) >= 5) {
+            const pct = Math.round(((dfVal - prevDf) / prevDf) * 100);
+            warnings.push({
+              tab: 'tab-dedofrio',
+              inputId: 'kpi-in-dedofrio-val',
+              param: 'Dedo Frío 73120',
+              unit: 'ppm',
+              val: (metrics.isMenor ? '< ' : '') + dfVal,
+              prevVal: '< ' + prevDf + ' ppm',
+              diffPct: pct,
+              isOverLimit: false,
+              msg: `Alza de +${pct}% respecto al valor previo`
+            });
+          }
+        }
+      }
+
+      // 2. Ventilación Chimenea (Tritio)
+      if (metrics.ventGral !== '') {
+        const vgVal = parseFloat(metrics.ventGral);
+        const prevVg = 1.45;
+        if (!isNaN(vgVal) && vgVal >= prevVg * 2 && (vgVal - prevVg) >= 1.0) {
+          const pct = Math.round(((vgVal - prevVg) / prevVg) * 100);
+          warnings.push({
+            tab: 'tab-tritio',
+            inputId: 'kpi-in-vent-gral',
+            param: 'Ventilación General',
+            unit: 'GBq',
+            val: vgVal + ' GBq',
+            prevVal: prevVg + ' GBq',
+            diffPct: pct,
+            isOverLimit: false,
+            msg: `Alza de +${pct}% respecto al valor habitual (${prevVg} GBq)`
+          });
+        }
+      }
+
+      if (metrics.ventReactor !== '') {
+        const vrVal = parseFloat(metrics.ventReactor);
+        const prevVr = 3.80;
+        if (!isNaN(vrVal) && vrVal >= prevVr * 2 && (vrVal - prevVr) >= 2.0) {
+          const pct = Math.round(((vrVal - prevVr) / prevVr) * 100);
+          warnings.push({
+            tab: 'tab-tritio',
+            inputId: 'kpi-in-vent-reactor',
+            param: 'Ventilación Reactor',
+            unit: 'GBq',
+            val: vrVal + ' GBq',
+            prevVal: prevVr + ' GBq',
+            diffPct: pct,
+            isOverLimit: false,
+            msg: `Alza de +${pct}% respecto al valor habitual (${prevVr} GBq)`
+          });
+        }
+      }
+
+      // 3. Carbono-14 (Previo: 12.4 MBq)
+      if (metrics.c14 !== '') {
+        const c14Val = parseFloat(metrics.c14);
+        const prevC14 = 12.4;
+        if (!isNaN(c14Val) && c14Val >= prevC14 * 2 && (c14Val - prevC14) >= 10.0) {
+          const pct = Math.round(((c14Val - prevC14) / prevC14) * 100);
+          warnings.push({
+            tab: 'tab-c14',
+            inputId: 'kpi-in-c14-val',
+            param: 'Emisión Carbono-14',
+            unit: 'MBq',
+            val: c14Val + ' MBq',
+            prevVal: prevC14 + ' MBq',
+            diffPct: pct,
+            isOverLimit: false,
+            msg: `Alza de +${pct}% respecto a medición previa (${prevC14} MBq)`
+          });
+        }
+      }
+
+      // 4. % Restricción Operacional (Previo: 8.42%)
+      if (metrics.roVal !== '') {
+        const roNum = parseFloat(metrics.roVal);
+        const prevRo = 8.42;
+        if (!isNaN(roNum)) {
+          if (roNum >= 15.0) {
+            warnings.push({
+              tab: 'tab-ro',
+              inputId: 'kpi-in-ro-val',
+              param: '% Restricción Operacional',
+              unit: '% RO',
+              val: roNum + '%',
+              prevVal: prevRo + '%',
+              diffPct: Math.round(((roNum - prevRo) / prevRo) * 100),
+              isOverLimit: true,
+              msg: `Supera el umbral de advertencia operacional (15% RO)`
+            });
+          } else if (roNum >= prevRo * 1.8 && (roNum - prevRo) >= 4.0) {
+            const pct = Math.round(((roNum - prevRo) / prevRo) * 100);
+            warnings.push({
+              tab: 'tab-ro',
+              inputId: 'kpi-in-ro-val',
+              param: '% Restricción Operacional',
+              unit: '% RO',
+              val: roNum + '%',
+              prevVal: prevRo + '%',
+              diffPct: pct,
+              isOverLimit: false,
+              msg: `Alza de +${pct}% vs valor de referencia`
+            });
+          }
+        }
+      }
+
+      // 5. Meteorología (Viento fuerte > 60 km/h)
+      if (metrics.metVel !== '') {
+        const velNum = parseFloat(metrics.metVel);
+        if (!isNaN(velNum) && velNum >= 60.0) {
+          warnings.push({
+            tab: 'tab-met',
+            inputId: 'kpi-in-met-vel',
+            param: 'Velocidad del Viento',
+            unit: 'km/h',
+            val: velNum + ' km/h',
+            prevVal: '14.5 km/h',
+            diffPct: null,
+            isOverLimit: true,
+            msg: `Condición meteorológica extrema (> 60 km/h)`
+          });
+        }
+      }
+
+      return warnings.length > 0 ? warnings : null;
+    }
+
+    // Evaluación en tiempo real mientras el oficial tipea en cualquier campo del modal
+    function evalKpiRealtimeAlerts() {
+      const ventGral = (document.getElementById('kpi-in-vent-gral')?.value || '').trim();
+      const ventReactor = (document.getElementById('kpi-in-vent-reactor')?.value || '').trim();
+      const c14 = (document.getElementById('kpi-in-c14-val')?.value || '').trim();
+      const dedoFrio = (document.getElementById('kpi-in-dedofrio-val')?.value || '').trim();
+      const isMenor = document.getElementById('kpi-in-dedofrio-menor') ? document.getElementById('kpi-in-dedofrio-menor').checked : false;
+      const roVal = (document.getElementById('kpi-in-ro-val')?.value || '').trim();
+      const metVel = (document.getElementById('kpi-in-met-vel')?.value || '').trim();
+
+      const metrics = { ventGral, ventReactor, c14, dedoFrio, isMenor, roVal, metVel };
+      const warnings = checkKpiDiscrepancies(metrics);
+
+      // Limpiar estilos y cajas de alerta
+      ['tab-dedofrio', 'tab-tritio', 'tab-c14', 'tab-ro', 'tab-met'].forEach(tab => {
+        const el = document.getElementById('alert-' + tab);
+        if (el) el.style.display = 'none';
+      });
+
+      ['kpi-in-dedofrio-val', 'kpi-in-vent-gral', 'kpi-in-vent-reactor', 'kpi-in-c14-val', 'kpi-in-ro-val', 'kpi-in-met-vel'].forEach(id => {
+        const inp = document.getElementById(id);
+        if (inp) inp.classList.remove('input-alert-spike', 'input-alert-limit');
+      });
+
+      if (!warnings) return;
+
+      warnings.forEach(w => {
+        const alertBox = document.getElementById('alert-' + w.tab);
+        const inp = document.getElementById(w.inputId);
+
+        if (inp) {
+          inp.classList.add(w.isOverLimit ? 'input-alert-limit' : 'input-alert-spike');
+        }
+
+        if (alertBox) {
+          alertBox.style.display = 'flex';
+          alertBox.className = 'kpi-field-alert ' + (w.isOverLimit ? 'danger' : 'warning');
+          alertBox.innerHTML = `⚠️ <strong>${w.param}:</strong> Ingresó <strong style="color: ${w.isOverLimit ? 'var(--accent-red)' : 'var(--accent-amber)'};">${w.val}</strong> vs medición previa <strong>${w.prevVal}</strong> ${w.diffPct !== null ? '<strong>(+' + w.diffPct + '%)</strong>' : ''}. ${w.msg}`;
+        }
+      });
+    }
+
+    ['kpi-in-dedofrio-val', 'kpi-in-dedofrio-menor', 'kpi-in-vent-gral', 'kpi-in-vent-reactor', 'kpi-in-c14-val', 'kpi-in-ro-val', 'kpi-in-met-vel'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', evalKpiRealtimeAlerts);
+        el.addEventListener('change', evalKpiRealtimeAlerts);
+      }
+    });
+
     function saveKpiMetrics() {
       const ventGral = (document.getElementById('kpi-in-vent-gral').value || '').trim();
       const ventReactor = (document.getElementById('kpi-in-vent-reactor').value || '').trim();
@@ -3147,7 +3467,67 @@
       const metVel = document.getElementById('kpi-in-met-vel') ? (document.getElementById('kpi-in-met-vel').value || '').trim() : '';
       const metPasquill = document.getElementById('kpi-in-met-pasquill') ? document.getElementById('kpi-in-met-pasquill').value : 'Clase D (Neutral - Nocturno nublado)';
 
-      // 1. Ventilación Chimenea (General y Reactor unificados)
+      const metrics = { ventGral, ventReactor, c14, dedoFrio, isMenor, roVal, roDesc, metDir, metVel, metPasquill };
+      const warnings = checkKpiDiscrepancies(metrics);
+
+      // Si hay advertencias de discrepancia o exceso de límite operacional, disparar modal de confirmación
+      if (warnings && warnings.length > 0) {
+        pendingKpiEntry = { metrics, warnings };
+        const hasLimit = warnings.some(w => w.isOverLimit);
+
+        const hdr = document.getElementById('confirm-modal-header');
+        if (hdr) hdr.style.color = hasLimit ? 'var(--accent-red)' : 'var(--accent-amber)';
+
+        const tit = document.getElementById('confirm-modal-title');
+        if (tit) {
+          tit.innerHTML = hasLimit 
+            ? '☢️ ALERTA OPERACIONAL: VALOR FUERA DE RANGO NOMINAL' 
+            : '⚠️ ATENCIÓN OFICIAL: VARIACIÓN SIGNIFICATIVA DETECTADA';
+        }
+
+        const btnConf = document.getElementById('btn-modal-confirm');
+        if (btnConf) {
+          btnConf.style.background = hasLimit ? 'var(--accent-red)' : 'var(--accent-amber)';
+          btnConf.style.color = '#ffffff';
+          btnConf.textContent = 'CONFIRMAR Y APLICAR';
+        }
+
+        const btnCanc = document.getElementById('btn-modal-cancel');
+        if (btnCanc) btnCanc.textContent = 'CANCELAR Y CORREGIR';
+
+        document.getElementById('modal-desc').innerHTML = `
+          Se ha detectado una variación abrupta respecto a los registros previos de planta:
+          <div style="background: rgba(14, 39, 34, 0.85); border-left: 3px solid ${hasLimit ? 'var(--accent-red)' : 'var(--accent-amber)'}; padding: 10px 14px; margin: 12px 0; border-radius: 4px;">
+            ${warnings.map(w => `
+              <div style="margin-bottom: 6px; font-family: var(--font-mono); font-size: 12px;">
+                <strong style="color: #ffffff;">${w.param}:</strong>
+                Ingresó <span style="font-weight: 800; color: ${w.isOverLimit ? 'var(--accent-red)' : 'var(--accent-amber)'};">${w.val} ${w.unit}</span>
+                vs medición previa de <strong>${w.prevVal}</strong>
+                ${w.diffPct !== null ? `<span style="color: var(--accent-amber); font-weight:700;">(+${w.diffPct}%)</span>` : ''}.
+                ${w.isOverLimit ? `<div style="color: var(--accent-red); font-size: 11px; margin-top: 2px; font-weight: 700;">⚠️ ${w.msg}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+          ¿Confirma que la medición es correcta o desea verificar y corregir el dato ingresado?
+        `;
+
+        document.getElementById('confirm-modal').style.display = 'flex';
+        return;
+      }
+
+      applyKpiMetricsToDom(metrics, null);
+    }
+
+    function applyKpiMetricsToDom(metrics, warnings = null) {
+      const { ventGral, ventReactor, c14, dedoFrio, isMenor, roVal, roDesc, metDir, metVel, metPasquill } = metrics;
+
+      const dfWarn = warnings ? warnings.find(w => w.param === 'Dedo Frío 73120') : null;
+      const vgWarn = warnings ? warnings.find(w => w.param === 'Ventilación General') : null;
+      const vrWarn = warnings ? warnings.find(w => w.param === 'Ventilación Reactor') : null;
+      const c14Warn = warnings ? warnings.find(w => w.param === 'Emisión Carbono-14') : null;
+      const roWarn = warnings ? warnings.find(w => w.param === '% Restricción Operacional') : null;
+
+      // 1. Ventilación Chimenea (General y Reactor)
       const elVentGral = document.getElementById('kpi-vent-gral');
       const elVentReactor = document.getElementById('kpi-vent-reactor');
       const elVentFooter = document.getElementById('kpi-vent-footer');
@@ -3163,8 +3543,16 @@
         if (elVentFooter) elVentFooter.innerHTML = '<span style="color: var(--accent-amber);">⚠️ Sin registrar en guardia</span>';
         if (cardVent) cardVent.classList.add('is-pending');
       } else {
-        if (elVentGral) elVentGral.textContent = ventGral || '-';
-        if (elVentReactor) elVentReactor.textContent = ventReactor || '-';
+        if (elVentGral) {
+          elVentGral.innerHTML = vgWarn 
+            ? `<span class="badge-amber" title="${vgWarn.msg}">${ventGral} ⚠️</span>` 
+            : (ventGral || '-');
+        }
+        if (elVentReactor) {
+          elVentReactor.innerHTML = vrWarn 
+            ? `<span class="badge-amber" title="${vrWarn.msg}">${ventReactor} ⚠️</span>` 
+            : (ventReactor || '-');
+        }
         if (elVentGralUnit) elVentGralUnit.textContent = 'GBq';
         if (elVentReactorUnit) elVentReactorUnit.textContent = 'GBq';
         if (elVentFooter) elVentFooter.textContent = 'Caudal y extracción activa';
@@ -3200,7 +3588,11 @@
         if (elC14Footer) elC14Footer.innerHTML = '<span style="color: var(--accent-amber);">⚠️ Sin muestreo registrado</span>';
         if (cardC14) cardC14.classList.add('is-pending');
       } else {
-        if (elC14) elC14.textContent = c14;
+        if (elC14) {
+          elC14.innerHTML = c14Warn 
+            ? `<span class="badge-amber" title="${c14Warn.msg}">${c14} ⚠️</span>` 
+            : c14;
+        }
         if (elC14Footer) elC14Footer.textContent = 'Muestreo acumulado turno';
         if (cardC14) cardC14.classList.remove('is-pending');
       }
@@ -3214,8 +3606,15 @@
         if (elDedoFrioFooter) elDedoFrioFooter.innerHTML = '<span style="color: var(--accent-amber);">⚠️ Pendiente de carga</span>';
         if (cardDF) cardDF.classList.add('is-pending');
       } else {
-        if (elDedoFrio) elDedoFrio.textContent = (isMenor ? '< ' : '') + dedoFrio;
-        if (elDedoFrioFooter) elDedoFrioFooter.textContent = 'Histórico 5 guardias nominal';
+        const fullDf = (isMenor ? '< ' : '') + dedoFrio;
+        if (elDedoFrio) {
+          if (dfWarn) {
+            elDedoFrio.innerHTML = `<span class="${dfWarn.isOverLimit ? 'badge-red' : 'badge-amber'}" title="${dfWarn.msg}">${fullDf} ⚠️</span>`;
+          } else {
+            elDedoFrio.textContent = fullDf;
+          }
+        }
+        if (elDedoFrioFooter) elDedoFrioFooter.textContent = dfWarn && dfWarn.isOverLimit ? '⚠️ Supera Límite Operacional' : 'Histórico 5 guardias nominal';
         if (cardDF) cardDF.classList.remove('is-pending');
       }
 
@@ -3228,7 +3627,11 @@
         if (elRoFooter) elRoFooter.innerHTML = '<span style="color: var(--accent-amber);">⚠️ Pendiente de cálculo</span>';
         if (cardRo) cardRo.classList.add('is-pending');
       } else {
-        if (elRoVal) elRoVal.textContent = roVal;
+        if (elRoVal) {
+          elRoVal.innerHTML = roWarn 
+            ? `<span class="${roWarn.isOverLimit ? 'badge-red' : 'badge-amber'}" title="${roWarn.msg}">${roVal} ⚠️</span>` 
+            : roVal;
+        }
         if (elRoFooter) elRoFooter.textContent = roDesc || 'Chimenea en rango nominal';
         if (cardRo) cardRo.classList.remove('is-pending');
       }
@@ -3311,7 +3714,6 @@
       if (document.getElementById('kpi-in-dedofrio-val')) document.getElementById('kpi-in-dedofrio-val').value = dedoFrio;
 
       saveKpiMetrics();
-      showToast('✔️ Mediciones de chimenea asentadas en KPIs');
     }
 
     function clearChimneyKPIs() {
@@ -3339,7 +3741,6 @@
       if (document.getElementById('kpi-in-met-pasquill')) document.getElementById('kpi-in-met-pasquill').value = pasquill;
 
       saveKpiMetrics();
-      showToast('✔️ Condiciones meteorológicas asentadas');
     }
 
     function clearInlineMeteorology() {
@@ -3348,7 +3749,6 @@
       saveKpiMetrics();
       showToast('🗑️ Condiciones meteorológicas eliminadas (pendientes)');
     }
-
     // ================= TAREAS DE CAMPO & PTR =================
     function registerDailyTask() {
       const ptr = document.getElementById('task-ptr').value.trim();
