@@ -3432,6 +3432,8 @@ if (file_exists($miconex_path)) {
 
       const tr = document.createElement('tr');
       tr.className = 'new-row';
+      tr.setAttribute('data-fecha', fecha);
+      tr.setAttribute('data-hora', hora);
       tr.setAttribute('data-dosis', isNaN(dNum) ? 0 : dNum);
       tr.setAttribute('data-tritio', isNaN(tNum) ? 0 : tNum);
       tr.setAttribute('data-gases', isNaN(gNum) ? 0 : gNum);
@@ -3482,6 +3484,10 @@ if (file_exists($miconex_path)) {
       document.getElementById('q-dosis').value = '';
       document.getElementById('q-obs').value = '';
       document.getElementById('q-recinto').focus();
+
+      if (typeof updateRecintoHistory === 'function') {
+        updateRecintoHistory(recintoId, recinto);
+      }
     }
 
     function handleRegister() {
@@ -5169,13 +5175,54 @@ if (file_exists($miconex_path)) {
 
       label.textContent = recintoName.split(' - ')[0];
 
-      // Buscar historial o generar valores consistentes para el recinto
-      const history = mockRecintoHistory[recintoId] || [
-        { fecha: '08/11/2026', hora: '23:30', dosis: '4.5', tritio: '0.40', gases: '0.00' },
-        { fecha: '08/11/2026', hora: '15:40', dosis: '4.0', tritio: '0.35', gases: '0.00' },
-        { fecha: '08/11/2026', hora: '08:10', dosis: '3.8', tritio: '0.30', gases: '0.00' }
-      ];
+      // 1. Extraer mediciones reales ya cargadas en la tabla viva para este recinto
+      const norm = recintoName.toLowerCase().trim();
+      const tableRows = Array.from(document.querySelectorAll('#table-body tr')).filter(tr => {
+        const r = (tr.getAttribute('data-recinto') || (tr.cells[2] ? tr.cells[2].textContent : '')).toLowerCase().trim();
+        return r && (r === norm || r.startsWith(norm) || norm.startsWith(r));
+      });
 
+      const history = [];
+      tableRows.forEach(tr => {
+        if (history.length >= 3) return;
+        const f = tr.getAttribute('data-fecha') || (tr.cells[0] ? tr.cells[0].textContent.trim() : '08/11/2026');
+        const h = tr.getAttribute('data-hora') || (tr.cells[1] ? tr.cells[1].textContent.trim() : '00:00');
+        const d = tr.getAttribute('data-dosis') || (tr.cells[5] ? tr.cells[5].textContent.trim() : '0.0');
+        const t = tr.getAttribute('data-tritio') || (tr.cells[4] ? tr.cells[4].textContent.trim() : '0.0');
+        const g = tr.getAttribute('data-gases') || (tr.cells[3] ? tr.cells[3].textContent.trim() : '0.0');
+        const fClean = (!f || f.toLowerCase().includes('turno')) ? '08/11/2026' : f;
+        history.push({
+          fecha: fClean,
+          hora: h,
+          dosis: parseFloat(d).toFixed(1),
+          tritio: parseFloat(t).toFixed(2),
+          gases: parseFloat(g).toFixed(2)
+        });
+      });
+
+      // 2. Si hay menos de 3 registros en la tabla viva, complementar con historial de base (estrictamente Fecha y Hora, NUNCA Turno)
+      const fallbackList = (typeof mockRecintoHistory !== 'undefined' && mockRecintoHistory[recintoId]) 
+        ? mockRecintoHistory[recintoId] 
+        : [
+            { fecha: '08/11/2026', hora: '23:30', dosis: '4.5', tritio: '0.40', gases: '0.00' },
+            { fecha: '08/11/2026', hora: '15:40', dosis: '4.0', tritio: '0.35', gases: '0.00' },
+            { fecha: '08/11/2026', hora: '08:10', dosis: '3.8', tritio: '0.30', gases: '0.00' }
+          ];
+
+      fallbackList.forEach(fb => {
+        if (history.length < 3) {
+          const fbClean = (!fb.fecha || fb.fecha.toLowerCase().includes('turno')) ? '08/11/2026' : fb.fecha;
+          history.push({
+            fecha: fbClean,
+            hora: fb.hora,
+            dosis: fb.dosis,
+            tritio: fb.tritio,
+            gases: fb.gases
+          });
+        }
+      });
+
+      // 3. Renderizar chips mostrando estrictamente Fecha y Hora (SIN Turno) y en orden: G. nobles, Tritio y Dosis
       chipsList.innerHTML = history.map((item, idx) => `
         <div style="background: rgba(22, 54, 48, 0.7); border: 1px solid var(--border-card); border-radius: 4px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px;">
           <span style="font-weight: 800; color: var(--accent-cyan);">[${idx + 1}]</span>
@@ -5190,9 +5237,9 @@ if (file_exists($miconex_path)) {
 
       // Calcular tendencia rápida
       const d1 = parseFloat(history[0].dosis);
-      const d3 = parseFloat(history[2].dosis);
-      if (d1 > d3 * 1.3) {
-        trendBadge.innerHTML = '📈 Alza de Dosis (+ ' + Math.round(((d1 - d3)/d3)*100) + '%)';
+      const dLast = parseFloat(history[history.length - 1].dosis);
+      if (dLast > 0 && d1 > dLast * 1.3) {
+        trendBadge.innerHTML = '📈 Alza de Dosis (+ ' + Math.round(((d1 - dLast)/dLast)*100) + '%)';
         trendBadge.style.color = 'var(--accent-amber)';
       } else {
         trendBadge.innerHTML = '🟢 Niveles estables';
@@ -5357,29 +5404,54 @@ if (file_exists($miconex_path)) {
       activeSelectedRecintoForPrefill = recintoParam;
       if (labelNombre) labelNombre.textContent = recintoParam;
 
-      // 1. Obtener historial: buscar si hay id conocido o extraer de la tabla
-      let history = null;
-      
+      // 1. Obtener historial: extraer mediciones reales de la tabla viva si existen
+      const norm = (recintoParam || '').toLowerCase().trim();
+      const tableRows = Array.from(document.querySelectorAll('#table-body tr')).filter(tr => {
+        const r = (tr.getAttribute('data-recinto') || (tr.cells[2] ? tr.cells[2].textContent : '')).toLowerCase().trim();
+        return r && (r === norm || r.startsWith(norm) || norm.startsWith(r));
+      });
+
+      const history = [];
+      tableRows.forEach(tr => {
+        if (history.length >= 3) return;
+        const f = tr.getAttribute('data-fecha') || (tr.cells[0] ? tr.cells[0].textContent.trim() : '08/11/2026');
+        const h = tr.getAttribute('data-hora') || (tr.cells[1] ? tr.cells[1].textContent.trim() : '00:00');
+        const d = tr.getAttribute('data-dosis') || (tr.cells[5] ? tr.cells[5].textContent.trim() : '0.0');
+        const t = tr.getAttribute('data-tritio') || (tr.cells[4] ? tr.cells[4].textContent.trim() : '0.0');
+        const g = tr.getAttribute('data-gases') || (tr.cells[3] ? tr.cells[3].textContent.trim() : '0.0');
+        const fClean = (!f || f.toLowerCase().includes('turno')) ? '08/11/2026' : f;
+        history.push({
+          fecha: fClean,
+          hora: h,
+          dosis: parseFloat(d).toFixed(1),
+          tritio: parseFloat(t).toFixed(2),
+          gases: parseFloat(g).toFixed(2)
+        });
+      });
+
       const idMatch = (typeof recintoParam === 'string') ? recintoParam.match(/R-?(\d+)/i) : null;
       const recintoId = idMatch ? parseInt(idMatch[1], 10).toString() : '1';
 
-      if (typeof mockRecintoHistory !== 'undefined' && mockRecintoHistory[recintoId]) {
-        history = mockRecintoHistory[recintoId];
-      } else if (typeof mockRecintoHistory !== 'undefined' && mockRecintoHistory['1']) {
-        history = [
-          { fecha: '08/11/2026', hora: '23:30', dosis: '4.5', tritio: '0.40', gases: '0.00' },
-          { fecha: '08/11/2026', hora: '15:40', dosis: '4.0', tritio: '0.35', gases: '0.00' },
-          { fecha: '08/11/2026', hora: '08:10', dosis: '3.8', tritio: '0.30', gases: '0.00' }
-        ];
-      }
+      const fallbackList = (typeof mockRecintoHistory !== 'undefined' && mockRecintoHistory[recintoId]) 
+        ? mockRecintoHistory[recintoId] 
+        : [
+            { fecha: '08/11/2026', hora: '23:30', dosis: '4.5', tritio: '0.40', gases: '0.00' },
+            { fecha: '08/11/2026', hora: '15:40', dosis: '4.0', tritio: '0.35', gases: '0.00' },
+            { fecha: '08/11/2026', hora: '08:10', dosis: '3.8', tritio: '0.30', gases: '0.00' }
+          ];
 
-      if (!history || history.length === 0) {
-        history = [
-          { fecha: '08/11/2026', hora: '23:30', dosis: '3.5', tritio: '0.30', gases: '0.00' },
-          { fecha: '08/11/2026', hora: '15:40', dosis: '3.2', tritio: '0.25', gases: '0.00' },
-          { fecha: '08/11/2026', hora: '08:10', dosis: '3.0', tritio: '0.20', gases: '0.00' }
-        ];
-      }
+      fallbackList.forEach(fb => {
+        if (history.length < 3) {
+          const fbClean = (!fb.fecha || fb.fecha.toLowerCase().includes('turno')) ? '08/11/2026' : fb.fecha;
+          history.push({
+            fecha: fbClean,
+            hora: fb.hora,
+            dosis: fb.dosis,
+            tritio: fb.tritio,
+            gases: fb.gases
+          });
+        }
+      });
 
       // 2. Renderizar las 3 mediciones con SOLO Fecha y Hora en orden: G. nobles, Tritio y Dosis
       container.innerHTML = history.map((item, idx) => `
