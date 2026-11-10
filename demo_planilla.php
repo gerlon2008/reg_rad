@@ -6364,6 +6364,17 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       if (btnCancel) btnCancel.style.display = 'none';
       if (loader) loader.style.display = 'block';
 
+      // 🛡️ PROTECCIÓN DE BASE DE DATOS REAL (MODO DEMO / PRUEBAS)
+      // En modo demo protegida, el cierre es 100% simulado en memoria: NO se ejecuta UPDATE en MySQL
+      if (typeof IS_DEMO_MODE !== 'undefined' && IS_DEMO_MODE) {
+        console.log('[DEMO PROTEGIDA] Cierre simulado en memoria. La planilla real en MySQL permanece intacta.');
+        setTimeout(() => {
+          showToast('🛡️ [Modo Demo] Planilla cerrada en simulación (BD real protegida intacta). Habilitando su nuevo turno...', 3500);
+          desbloquearParaNuevoTurno();
+        }, 500);
+        return;
+      }
+
       const planId = <?php echo (int)($id_planilla_activa ? $id_planilla_activa : 1); ?>;
       const uId = <?php echo (int)($id_usuario_actual ? $id_usuario_actual : 1); ?>;
 
