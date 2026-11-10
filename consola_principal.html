@@ -1427,6 +1427,41 @@
     /* ========================================================== */
     /* TOOLTIPS PERSONALIZADOS CYBERPUNK RADIOLÓGICOS             */
     /* ========================================================== */
+    .kpi-multi-values.two-cols {
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .kpi-pending-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px dashed rgba(245, 158, 11, 0.6);
+      color: #fbbf24;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      letter-spacing: 0.3px;
+    }
+
+    .kpi-card.is-pending {
+      border-color: rgba(245, 158, 11, 0.45) !important;
+      background: linear-gradient(180deg, rgba(245, 158, 11, 0.04) 0%, var(--bg-card) 100%);
+    }
+
+    .kpi-card.is-pending .kpi-label {
+      color: #fde68a !important;
+    }
+
+    .kpi-card.is-pending .kpi-action-icon {
+      border-color: rgba(245, 158, 11, 0.5);
+      color: #fbbf24;
+      background: rgba(245, 158, 11, 0.15);
+    }
+
     #cyber-tooltip {
       position: fixed;
       z-index: 999999;
@@ -1632,30 +1667,42 @@
           <div class="kpi-footer" id="kpi-ro-footer">Chimenea en rango nominal</div>
         </div>
 
-        <!-- KPI 3: Ventilación General (Métrica de Planta) -->
-        <div class="kpi-card" style="--card-color: var(--accent-blue);" onclick="openKpiModal('tritio')" title="Haga clic para actualizar Ventilación General / Reactor">
+        <!-- KPI 3: Ventilación Chimenea (General y Reactor unificados) -->
+        <div class="kpi-card" id="card-kpi-vent" style="--card-color: var(--accent-blue);" onclick="openKpiModal('tritio')" title="Haga clic para actualizar Ventilación General y Reactor">
           <div class="kpi-top-row">
-            <span class="kpi-label">Ventilación General</span>
+            <span class="kpi-label">Ventilación Chimenea</span>
             <span class="kpi-action-icon">✏️ Cargar</span>
           </div>
-          <div class="kpi-value-row">
-            <span class="kpi-value" id="kpi-vent-gral">1.45</span>
-            <span class="kpi-unit">GBq</span>
+          <div class="kpi-multi-values two-cols">
+            <div class="kpi-sub-item">
+              <span class="kpi-sub-label">General</span>
+              <div class="kpi-sub-val-row">
+                <span class="kpi-sub-val" id="kpi-vent-gral" style="color: #60a5fa;">1.45</span>
+                <span class="kpi-sub-unit" id="kpi-vent-gral-unit">GBq</span>
+              </div>
+            </div>
+            <div class="kpi-sub-item">
+              <span class="kpi-sub-label">Reactor</span>
+              <div class="kpi-sub-val-row">
+                <span class="kpi-sub-val" id="kpi-vent-reactor" style="color: #22d3ee;">3.80</span>
+                <span class="kpi-sub-unit" id="kpi-vent-reactor-unit">GBq</span>
+              </div>
+            </div>
           </div>
-          <div class="kpi-footer" id="kpi-vent-gral-footer">Caudal extracción normal</div>
+          <div class="kpi-footer" id="kpi-vent-footer">Caudal y extracción activa</div>
         </div>
 
-        <!-- KPI 4: Ventilación Reactor (Métrica de Planta) -->
-        <div class="kpi-card" style="--card-color: var(--accent-cyan);" onclick="openKpiModal('tritio')" title="Haga clic para actualizar Ventilación Reactor / General">
+        <!-- KPI 4: Condición Meteorológica -->
+        <div class="kpi-card" id="card-kpi-met" style="--card-color: #f59e0b;" onclick="openKpiModal('met')" title="Haga clic para ver o actualizar Condición Meteorológica">
           <div class="kpi-top-row">
-            <span class="kpi-label">Ventilación Reactor</span>
+            <span class="kpi-label">🌤️ Meteorología</span>
             <span class="kpi-action-icon">✏️ Cargar</span>
           </div>
           <div class="kpi-value-row">
-            <span class="kpi-value" id="kpi-vent-reactor">3.80</span>
-            <span class="kpi-unit">GBq</span>
+            <span class="kpi-value" id="kpi-met-val" style="color: #f59e0b; font-size: 15px; font-weight: 800;">Sur • 14.5</span>
+            <span class="kpi-unit" id="kpi-met-unit">km/h</span>
           </div>
-          <div class="kpi-footer" id="kpi-vent-reactor-footer">Extracción contención activa</div>
+          <div class="kpi-footer" id="kpi-met-footer">Pasquill Clase D (Neutral)</div>
         </div>
 
         <!-- KPI 5: Emisión C-14 (Métrica de Planta) -->
@@ -2300,6 +2347,7 @@
           <button type="button" class="kpi-tab-btn" data-tab="tab-c14" onclick="switchKpiTab('tab-c14')">⚛️ Carbono 14</button>
           <button type="button" class="kpi-tab-btn" data-tab="tab-dedofrio" onclick="switchKpiTab('tab-dedofrio')">❄️ Dedo Frío 73120</button>
           <button type="button" class="kpi-tab-btn" data-tab="tab-ro" onclick="switchKpiTab('tab-ro')">📈 % RO Chimenea</button>
+          <button type="button" class="kpi-tab-btn" data-tab="tab-met" onclick="switchKpiTab('tab-met')">🌤️ Meteorología</button>
         </div>
 
         <!-- TAB 1: Tritio Chimenea (Ventilación General y Reactor) -->
@@ -2383,10 +2431,52 @@
           </div>
         </div>
 
+        <!-- TAB 5: Condición Meteorológica -->
+        <div class="kpi-tab-content" id="tab-met" style="display: none;">
+          <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px;">
+            Condiciones meteorológicas en emplazamiento de Central Nuclear Embalse:
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div class="field-group">
+              <label class="field-label">Dirección del Viento</label>
+              <select id="kpi-in-met-dir" class="field-control">
+                <option value="S">Sur (S) - 180°</option>
+                <option value="SE">Sudeste (SE) - 135°</option>
+                <option value="E">Este (E) - 90°</option>
+                <option value="NE">Noreste (NE) - 45°</option>
+                <option value="N">Norte (N) - 0°</option>
+                <option value="SO">Sudoeste (SO) - 225°</option>
+                <option value="O">Oeste (O) - 270°</option>
+                <option value="NO">Noroeste (NO) - 315°</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Velocidad del Viento (km/h)</label>
+              <input type="text" id="kpi-in-met-vel" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #f59e0b;" value="14.5" placeholder="Ej: 14.5">
+            </div>
+          </div>
+          <div class="field-group" style="margin-bottom: 12px;">
+            <label class="field-label">Estabilidad Pasquill</label>
+            <select id="kpi-in-met-pasquill" class="field-control">
+              <option value="Clase D (Neutral - Nocturno nublado)">Clase D (Neutral - Nocturno nublado)</option>
+              <option value="Clase E (Ligeramente estable)">Clase E (Ligeramente estable)</option>
+              <option value="Clase F (Estable - Noche despejada)">Clase F (Estable - Noche despejada)</option>
+              <option value="Clase A (Extremadamente inestable)">Clase A (Extremadamente inestable)</option>
+              <option value="Clase B (Moderadamente inestable)">Clase B (Moderadamente inestable)</option>
+              <option value="Clase C (Ligeramente inestable)">Clase C (Ligeramente inestable)</option>
+            </select>
+          </div>
+        </div>
+
       </div>
-      <div class="modal-footer">
-        <button class="btn-modal-cancel" onclick="closeKpiModal()">CANCELAR</button>
-        <button class="btn-modal-confirm" onclick="saveKpiMetrics()">💾 GUARDAR Y APLICAR A KPIS</button>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <button type="button" class="btn-ghost" onclick="clearCurrentKpiTabMetric()" style="color: var(--accent-amber); border-color: rgba(245, 158, 11, 0.4); font-size: 11px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;" title="Eliminar el valor cargado en esta pestaña y restablecer como pendiente">
+          <span>🗑️ Eliminar medición (Restablecer a Pendiente)</span>
+        </button>
+        <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn-modal-cancel" onclick="closeKpiModal()">CANCELAR</button>
+          <button type="button" class="btn-modal-confirm" onclick="saveKpiMetrics()">💾 GUARDAR Y APLICAR A KPIS</button>
+        </div>
       </div>
     </div>
   </div>
@@ -3003,7 +3093,7 @@
     }
 
         // ================= MODAL INTERACTIVO DE ACTUALIZACIÓN DE KPIS =================
-    function openKpiModal(targetTab) {
+        function openKpiModal(targetTab) {
       if (targetTab === 'dosis') {
         const rutinaBtn = document.querySelector('.menu-btn[data-section="sec-rutina"]');
         if (rutinaBtn) rutinaBtn.click();
@@ -3025,6 +3115,8 @@
         switchKpiTab('tab-dedofrio');
       } else if (targetTab === 'ro') {
         switchKpiTab('tab-ro');
+      } else if (targetTab === 'met') {
+        switchKpiTab('tab-met');
       } else {
         switchKpiTab('tab-tritio');
       }
@@ -3044,64 +3136,217 @@
     }
 
     function saveKpiMetrics() {
-      const ventGral = document.getElementById('kpi-in-vent-gral').value;
-      const ventReactor = document.getElementById('kpi-in-vent-reactor').value;
-      const c14 = document.getElementById('kpi-in-c14-val').value;
-      const dedoFrio = document.getElementById('kpi-in-dedofrio-val').value;
-      const isMenor = document.getElementById('kpi-in-dedofrio-menor').checked;
-      const roVal = document.getElementById('kpi-in-ro-val').value;
-      const roDesc = document.getElementById('kpi-in-ro-desc').value;
+      const ventGral = (document.getElementById('kpi-in-vent-gral').value || '').trim();
+      const ventReactor = (document.getElementById('kpi-in-vent-reactor').value || '').trim();
+      const c14 = (document.getElementById('kpi-in-c14-val').value || '').trim();
+      const dedoFrio = (document.getElementById('kpi-in-dedofrio-val').value || '').trim();
+      const isMenor = document.getElementById('kpi-in-dedofrio-menor') ? document.getElementById('kpi-in-dedofrio-menor').checked : false;
+      const roVal = (document.getElementById('kpi-in-ro-val').value || '').trim();
+      const roDesc = (document.getElementById('kpi-in-ro-desc').value || '').trim();
+      const metDir = document.getElementById('kpi-in-met-dir') ? document.getElementById('kpi-in-met-dir').value : 'S';
+      const metVel = document.getElementById('kpi-in-met-vel') ? (document.getElementById('kpi-in-met-vel').value || '').trim() : '';
+      const metPasquill = document.getElementById('kpi-in-met-pasquill') ? document.getElementById('kpi-in-met-pasquill').value : 'Clase D (Neutral - Nocturno nublado)';
 
-      // Actualizar visualmente las 6 tarjetas de KPI
-      document.getElementById('kpi-vent-gral').textContent = ventGral;
-      document.getElementById('kpi-vent-reactor').textContent = ventReactor;
-      document.getElementById('kpi-c14').textContent = c14;
-      document.getElementById('kpi-dedo-frio').textContent = (isMenor ? '< ' : '') + dedoFrio;
-      document.getElementById('kpi-ro-val').textContent = roVal;
-      document.getElementById('kpi-ro-footer').textContent = roDesc;
+      // 1. Ventilación Chimenea (General y Reactor unificados)
+      const elVentGral = document.getElementById('kpi-vent-gral');
+      const elVentReactor = document.getElementById('kpi-vent-reactor');
+      const elVentFooter = document.getElementById('kpi-vent-footer');
+      const elVentGralUnit = document.getElementById('kpi-vent-gral-unit');
+      const elVentReactorUnit = document.getElementById('kpi-vent-reactor-unit');
+      const cardVent = document.getElementById('card-kpi-vent') || (elVentGral ? elVentGral.closest('.kpi-card') : null);
 
-      // Sincronizar con inputs secundarios si existen
+      if (!ventGral && !ventReactor) {
+        if (elVentGral) elVentGral.innerHTML = '<span class="kpi-pending-pill">⚠️ Pendiente</span>';
+        if (elVentReactor) elVentReactor.innerHTML = '<span class="kpi-pending-pill">⚠️ Pendiente</span>';
+        if (elVentGralUnit) elVentGralUnit.textContent = '';
+        if (elVentReactorUnit) elVentReactorUnit.textContent = '';
+        if (elVentFooter) elVentFooter.innerHTML = '<span style="color: var(--accent-amber);">⚠️ Sin registrar en guardia</span>';
+        if (cardVent) cardVent.classList.add('is-pending');
+      } else {
+        if (elVentGral) elVentGral.textContent = ventGral || '-';
+        if (elVentReactor) elVentReactor.textContent = ventReactor || '-';
+        if (elVentGralUnit) elVentGralUnit.textContent = 'GBq';
+        if (elVentReactorUnit) elVentReactorUnit.textContent = 'GBq';
+        if (elVentFooter) elVentFooter.textContent = 'Caudal y extracción activa';
+        if (cardVent) cardVent.classList.remove('is-pending');
+      }
+
+      // 2. Condición Meteorológica
+      const elMetVal = document.getElementById('kpi-met-val');
+      const elMetUnit = document.getElementById('kpi-met-unit');
+      const elMetFooter = document.getElementById('kpi-met-footer');
+      const cardMet = document.getElementById('card-kpi-met') || (elMetVal ? elMetVal.closest('.kpi-card') : null);
+
+      if (!metVel) {
+        if (elMetVal) elMetVal.innerHTML = '<span class="kpi-pending-pill">⚠️ PENDIENTE</span>';
+        if (elMetUnit) elMetUnit.textContent = '';
+        if (elMetFooter) elMetFooter.innerHTML = '<span style="color: var(--accent-amber);">⚠️ Sin datos meteorológicos</span>';
+        if (cardMet) cardMet.classList.add('is-pending');
+      } else {
+        const dirMap = { 'S': 'Sur', 'SE': 'Sudeste', 'E': 'Este', 'NE': 'Noreste', 'N': 'Norte', 'SO': 'Sudoeste', 'O': 'Oeste', 'NO': 'Noroeste' };
+        const dirName = dirMap[metDir] || metDir;
+        if (elMetVal) elMetVal.textContent = `${dirName} • ${metVel}`;
+        if (elMetUnit) elMetUnit.textContent = 'km/h';
+        if (elMetFooter) elMetFooter.textContent = metPasquill.split(' - ')[0];
+        if (cardMet) cardMet.classList.remove('is-pending');
+      }
+
+      // 3. Emisión Carbono-14
+      const elC14 = document.getElementById('kpi-c14');
+      const elC14Footer = document.getElementById('kpi-c14-footer');
+      const cardC14 = elC14 ? elC14.closest('.kpi-card') : null;
+      if (!c14) {
+        if (elC14) elC14.innerHTML = '<span class="kpi-pending-pill">⚠️ PENDIENTE</span>';
+        if (elC14Footer) elC14Footer.innerHTML = '<span style="color: var(--accent-amber);">⚠️ Sin muestreo registrado</span>';
+        if (cardC14) cardC14.classList.add('is-pending');
+      } else {
+        if (elC14) elC14.textContent = c14;
+        if (elC14Footer) elC14Footer.textContent = 'Muestreo acumulado turno';
+        if (cardC14) cardC14.classList.remove('is-pending');
+      }
+
+      // 4. Dedo Frío 73120
+      const elDedoFrio = document.getElementById('kpi-dedo-frio');
+      const elDedoFrioFooter = document.getElementById('kpi-dedo-frio-footer');
+      const cardDF = elDedoFrio ? elDedoFrio.closest('.kpi-card') : null;
+      if (!dedoFrio) {
+        if (elDedoFrio) elDedoFrio.innerHTML = '<span class="kpi-pending-pill">⚠️ PENDIENTE</span>';
+        if (elDedoFrioFooter) elDedoFrioFooter.innerHTML = '<span style="color: var(--accent-amber);">⚠️ Pendiente de carga</span>';
+        if (cardDF) cardDF.classList.add('is-pending');
+      } else {
+        if (elDedoFrio) elDedoFrio.textContent = (isMenor ? '< ' : '') + dedoFrio;
+        if (elDedoFrioFooter) elDedoFrioFooter.textContent = 'Histórico 5 guardias nominal';
+        if (cardDF) cardDF.classList.remove('is-pending');
+      }
+
+      // 5. Restricción Operacional
+      const elRoVal = document.getElementById('kpi-ro-val');
+      const elRoFooter = document.getElementById('kpi-ro-footer');
+      const cardRo = elRoVal ? elRoVal.closest('.kpi-card') : null;
+      if (!roVal) {
+        if (elRoVal) elRoVal.innerHTML = '<span class="kpi-pending-pill">⚠️ PENDIENTE</span>';
+        if (elRoFooter) elRoFooter.innerHTML = '<span style="color: var(--accent-amber);">⚠️ Pendiente de cálculo</span>';
+        if (cardRo) cardRo.classList.add('is-pending');
+      } else {
+        if (elRoVal) elRoVal.textContent = roVal;
+        if (elRoFooter) elRoFooter.textContent = roDesc || 'Chimenea en rango nominal';
+        if (cardRo) cardRo.classList.remove('is-pending');
+      }
+
+      // Sincronizar inputs secundarios si existen
       if (document.getElementById('input-vent-gral')) document.getElementById('input-vent-gral').value = ventGral;
       if (document.getElementById('input-vent-reactor')) document.getElementById('input-vent-reactor').value = ventReactor;
       if (document.getElementById('input-c14')) document.getElementById('input-c14').value = c14;
       if (document.getElementById('input-dedo-frio')) document.getElementById('input-dedo-frio').value = dedoFrio;
+      if (document.getElementById('input-met-dir')) document.getElementById('input-met-dir').value = metDir;
+      if (document.getElementById('input-met-vel')) document.getElementById('input-met-vel').value = metVel;
+      if (document.getElementById('input-met-pasquill')) document.getElementById('input-met-pasquill').value = metPasquill;
 
-      // Enviar a MySQL vía procesos_reg_rad.php
-      const now = new Date();
-      const horaActualStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-      const fechaLatam = document.getElementById('topbar-latam-date').textContent;
-      const partes = fechaLatam.split('/');
-      const fechaSql = partes.length === 3 ? `${partes[2]}-${partes[1]}-${partes[0]}` : fechaLatam;
+      // Enviar a MySQL vía SyncEngine si está disponible
+      if (typeof SyncEngine !== 'undefined') {
+        const now = new Date();
+        const horaActualStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+        const fechaLatamEl = document.getElementById('topbar-latam-date');
+        const fechaLatam = fechaLatamEl ? fechaLatamEl.textContent : '';
+        const partes = fechaLatam.split('/');
+        const fechaSql = partes.length === 3 ? `${partes[2]}-${partes[1]}-${partes[0]}` : (document.getElementById('q-fecha') ? document.getElementById('q-fecha').value : '');
 
-      const horaDesde = document.getElementById('kpi-in-tritio-desde').value;
-      const horaHasta = document.getElementById('kpi-in-tritio-hasta').value;
+        const horaDesde = document.getElementById('kpi-in-tritio-desde') ? document.getElementById('kpi-in-tritio-desde').value : '23:00';
+        const horaHasta = document.getElementById('kpi-in-tritio-hasta') ? document.getElementById('kpi-in-tritio-hasta').value : '07:00';
 
-      // 1. Encolar Tritio (Ventilación General & Reactor)
-      SyncEngine.enqueue('tritio', `procesos_reg_rad.php?accion=guardar_valores_emision_tritio&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&desde=${horaDesde}&hasta=${horaHasta}&vent_gral_unidad_actividad=5&vent_reactor_unidad_actividad=5&vent_gral=${ventGral}&vent_reactor=${ventReactor}`);
-
-      // 2. Encolar Carbono-14
-      SyncEngine.enqueue('carbono14', `procesos_reg_rad.php?accion=guardar_valores_carbono14&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&hora=${horaActualStr}&actividad_unidad_ingresada=4&actividad=${c14}`);
-
-      // 3. Encolar Dedo Frío
-      SyncEngine.enqueue('dedofrio', `procesos_reg_rad.php?accion=guardar_valores_dedo_frio&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&hora=${horaActualStr}&ppm=${dedoFrio}&menor_que=${isMenor ? 1 : 0}`);
+        if (ventGral || ventReactor) {
+          SyncEngine.enqueue('tritio', `procesos_reg_rad.php?accion=guardar_valores_emision_tritio&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&desde=${horaDesde}&hasta=${horaHasta}&vent_gral_unidad_actividad=5&vent_reactor_unidad_actividad=5&vent_gral=${ventGral}&vent_reactor=${ventReactor}`);
+        }
+        if (c14) {
+          SyncEngine.enqueue('carbono14', `procesos_reg_rad.php?accion=guardar_valores_carbono14&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&hora=${horaActualStr}&actividad_unidad_ingresada=4&actividad=${c14}`);
+        }
+        if (dedoFrio) {
+          SyncEngine.enqueue('dedofrio', `procesos_reg_rad.php?accion=guardar_valores_dedo_frio&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&hora=${horaActualStr}&ppm=${dedoFrio}&menor_que=${isMenor ? 1 : 0}`);
+        }
+      }
 
       closeKpiModal();
-      showToast('✔️ Métricas de chimenea actualizadas y guardadas en MySQL');
+      showToast('✔️ Métricas de chimenea y planta actualizadas');
+    }
+
+    function clearCurrentKpiTabMetric() {
+      const activeBtn = document.querySelector('.kpi-tab-btn.active');
+      const activeTab = activeBtn ? activeBtn.getAttribute('data-tab') : 'tab-tritio';
+
+      if (activeTab === 'tab-tritio') {
+        document.getElementById('kpi-in-vent-gral').value = '';
+        document.getElementById('kpi-in-vent-reactor').value = '';
+        if (document.getElementById('input-vent-gral')) document.getElementById('input-vent-gral').value = '';
+        if (document.getElementById('input-vent-reactor')) document.getElementById('input-vent-reactor').value = '';
+        showToast('🗑️ Medición de ventilación eliminada (marcada como pendiente)');
+      } else if (activeTab === 'tab-c14') {
+        document.getElementById('kpi-in-c14-val').value = '';
+        if (document.getElementById('input-c14')) document.getElementById('input-c14').value = '';
+        showToast('🗑️ Medición de Carbono-14 eliminada (marcada como pendiente)');
+      } else if (activeTab === 'tab-dedofrio') {
+        document.getElementById('kpi-in-dedofrio-val').value = '';
+        if (document.getElementById('input-dedo-frio')) document.getElementById('input-dedo-frio').value = '';
+        showToast('🗑️ Medición de Dedo Frío eliminada (marcada como pendiente)');
+      } else if (activeTab === 'tab-ro') {
+        document.getElementById('kpi-in-ro-val').value = '';
+        showToast('🗑️ Medición de % RO eliminada (marcada como pendiente)');
+      } else if (activeTab === 'tab-met') {
+        if (document.getElementById('kpi-in-met-vel')) document.getElementById('kpi-in-met-vel').value = '';
+        if (document.getElementById('input-met-vel')) document.getElementById('input-met-vel').value = '';
+        showToast('🗑️ Datos meteorológicos eliminados (marcados como pendiente)');
+      }
+      saveKpiMetrics();
     }
 
     // ================= EFLUENTES GASEOSOS & KPIS =================
     function updateChimneyKPIs() {
-      const ventGral = document.getElementById('input-vent-gral').value;
-      const ventReactor = document.getElementById('input-vent-reactor').value;
-      const c14 = document.getElementById('input-c14').value;
-      const dedoFrio = document.getElementById('input-dedo-frio').value;
+      const ventGral = (document.getElementById('input-vent-gral').value || '').trim();
+      const ventReactor = (document.getElementById('input-vent-reactor').value || '').trim();
+      const c14 = (document.getElementById('input-c14').value || '').trim();
+      const dedoFrio = (document.getElementById('input-dedo-frio').value || '').trim();
 
-      document.getElementById('kpi-vent-gral').textContent = ventGral;
-      document.getElementById('kpi-vent-reactor').textContent = ventReactor;
-      document.getElementById('kpi-c14').textContent = c14;
-      document.getElementById('kpi-dedo-frio').textContent = dedoFrio;
+      if (document.getElementById('kpi-in-vent-gral')) document.getElementById('kpi-in-vent-gral').value = ventGral;
+      if (document.getElementById('kpi-in-vent-reactor')) document.getElementById('kpi-in-vent-reactor').value = ventReactor;
+      if (document.getElementById('kpi-in-c14-val')) document.getElementById('kpi-in-c14-val').value = c14;
+      if (document.getElementById('kpi-in-dedofrio-val')) document.getElementById('kpi-in-dedofrio-val').value = dedoFrio;
 
+      saveKpiMetrics();
       showToast('✔️ Mediciones de chimenea asentadas en KPIs');
+    }
+
+    function clearChimneyKPIs() {
+      if (document.getElementById('input-vent-gral')) document.getElementById('input-vent-gral').value = '';
+      if (document.getElementById('input-vent-reactor')) document.getElementById('input-vent-reactor').value = '';
+      if (document.getElementById('input-c14')) document.getElementById('input-c14').value = '';
+      if (document.getElementById('input-dedo-frio')) document.getElementById('input-dedo-frio').value = '';
+
+      if (document.getElementById('kpi-in-vent-gral')) document.getElementById('kpi-in-vent-gral').value = '';
+      if (document.getElementById('kpi-in-vent-reactor')) document.getElementById('kpi-in-vent-reactor').value = '';
+      if (document.getElementById('kpi-in-c14-val')) document.getElementById('kpi-in-c14-val').value = '';
+      if (document.getElementById('kpi-in-dedofrio-val')) document.getElementById('kpi-in-dedofrio-val').value = '';
+
+      saveKpiMetrics();
+      showToast('🗑️ Mediciones de chimenea eliminadas (pendientes)');
+    }
+
+    function saveInlineMeteorology() {
+      const dir = document.getElementById('input-met-dir') ? document.getElementById('input-met-dir').value : 'S';
+      const vel = document.getElementById('input-met-vel') ? document.getElementById('input-met-vel').value.trim() : '';
+      const pasquill = document.getElementById('input-met-pasquill') ? document.getElementById('input-met-pasquill').value : 'Clase D (Neutral - Nocturno nublado)';
+
+      if (document.getElementById('kpi-in-met-dir')) document.getElementById('kpi-in-met-dir').value = dir;
+      if (document.getElementById('kpi-in-met-vel')) document.getElementById('kpi-in-met-vel').value = vel;
+      if (document.getElementById('kpi-in-met-pasquill')) document.getElementById('kpi-in-met-pasquill').value = pasquill;
+
+      saveKpiMetrics();
+      showToast('✔️ Condiciones meteorológicas asentadas');
+    }
+
+    function clearInlineMeteorology() {
+      if (document.getElementById('input-met-vel')) document.getElementById('input-met-vel').value = '';
+      if (document.getElementById('kpi-in-met-vel')) document.getElementById('kpi-in-met-vel').value = '';
+      saveKpiMetrics();
+      showToast('🗑️ Condiciones meteorológicas eliminadas (pendientes)');
     }
 
     // ================= TAREAS DE CAMPO & PTR =================

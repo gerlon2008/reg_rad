@@ -224,6 +224,10 @@ $kpi_dedo_frio = !empty($row_dedo_frio['ppm']) ? decimales_limpio($row_dedo_frio
 $kpi_dedo_frio_signo = (!empty($row_dedo_frio['menor_que']) && $row_dedo_frio['menor_que'] == 1) ? '< ' : '';
 $kpi_ro = !empty($row_concentrador['ldd%']) ? decimales_limpio($row_concentrador['ldd%'], 2) : '8.42';
 
+$kpi_has_met = !empty($row_meteorologia['velocidad_mseg']) || !empty($row_meteorologia['direc_viento']);
+$kpi_met_val = $kpi_has_met ? htmlspecialchars($row_meteorologia['direc_viento'] . ' • ' . $row_meteorologia['velocidad_mseg'] . ' m/s', ENT_QUOTES, 'UTF-8') : 'Sur • 14.5 km/h';
+$kpi_met_pasquill = !empty($row_meteorologia['cond_pasquill']) ? htmlspecialchars($row_meteorologia['cond_pasquill'], ENT_QUOTES, 'UTF-8') : 'Pasquill Clase D (Neutral)';
+
 $fecha_latam = formafecha_latam($row_planilla['fecha']);
 ?>
 <!DOCTYPE html>
@@ -1171,6 +1175,41 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
     /* ========================================================== */
     /* TOOLTIPS PERSONALIZADOS CYBERPUNK RADIOLÓGICOS             */
     /* ========================================================== */
+    .kpi-multi-values.two-cols {
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .kpi-pending-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px dashed rgba(245, 158, 11, 0.6);
+      color: #fbbf24;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      letter-spacing: 0.3px;
+    }
+
+    .kpi-card.is-pending {
+      border-color: rgba(245, 158, 11, 0.45) !important;
+      background: linear-gradient(180deg, rgba(245, 158, 11, 0.04) 0%, var(--bg-card) 100%);
+    }
+
+    .kpi-card.is-pending .kpi-label {
+      color: #fde68a !important;
+    }
+
+    .kpi-card.is-pending .kpi-action-icon {
+      border-color: rgba(245, 158, 11, 0.5);
+      color: #fbbf24;
+      background: rgba(245, 158, 11, 0.15);
+    }
+
     #cyber-tooltip {
       position: fixed;
       z-index: 999999;
@@ -1372,30 +1411,53 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
           <div class="kpi-footer">Límite operacional normal</div>
         </div>
 
-        <!-- KPI 3: Ventilación General -->
+        <!-- KPI 3: Ventilación Chimenea (General y Reactor unificados) -->
         <div class="kpi-card" onclick="goToSection('sec-gases')" title="Haga clic para ver efluentes gaseosos">
           <div class="kpi-top-row">
-            <span class="kpi-label">Ventilación General</span>
+            <span class="kpi-label">Ventilación Chimenea</span>
             <span class="kpi-action-icon">🏭 Ver</span>
           </div>
-          <div class="kpi-value-row">
-            <span class="kpi-value" style="color: var(--accent-blue);"><?php echo $kpi_vent_gral; ?></span>
-            <span class="kpi-unit">GBq</span>
+          <div class="kpi-multi-values two-cols">
+            <div class="kpi-sub-item">
+              <span class="kpi-sub-label">General</span>
+              <div class="kpi-sub-val-row">
+                <?php if (!empty($kpi_vent_gral)): ?>
+                  <span class="kpi-sub-val" style="color: #60a5fa;"><?php echo $kpi_vent_gral; ?></span>
+                  <span class="kpi-sub-unit">GBq</span>
+                <?php else: ?>
+                  <span class="kpi-pending-pill">⚠️ Pendiente</span>
+                <?php endif; ?>
+              </div>
+            </div>
+            <div class="kpi-sub-item">
+              <span class="kpi-sub-label">Reactor</span>
+              <div class="kpi-sub-val-row">
+                <?php if (!empty($kpi_vent_reactor)): ?>
+                  <span class="kpi-sub-val" style="color: #22d3ee;"><?php echo $kpi_vent_reactor; ?></span>
+                  <span class="kpi-sub-unit">GBq</span>
+                <?php else: ?>
+                  <span class="kpi-pending-pill">⚠️ Pendiente</span>
+                <?php endif; ?>
+              </div>
+            </div>
           </div>
-          <div class="kpi-footer">Caudal extracción normal</div>
+          <div class="kpi-footer">Caudal y extracción activa</div>
         </div>
 
-        <!-- KPI 4: Ventilación Reactor -->
-        <div class="kpi-card" onclick="goToSection('sec-gases')" title="Haga clic para ver efluentes gaseosos">
+        <!-- KPI 4: Condición Meteorológica -->
+        <div class="kpi-card" onclick="goToSection('sec-gases')" title="Haga clic para ver meteorología">
           <div class="kpi-top-row">
-            <span class="kpi-label">Ventilación Reactor</span>
+            <span class="kpi-label">🌤️ Meteorología</span>
             <span class="kpi-action-icon">🏭 Ver</span>
           </div>
           <div class="kpi-value-row">
-            <span class="kpi-value" style="color: var(--accent-cyan);"><?php echo $kpi_vent_reactor; ?></span>
-            <span class="kpi-unit">GBq</span>
+            <?php if (!empty($kpi_met_val)): ?>
+              <span class="kpi-value" style="color: #f59e0b; font-size: 15px; font-weight: 800;"><?php echo $kpi_met_val; ?></span>
+            <?php else: ?>
+              <span class="kpi-pending-pill">⚠️ PENDIENTE</span>
+            <?php endif; ?>
           </div>
-          <div class="kpi-footer">Extracción contención activa</div>
+          <div class="kpi-footer"><?php echo $kpi_met_pasquill; ?></div>
         </div>
 
         <!-- KPI 5: Carbono-14 -->
