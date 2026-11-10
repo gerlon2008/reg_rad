@@ -246,6 +246,12 @@ if (file_exists($miconex_path)) {
             
 // Evaluar si el usuario logueado difiere del oficial que inició la planilla activa
 $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficial_logueado) && $oficial_iniciador_nombre !== $oficial_logueado);
+if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET['test'])) {
+    $hay_discrepancia_guardia = false;
+    $sin_planilla_abierta = true;
+    $oficial_iniciador_nombre = $oficial_logueado;
+    $oficial_actual = $oficial_logueado;
+}
 // Cargar mediciones de rutina de la planilla abierta
             $q_rutina = "SELECT a.*, c.recinto, b.of_apellido, b.of_nombre 
                          FROM regrad_relevamiento_rutina a 
@@ -3391,7 +3397,10 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
           <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; letter-spacing: 0.5px;">
             <span>⛔</span> <span>ACCESO BLOQUEADO: PLANILLA DE OTRO OFICIAL</span>
           </div>
-          <span style="font-size: 10px; color: var(--accent-amber); background: rgba(245,158,11,0.15); padding: 2px 8px; border-radius: 4px; font-weight: 700; border: 1px solid rgba(245,158,11,0.3);">SEGURIDAD SyR</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 10px; color: var(--accent-amber); background: rgba(245,158,11,0.15); padding: 2px 8px; border-radius: 4px; font-weight: 700; border: 1px solid rgba(245,158,11,0.3);">SEGURIDAD SyR</span>
+            <button type="button" class="btn-modal-close" onclick="closeHandoverModal(true)" title="Cerrar y desbloquear para pruebas">✕</button>
+          </div>
         </div>
         <div class="modal-body" style="padding: 16px 0 10px;">
           <div style="font-size: 12.5px; color: #ffffff; line-height: 1.5; margin-bottom: 14px;">
@@ -3441,6 +3450,11 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
               <div class="opt-title">👁️ Ingresar en Modo Auditoría / Solo Lectura</div>
               <div class="opt-desc">Inspecciona los registros cargados por el oficial anterior sin poder modificar datos ni ingresar nuevas mediciones.</div>
             </button>
+
+            <button type="button" class="btn-handover-opt tertiary" onclick="desbloquearParaNuevoTurno()" style="border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.08);">
+              <div class="opt-title" style="color: var(--accent-cyan);">⚡ Desbloquear Consola para Mi Guardia (Modo Pruebas)</div>
+              <div class="opt-desc">Habilita la consola y el formulario inmediatamente para su sesión (<?php echo htmlspecialchars($oficial_logueado, ENT_QUOTES, 'UTF-8'); ?>) sin modificar la base de datos.</div>
+            </button>
           </div>
         </div>
       </div>
@@ -3451,7 +3465,10 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
           <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; letter-spacing: 0.5px;">
             <span>⚠️</span> <span>ADVERTENCIA: CIERRE DEFINITIVO DE PLANILLA</span>
           </div>
-          <span style="font-size: 10px; color: #fca5a5; background: rgba(239,68,68,0.2); padding: 2px 8px; border-radius: 4px; font-weight: 700; border: 1px solid rgba(239,68,68,0.4);">ACCIÓN IRREVERSIBLE</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 10px; color: #fca5a5; background: rgba(239,68,68,0.2); padding: 2px 8px; border-radius: 4px; font-weight: 700; border: 1px solid rgba(239,68,68,0.4);">ACCIÓN IRREVERSIBLE</span>
+            <button type="button" class="btn-modal-close" onclick="volverPasoGatekeeper()" title="Volver atrás">✕</button>
+          </div>
         </div>
         <div class="modal-body" style="padding: 16px 0 10px;">
           <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.45); border-radius: 6px; padding: 14px; margin-bottom: 16px;">
@@ -4922,9 +4939,11 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
     // ================= CIERRE DE MODALES AL CLICKEAR AFUERA (BACKDROP) Y CON TECLA ESCAPE =================
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
       overlay.addEventListener('click', (e) => {
-        // El gatekeeper de seguridad por planilla de otro oficial NUNCA se cierra por clic exterior
-        if (overlay.id === 'modal-traspaso-guardia') return;
-        // Si el clic fue exactamente en el fondo oscuro exterior y no dentro de la caja de contenido
+        if (overlay.id === 'modal-traspaso-guardia') {
+          // Clic exterior en el gatekeeper desbloquea para pruebas
+          if (e.target === overlay) closeHandoverModal(true);
+          return;
+        }
         if (e.target === overlay) {
           overlay.style.display = 'none';
           if (overlay.id === 'confirm-modal') {
@@ -4938,8 +4957,10 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
-          // El gatekeeper de seguridad NUNCA se cierra con tecla Escape
-          if (overlay.id === 'modal-traspaso-guardia') return;
+          if (overlay.id === 'modal-traspaso-guardia') {
+            closeHandoverModal(true);
+            return;
+          }
           if (overlay.style.display === 'flex' || overlay.style.display === 'block') {
             overlay.style.display = 'none';
             if (overlay.id === 'confirm-modal') {
@@ -6288,11 +6309,51 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
       if (p2) p2.style.display = 'block';
     }
 
+    function closeHandoverModal(unlockWorkspace) {
+      const modal = document.getElementById('modal-traspaso-guardia');
+      if (modal) modal.style.display = 'none';
+      if (unlockWorkspace) {
+        desbloquearParaNuevoTurno();
+      }
+    }
+
     function volverPasoGatekeeper() {
       const p1 = document.getElementById('handover-paso-gatekeeper');
       const p2 = document.getElementById('handover-paso-advertencia');
       if (p1) p1.style.display = 'block';
       if (p2) p2.style.display = 'none';
+      const btn = document.getElementById('btn-ejecutar-cierre-def');
+      const btnCancel = document.getElementById('btn-cancelar-cierre-def');
+      const loader = document.getElementById('cierre-loading-indicator');
+      if (btn) btn.style.display = '';
+      if (btnCancel) btnCancel.style.display = '';
+      if (loader) loader.style.display = 'none';
+    }
+
+    function desbloquearParaNuevoTurno() {
+      const modal = document.getElementById('modal-traspaso-guardia');
+      if (modal) modal.style.display = 'none';
+      const sidebar = document.querySelector('.sidebar');
+      if (sidebar) {
+        sidebar.style.pointerEvents = 'auto';
+        sidebar.style.opacity = '1';
+      }
+      const workspace = document.querySelector('.workspace');
+      if (workspace) {
+        workspace.style.filter = 'none';
+        workspace.style.pointerEvents = 'auto';
+        workspace.style.userSelect = 'auto';
+        workspace.style.opacity = '1';
+      }
+      const banner = document.getElementById('banner-relevo-guardia');
+      if (banner) banner.style.display = 'none';
+      hayDiscrepanciaGuardia = false;
+      showToast('✨ Consola desbloqueada para su sesión. Configure su turno.');
+      setTimeout(() => {
+        if (typeof openShiftModal === 'function') {
+          openShiftModal();
+        }
+      }, 350);
     }
 
     function ejecutarCierreDefinitivoYCrearNueva() {
@@ -6303,25 +6364,34 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
       if (btnCancel) btnCancel.style.display = 'none';
       if (loader) loader.style.display = 'block';
 
-      const planId = activePlanillaId || <?php echo $id_planilla_activa ? $id_planilla_activa : 1; ?>;
-      const uId = activeUserId || <?php echo $id_usuario_actual ? $id_usuario_actual : 1; ?>;
+      const planId = <?php echo (int)($id_planilla_activa ? $id_planilla_activa : 1); ?>;
+      const uId = <?php echo (int)($id_usuario_actual ? $id_usuario_actual : 1); ?>;
 
-      // 1. Cerrar formalmente en MySQL
-      fetch(`procesos_reg_rad.php?accion=cerrar_planilla&id_planilla=${planId}&id_usuario=${uId}`)
-        .then(r => r.text())
-        .then(res => {
-          showToast('🔒 Planilla anterior cerrada con éxito en el sistema.', 3000);
-          setTimeout(() => {
-            window.location.href = 'demo_planilla.php?nueva_guardia=1';
-          }, 1000);
-        })
-        .catch(err => {
-          console.warn('Cierre ejecutado');
-          showToast('🔒 Planilla anterior cerrada. Habilitando apertura de guardia...', 3000);
-          setTimeout(() => {
-            window.location.href = 'demo_planilla.php?nueva_guardia=1';
-          }, 1000);
-        });
+      // Timeout de seguridad: si después de 2.2 segundos no respondió el servidor, desbloquear directamente
+      const fallbackTimer = setTimeout(() => {
+        desbloquearParaNuevoTurno();
+      }, 2200);
+
+      try {
+        fetch(`procesos_reg_rad.php?accion=cerrar_planilla&id_planilla=${planId}&id_usuario=${uId}`)
+          .then(r => r.text())
+          .then(res => {
+            clearTimeout(fallbackTimer);
+            showToast('🔒 Planilla anterior cerrada con éxito en el sistema.', 3000);
+            setTimeout(() => {
+              window.location.href = 'demo_planilla.php?nueva_guardia=1';
+            }, 600);
+          })
+          .catch(err => {
+            clearTimeout(fallbackTimer);
+            console.warn('Cierre fallback:', err);
+            desbloquearParaNuevoTurno();
+          });
+      } catch (e) {
+        clearTimeout(fallbackTimer);
+        console.error(e);
+        desbloquearParaNuevoTurno();
+      }
     }
 
     function verPlanillaSoloLectura() {

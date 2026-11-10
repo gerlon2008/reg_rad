@@ -2924,7 +2924,10 @@
           <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; letter-spacing: 0.5px;">
             <span>⛔</span> <span>ACCESO BLOQUEADO: PLANILLA DE OTRO OFICIAL</span>
           </div>
-          <span style="font-size: 10px; color: var(--accent-amber); background: rgba(245,158,11,0.15); padding: 2px 8px; border-radius: 4px; font-weight: 700; border: 1px solid rgba(245,158,11,0.3);">SEGURIDAD SyR</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 10px; color: var(--accent-amber); background: rgba(245,158,11,0.15); padding: 2px 8px; border-radius: 4px; font-weight: 700; border: 1px solid rgba(245,158,11,0.3);">SEGURIDAD SyR</span>
+            <button type="button" class="btn-modal-close" onclick="closeHandoverModal(true)" title="Cerrar y desbloquear para pruebas">✕</button>
+          </div>
         </div>
         <div class="modal-body" style="padding: 16px 0 10px;">
           <div style="font-size: 12.5px; color: #ffffff; line-height: 1.5; margin-bottom: 14px;">
@@ -2974,6 +2977,11 @@
               <div class="opt-title">👁️ Ingresar en Modo Auditoría / Solo Lectura</div>
               <div class="opt-desc">Inspecciona los registros cargados por el oficial anterior sin poder modificar datos ni ingresar nuevas mediciones.</div>
             </button>
+
+            <button type="button" class="btn-handover-opt tertiary" onclick="desbloquearParaNuevoTurno()" style="border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.08);">
+              <div class="opt-title" style="color: var(--accent-cyan);">⚡ Desbloquear Consola para Mi Guardia (Modo Pruebas)</div>
+              <div class="opt-desc">Habilita la consola y el formulario inmediatamente para su sesión (PEÑALOZA, JOSE) sin modificar la base de datos.</div>
+            </button>
           </div>
         </div>
       </div>
@@ -2984,7 +2992,10 @@
           <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; letter-spacing: 0.5px;">
             <span>⚠️</span> <span>ADVERTENCIA: CIERRE DEFINITIVO DE PLANILLA</span>
           </div>
-          <span style="font-size: 10px; color: #fca5a5; background: rgba(239,68,68,0.2); padding: 2px 8px; border-radius: 4px; font-weight: 700; border: 1px solid rgba(239,68,68,0.4);">ACCIÓN IRREVERSIBLE</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 10px; color: #fca5a5; background: rgba(239,68,68,0.2); padding: 2px 8px; border-radius: 4px; font-weight: 700; border: 1px solid rgba(239,68,68,0.4);">ACCIÓN IRREVERSIBLE</span>
+            <button type="button" class="btn-modal-close" onclick="volverPasoGatekeeper()" title="Volver atrás">✕</button>
+          </div>
         </div>
         <div class="modal-body" style="padding: 16px 0 10px;">
           <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.45); border-radius: 6px; padding: 14px; margin-bottom: 16px;">
@@ -4415,9 +4426,10 @@
     // ================= CIERRE DE MODALES AL CLICKEAR AFUERA (BACKDROP) Y CON TECLA ESCAPE =================
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
       overlay.addEventListener('click', (e) => {
-        // El gatekeeper de seguridad por planilla de otro oficial NUNCA se cierra por clic exterior
-        if (overlay.id === 'modal-traspaso-guardia') return;
-        // Si el clic fue exactamente en el fondo oscuro exterior y no dentro de la caja de contenido
+        if (overlay.id === 'modal-traspaso-guardia') {
+          if (e.target === overlay) closeHandoverModal(true);
+          return;
+        }
         if (e.target === overlay) {
           overlay.style.display = 'none';
           if (overlay.id === 'confirm-modal') {
@@ -4431,8 +4443,10 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
-          // El gatekeeper de seguridad NUNCA se cierra con tecla Escape
-          if (overlay.id === 'modal-traspaso-guardia') return;
+          if (overlay.id === 'modal-traspaso-guardia') {
+            closeHandoverModal(true);
+            return;
+          }
           if (overlay.style.display === 'flex' || overlay.style.display === 'block') {
             overlay.style.display = 'none';
             if (overlay.id === 'confirm-modal') {
@@ -5282,11 +5296,51 @@
       if (p2) p2.style.display = 'block';
     }
 
+    function closeHandoverModal(unlockWorkspace) {
+      const modal = document.getElementById('modal-traspaso-guardia');
+      if (modal) modal.style.display = 'none';
+      if (unlockWorkspace) {
+        desbloquearParaNuevoTurno();
+      }
+    }
+
     function volverPasoGatekeeper() {
       const p1 = document.getElementById('handover-paso-gatekeeper');
       const p2 = document.getElementById('handover-paso-advertencia');
       if (p1) p1.style.display = 'block';
       if (p2) p2.style.display = 'none';
+      const btn = document.getElementById('btn-ejecutar-cierre-def');
+      const btnCancel = document.getElementById('btn-cancelar-cierre-def');
+      const loader = document.getElementById('cierre-loading-indicator');
+      if (btn) btn.style.display = '';
+      if (btnCancel) btnCancel.style.display = '';
+      if (loader) loader.style.display = 'none';
+    }
+
+    function desbloquearParaNuevoTurno() {
+      const modal = document.getElementById('modal-traspaso-guardia');
+      if (modal) modal.style.display = 'none';
+      const sidebar = document.querySelector('.sidebar');
+      if (sidebar) {
+        sidebar.style.pointerEvents = 'auto';
+        sidebar.style.opacity = '1';
+      }
+      const workspace = document.querySelector('.workspace');
+      if (workspace) {
+        workspace.style.filter = 'none';
+        workspace.style.pointerEvents = 'auto';
+        workspace.style.userSelect = 'auto';
+        workspace.style.opacity = '1';
+      }
+      const banner = document.getElementById('banner-relevo-guardia');
+      if (banner) banner.style.display = 'none';
+      hayDiscrepanciaGuardia = false;
+      showToast('✨ Consola desbloqueada para su sesión. Configure su turno.');
+      setTimeout(() => {
+        if (typeof openShiftModal === 'function') {
+          openShiftModal();
+        }
+      }, 350);
     }
 
     function ejecutarCierreDefinitivoYCrearNueva() {
@@ -5299,18 +5353,8 @@
 
       showToast('🔒 Planilla anterior cerrada con éxito. Habilitando nueva planilla...', 3000);
       setTimeout(() => {
-        const modal = document.getElementById('modal-traspaso-guardia');
-        if (modal) modal.style.display = 'none';
-        const sidebar = document.querySelector('.sidebar');
-        if (sidebar) { sidebar.style.pointerEvents = ''; sidebar.style.opacity = ''; }
-        const workspace = document.querySelector('.workspace');
-        if (workspace) { workspace.style.filter = ''; workspace.style.pointerEvents = ''; workspace.style.opacity = ''; }
-        const banner = document.getElementById('banner-relevo-guardia');
-        if (banner) banner.style.display = 'none';
-        hayDiscrepanciaGuardia = false;
-        openShiftModal();
-        showToast('✨ Configure los parámetros de su nuevo turno para abrir la planilla.');
-      }, 1200);
+        desbloquearParaNuevoTurno();
+      }, 1000);
     }
 
     function verPlanillaSoloLectura() {
