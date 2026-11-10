@@ -51,6 +51,16 @@ $dedo_frio_menor_que_db = 1;
 $met_vel_db = "14.5";
 $met_dir_db = "Sur";
 $met_pasquill_db = "Clase D (Neutral)";
+$gn_id_db = "";
+$gn_desde_db = "00:00";
+$gn_hasta_db = "18:00";
+$gn_ar41_db = "0.0";
+$gn_kr85_db = "0.0";
+$gn_kr85m_db = "0.0";
+$gn_xe133_db = "0.0";
+$gn_xe135_db = "0.0";
+$gn_xe135m_db = "0.0";
+$hay_gases_nobles_db = false;
 
 $recintos_array = array(
   array('id' => 1, 'recinto' => 'R-001 - Edificio de Contención (+15m)'),
@@ -296,6 +306,22 @@ if (file_exists($miconex_path)) {
                 $met_vel_db = $row_met['velocidad_mseg'];
                 $met_dir_db = $row_met['direc_viento'];
                 $met_pasquill_db = $row_met['cond_pasquill'];
+            }
+
+            // 12. Gases Nobles Chimenea (Ar-41, Kr, Xe)
+            $res_gn = mysql_query("SELECT * FROM `regrad_gases_nobles` WHERE id_planilla = $id_planilla_activa ORDER BY id_gases_nobles DESC LIMIT 1", $miconex);
+            if ($res_gn && mysql_num_rows($res_gn) > 0) {
+                $row_gn = mysql_fetch_assoc($res_gn);
+                $gn_id_db = $row_gn['id_gases_nobles'];
+                $gn_desde_db = !empty($row_gn['hora_desde']) ? substr($row_gn['hora_desde'], 0, 5) : "00:00";
+                $gn_hasta_db = !empty($row_gn['hora_hasta']) ? substr($row_gn['hora_hasta'], 0, 5) : "18:00";
+                $gn_ar41_db = ($row_gn['ar41'] !== null && $row_gn['ar41'] !== '') ? ($row_gn['ar41'] > 1e4 ? round($row_gn['ar41'] / 1e9, 2) : round($row_gn['ar41'], 2)) : "0.0";
+                $gn_kr85_db = ($row_gn['kr85'] !== null && $row_gn['kr85'] !== '') ? ($row_gn['kr85'] > 1e4 ? round($row_gn['kr85'] / 1e9, 2) : round($row_gn['kr85'], 2)) : "0.0";
+                $gn_kr85m_db = ($row_gn['kr85m'] !== null && $row_gn['kr85m'] !== '') ? ($row_gn['kr85m'] > 1e4 ? round($row_gn['kr85m'] / 1e9, 2) : round($row_gn['kr85m'], 2)) : "0.0";
+                $gn_xe133_db = ($row_gn['xe133'] !== null && $row_gn['xe133'] !== '') ? ($row_gn['xe133'] > 1e4 ? round($row_gn['xe133'] / 1e9, 2) : round($row_gn['xe133'], 2)) : "0.0";
+                $gn_xe135_db = ($row_gn['xe135'] !== null && $row_gn['xe135'] !== '') ? ($row_gn['xe135'] > 1e4 ? round($row_gn['xe135'] / 1e9, 2) : round($row_gn['xe135'], 2)) : "0.0";
+                $gn_xe135m_db = ($row_gn['xe135m'] !== null && $row_gn['xe135m'] !== '') ? ($row_gn['xe135m'] > 1e4 ? round($row_gn['xe135m'] / 1e9, 2) : round($row_gn['xe135m'], 2)) : "0.0";
+                $hay_gases_nobles_db = true;
             }
 
             
@@ -2532,42 +2558,118 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       <!-- ================= SECCIÓN 2: EFLUENTES GASEOSOS & 7923 ================= -->
       <section class="section-panel" id="sec-gaseosos">
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
-          <div class="panel-box">
-            <div class="panel-header">
-              <div class="panel-title"><span>💨</span> EMISIÓN EFLUENTES GASEOSOS</div>
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+
+            <!-- SUB-PANEL A: GASES NOBLES CHIMENEA -->
+            <div class="panel-box">
+              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="panel-title"><span>💨</span> GASES NOBLES (CHIMENEA)</div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span id="badge-gases-nobles-status" class="<?php echo $hay_gases_nobles_db ? 'sync-badge' : 'badge-amber'; ?>" style="font-size: 10.5px; padding: 2px 8px; border-radius: 4px; font-weight: 700;">
+                    <?php echo $hay_gases_nobles_db ? '● Registrado' : '○ Sin Cargar'; ?>
+                  </span>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                  <div class="field-group">
+                    <label class="field-label">Horario Desde</label>
+                    <input type="text" class="field-control mono latam-timepicker-input" id="input-gn-desde" value="<?php echo htmlspecialchars($gn_desde_db, ENT_QUOTES, 'UTF-8'); ?>" placeholder="00:00">
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label">Horario Hasta</label>
+                    <input type="text" class="field-control mono latam-timepicker-input" id="input-gn-hasta" value="<?php echo htmlspecialchars($gn_hasta_db, ENT_QUOTES, 'UTF-8'); ?>" placeholder="18:00">
+                  </div>
+                </div>
+
+                <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                  Actividad de Radioisótopos (GBq):
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px;">
+                  <div class="field-group">
+                    <label class="field-label" style="text-align: center; color: #a78bfa; font-weight: 700;">Ar-41</label>
+                    <input type="number" step="0.01" class="field-control mono" id="input-gn-ar41" value="<?php echo htmlspecialchars($gn_ar41_db, ENT_QUOTES, 'UTF-8'); ?>" style="text-align: center; font-weight: 700; color: #a78bfa;">
+                    <span style="font-size: 9.5px; color: var(--text-dim); text-align: center; display: block; margin-top: 2px;">GBq</span>
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label" style="text-align: center; color: #60a5fa; font-weight: 700;">Kr-85</label>
+                    <input type="number" step="0.01" class="field-control mono" id="input-gn-kr85" value="<?php echo htmlspecialchars($gn_kr85_db, ENT_QUOTES, 'UTF-8'); ?>" style="text-align: center; font-weight: 700; color: #60a5fa;">
+                    <span style="font-size: 9.5px; color: var(--text-dim); text-align: center; display: block; margin-top: 2px;">GBq</span>
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label" style="text-align: center; color: #60a5fa; font-weight: 700;">Kr-85m</label>
+                    <input type="number" step="0.01" class="field-control mono" id="input-gn-kr85m" value="<?php echo htmlspecialchars($gn_kr85m_db, ENT_QUOTES, 'UTF-8'); ?>" style="text-align: center; font-weight: 700; color: #60a5fa;">
+                    <span style="font-size: 9.5px; color: var(--text-dim); text-align: center; display: block; margin-top: 2px;">GBq</span>
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label" style="text-align: center; color: #34d399; font-weight: 700;">Xe-133</label>
+                    <input type="number" step="0.01" class="field-control mono" id="input-gn-xe133" value="<?php echo htmlspecialchars($gn_xe133_db, ENT_QUOTES, 'UTF-8'); ?>" style="text-align: center; font-weight: 700; color: #34d399;">
+                    <span style="font-size: 9.5px; color: var(--text-dim); text-align: center; display: block; margin-top: 2px;">GBq</span>
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label" style="text-align: center; color: #34d399; font-weight: 700;">Xe-135</label>
+                    <input type="number" step="0.01" class="field-control mono" id="input-gn-xe135" value="<?php echo htmlspecialchars($gn_xe135_db, ENT_QUOTES, 'UTF-8'); ?>" style="text-align: center; font-weight: 700; color: #34d399;">
+                    <span style="font-size: 9.5px; color: var(--text-dim); text-align: center; display: block; margin-top: 2px;">GBq</span>
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label" style="text-align: center; color: #34d399; font-weight: 700;">Xe-135m</label>
+                    <input type="number" step="0.01" class="field-control mono" id="input-gn-xe135m" value="<?php echo htmlspecialchars($gn_xe135m_db, ENT_QUOTES, 'UTF-8'); ?>" style="text-align: center; font-weight: 700; color: #34d399;">
+                    <span style="font-size: 9.5px; color: var(--text-dim); text-align: center; display: block; margin-top: 2px;">GBq</span>
+                  </div>
+                </div>
+
+                <input type="hidden" id="input-gn-id" value="<?php echo htmlspecialchars($gn_id_db, ENT_QUOTES, 'UTF-8'); ?>">
+
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" class="btn-register" style="flex: 1;" onclick="saveGasesNobles()">
+                    💾 ASENTAR GASES NOBLES
+                  </button>
+                  <button type="button" class="btn-ghost" onclick="deleteGasesNobles()" style="color: var(--accent-red); border-color: rgba(239, 68, 68, 0.4); padding: 0 14px;" title="Eliminar registro de Gases Nobles">
+                    ⛔ Eliminar Datos
+                  </button>
+                </div>
+              </div>
             </div>
-            <div class="panel-body">
-              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px;">
-                <div class="field-group">
-                  <label class="field-label">Ventilación General (GBq)</label>
-                  <input type="text" class="field-control mono" id="input-vent-gral" value="<?php echo htmlspecialchars($vent_gral_db, ENT_QUOTES, 'UTF-8'); ?>">
-                </div>
-                <div class="field-group">
-                  <label class="field-label">Ventilación Reactor (GBq)</label>
-                  <input type="text" class="field-control mono" id="input-vent-reactor" value="<?php echo htmlspecialchars($vent_reactor_db, ENT_QUOTES, 'UTF-8'); ?>">
-                </div>
-                <div class="field-group">
-                  <label class="field-label">Emisión Carbono-14 (MBq)</label>
-                  <input type="text" class="field-control mono" id="input-c14" value="<?php echo htmlspecialchars($c14_db, ENT_QUOTES, 'UTF-8'); ?>">
-                </div>
+
+            <!-- SUB-PANEL B: TRITIO, CARBONO-14, DEDO FRÍO & CONCENTRADOR 7923 -->
+            <div class="panel-box">
+              <div class="panel-header">
+                <div class="panel-title"><span>☢️</span> TRITIO CHIMENEA, C-14 & DEDO FRÍO 73120</div>
               </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
-                <div class="field-group">
-                  <label class="field-label">Dedo Frío 73120 (ppm)</label>
-                  <input type="text" class="field-control mono" id="input-dedo-frio" value="<?php echo htmlspecialchars($dedo_frio_ppm_db, ENT_QUOTES, 'UTF-8'); ?>">
+              <div class="panel-body">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px;">
+                  <div class="field-group">
+                    <label class="field-label">Ventilación General (GBq)</label>
+                    <input type="text" class="field-control mono" id="input-vent-gral" value="<?php echo htmlspecialchars($vent_gral_db, ENT_QUOTES, 'UTF-8'); ?>">
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label">Ventilación Reactor (GBq)</label>
+                    <input type="text" class="field-control mono" id="input-vent-reactor" value="<?php echo htmlspecialchars($vent_reactor_db, ENT_QUOTES, 'UTF-8'); ?>">
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label">Emisión Carbono-14 (MBq)</label>
+                    <input type="text" class="field-control mono" id="input-c14" value="<?php echo htmlspecialchars($c14_db, ENT_QUOTES, 'UTF-8'); ?>">
+                  </div>
                 </div>
-                <div class="field-group">
-                  <label class="field-label">Actividad Concentrador 7923 (MBq)</label>
-                  <input type="text" class="field-control mono" value="45.2">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                  <div class="field-group">
+                    <label class="field-label">Dedo Frío 73120 (ppm)</label>
+                    <input type="text" class="field-control mono" id="input-dedo-frio" value="<?php echo htmlspecialchars($dedo_frio_ppm_db, ENT_QUOTES, 'UTF-8'); ?>">
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label">Actividad Concentrador 7923 (MBq)</label>
+                    <input type="text" class="field-control mono" value="45.2">
+                  </div>
                 </div>
-              </div>
-              <div style="display: flex; gap: 8px;">
-                <button type="button" class="btn-register" style="flex: 1;" onclick="updateChimneyKPIs()">
-                  💾 ASENTAR MEDICIONES DE CHIMENEA
-                </button>
-                <button type="button" class="btn-ghost" onclick="clearChimneyKPIs()" style="color: var(--accent-amber); border-color: rgba(245, 158, 11, 0.4); padding: 0 12px;" title="Borrar mediciones de chimenea">
-                  🗑️ Borrar
-                </button>
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" class="btn-register" style="flex: 1;" onclick="updateChimneyKPIs()">
+                    💾 ASENTAR MEDICIONES DE CHIMENEA
+                  </button>
+                  <button type="button" class="btn-ghost" onclick="clearChimneyKPIs()" style="color: var(--accent-amber); border-color: rgba(245, 158, 11, 0.4); padding: 0 12px;" title="Borrar mediciones de chimenea">
+                    🗑️ Borrar
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -3064,6 +3166,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         <!-- Pestañas internas del modal -->
         <div class="kpi-modal-tabs">
           <button type="button" class="kpi-tab-btn active" data-tab="tab-tritio" onclick="switchKpiTab('tab-tritio')">💨 Tritio Chimenea</button>
+          <button type="button" class="kpi-tab-btn" data-tab="tab-gasesnobles" onclick="switchKpiTab('tab-gasesnobles')">🧪 Gases Nobles</button>
           <button type="button" class="kpi-tab-btn" data-tab="tab-c14" onclick="switchKpiTab('tab-c14')">⚛️ Carbono 14</button>
           <button type="button" class="kpi-tab-btn" data-tab="tab-dedofrio" onclick="switchKpiTab('tab-dedofrio')">❄️ Dedo Frío 73120</button>
           <button type="button" class="kpi-tab-btn" data-tab="tab-ro" onclick="switchKpiTab('tab-ro')">📈 % RO Chimenea</button>
@@ -3384,6 +3487,51 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
               <option value="Clase C (Ligeramente inestable)">Clase C (Ligeramente inestable)</option>
             </select>
           </div>
+        </div>
+
+        <!-- TAB 6: Gases Nobles Chimenea -->
+        <div class="kpi-tab-content" id="tab-gasesnobles" style="display: none;">
+          <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px;">
+            Actividad de Gases Nobles (Chimenea) por espectrometría gamma integrada:
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div class="field-group">
+              <label class="field-label">Horario Desde</label>
+              <input type="text" id="kpi-in-gn-desde" class="field-control mono latam-timepicker-input" value="<?php echo htmlspecialchars($gn_desde_db, ENT_QUOTES, 'UTF-8'); ?>" placeholder="00:00">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Horario Hasta</label>
+              <input type="text" id="kpi-in-gn-hasta" class="field-control mono latam-timepicker-input" value="<?php echo htmlspecialchars($gn_hasta_db, ENT_QUOTES, 'UTF-8'); ?>" placeholder="18:00">
+            </div>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; font-weight: 600;">ISÓTOPOS (GBq):</div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px;">
+            <div class="field-group">
+              <label class="field-label" style="color: #a78bfa;">Ar-41 (GBq)</label>
+              <input type="number" step="0.01" id="kpi-in-gn-ar41" class="field-control mono" style="font-size: 13px; font-weight: 700; color: #a78bfa;" value="<?php echo htmlspecialchars($gn_ar41_db, ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+            <div class="field-group">
+              <label class="field-label" style="color: #60a5fa;">Kr-85 (GBq)</label>
+              <input type="number" step="0.01" id="kpi-in-gn-kr85" class="field-control mono" style="font-size: 13px; font-weight: 700; color: #60a5fa;" value="<?php echo htmlspecialchars($gn_kr85_db, ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+            <div class="field-group">
+              <label class="field-label" style="color: #60a5fa;">Kr-85m (GBq)</label>
+              <input type="number" step="0.01" id="kpi-in-gn-kr85m" class="field-control mono" style="font-size: 13px; font-weight: 700; color: #60a5fa;" value="<?php echo htmlspecialchars($gn_kr85m_db, ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+            <div class="field-group">
+              <label class="field-label" style="color: #34d399;">Xe-133 (GBq)</label>
+              <input type="number" step="0.01" id="kpi-in-gn-xe133" class="field-control mono" style="font-size: 13px; font-weight: 700; color: #34d399;" value="<?php echo htmlspecialchars($gn_xe133_db, ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+            <div class="field-group">
+              <label class="field-label" style="color: #34d399;">Xe-135 (GBq)</label>
+              <input type="number" step="0.01" id="kpi-in-gn-xe135" class="field-control mono" style="font-size: 13px; font-weight: 700; color: #34d399;" value="<?php echo htmlspecialchars($gn_xe135_db, ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+            <div class="field-group">
+              <label class="field-label" style="color: #34d399;">Xe-135m (GBq)</label>
+              <input type="number" step="0.01" id="kpi-in-gn-xe135m" class="field-control mono" style="font-size: 13px; font-weight: 700; color: #34d399;" value="<?php echo htmlspecialchars($gn_xe135m_db, ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+          </div>
+          <div id="alert-tab-gasesnobles" class="kpi-field-alert"></div>
         </div>
 
       </div>
@@ -4332,8 +4480,23 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
       document.getElementById('kpi-metricas-modal').style.display = 'flex';
 
+      // Sincronizar inputs de gases nobles al abrir modal
+      ['ar41', 'kr85', 'kr85m', 'xe133', 'xe135', 'xe135m'].forEach(iso => {
+        const secVal = document.getElementById(`input-gn-${iso}`)?.value;
+        const modalInp = document.getElementById(`kpi-in-gn-${iso}`);
+        if (modalInp && secVal !== undefined) modalInp.value = secVal;
+      });
+      if (document.getElementById('kpi-in-gn-desde') && document.getElementById('input-gn-desde')) {
+        document.getElementById('kpi-in-gn-desde').value = document.getElementById('input-gn-desde').value;
+      }
+      if (document.getElementById('kpi-in-gn-hasta') && document.getElementById('input-gn-hasta')) {
+        document.getElementById('kpi-in-gn-hasta').value = document.getElementById('input-gn-hasta').value;
+      }
+
       if (targetTab === 'tritio') {
         switchKpiTab('tab-tritio');
+      } else if (targetTab === 'gasesnobles') {
+        switchKpiTab('tab-gasesnobles');
       } else if (targetTab === 'c14') {
         switchKpiTab('tab-c14');
       } else if (targetTab === 'dedofrio') {
@@ -4592,6 +4755,25 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     });
 
     function saveKpiMetrics() {
+      const activeBtnTab = document.querySelector('.kpi-tab-btn.active');
+      const activeTabId = activeBtnTab ? activeBtnTab.getAttribute('data-tab') : '';
+      if (activeTabId === 'tab-gasesnobles') {
+        ['ar41', 'kr85', 'kr85m', 'xe133', 'xe135', 'xe135m'].forEach(iso => {
+          const modalVal = document.getElementById(`kpi-in-gn-${iso}`)?.value;
+          const secInp = document.getElementById(`input-gn-${iso}`);
+          if (secInp && modalVal !== undefined) secInp.value = modalVal;
+        });
+        if (document.getElementById('input-gn-desde') && document.getElementById('kpi-in-gn-desde')) {
+          document.getElementById('input-gn-desde').value = document.getElementById('kpi-in-gn-desde').value;
+        }
+        if (document.getElementById('input-gn-hasta') && document.getElementById('kpi-in-gn-hasta')) {
+          document.getElementById('input-gn-hasta').value = document.getElementById('kpi-in-gn-hasta').value;
+        }
+        saveGasesNobles();
+        closeKpiModal();
+        return;
+      }
+
       const ventGral = (document.getElementById('kpi-in-vent-gral').value || '').trim();
       const ventReactor = (document.getElementById('kpi-in-vent-reactor').value || '').trim();
       const c14 = (document.getElementById('kpi-in-c14-val').value || '').trim();
@@ -4818,7 +5000,15 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       const activeBtn = document.querySelector('.kpi-tab-btn.active');
       const activeTab = activeBtn ? activeBtn.getAttribute('data-tab') : 'tab-tritio';
 
-      if (activeTab === 'tab-tritio') {
+      if (activeTab === 'tab-gasesnobles') {
+        deleteGasesNobles();
+        ['ar41', 'kr85', 'kr85m', 'xe133', 'xe135', 'xe135m'].forEach(iso => {
+          const el = document.getElementById(`kpi-in-gn-${iso}`);
+          if (el) el.value = '0.0';
+        });
+        closeKpiModal();
+        return;
+      } else if (activeTab === 'tab-tritio') {
         document.getElementById('kpi-in-vent-gral').value = '';
         document.getElementById('kpi-in-vent-reactor').value = '';
         if (document.getElementById('input-vent-gral')) document.getElementById('input-vent-gral').value = '';
@@ -4871,6 +5061,68 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
       saveKpiMetrics();
       showToast('🗑️ Mediciones de chimenea eliminadas (pendientes)');
+    }
+
+    // ================= FUNCIONES DE GASES NOBLES CHIMENEA =================
+    function saveGasesNobles() {
+      const desde = (document.getElementById('input-gn-desde')?.value || '00:00').trim();
+      const hasta = (document.getElementById('input-gn-hasta')?.value || '18:00').trim();
+      const ar41 = (document.getElementById('input-gn-ar41')?.value || '0').trim();
+      const kr85 = (document.getElementById('input-gn-kr85')?.value || '0').trim();
+      const kr85m = (document.getElementById('input-gn-kr85m')?.value || '0').trim();
+      const xe133 = (document.getElementById('input-gn-xe133')?.value || '0').trim();
+      const xe135 = (document.getElementById('input-gn-xe135')?.value || '0').trim();
+      const xe135m = (document.getElementById('input-gn-xe135m')?.value || '0').trim();
+      const idGn = (document.getElementById('input-gn-id')?.value || '').trim();
+
+      const action = idGn ? 'editar_valores_gases_nobles' : 'cargar_valores_gases_nobles';
+      const fechaSql = '<?php echo date("Y-m-d"); ?>';
+      const url = `procesos_reg_rad.php?accion=${action}&id_planilla=${activePlanillaId || 1}&id_usuario=${activeUserId || 1}&fecha=${fechaSql}&desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}&ar41=${encodeURIComponent(ar41)}&kr85=${encodeURIComponent(kr85)}&kr85m=${encodeURIComponent(kr85m)}&xe133=${encodeURIComponent(xe133)}&xe135=${encodeURIComponent(xe135)}&xe135m=${encodeURIComponent(xe135m)}`;
+
+      if (typeof SyncEngine !== 'undefined') {
+        SyncEngine.enqueue('gases_nobles', url);
+      } else if (!IS_DEMO_MODE) {
+        fetch(url);
+      }
+
+      const badge = document.getElementById('badge-gases-nobles-status');
+      if (badge) {
+        badge.className = 'sync-badge';
+        badge.textContent = '● Registrado';
+      }
+
+      showToast('✅ Gases Nobles asentados y sincronizados correctamente');
+    }
+
+    function deleteGasesNobles() {
+      const idGn = (document.getElementById('input-gn-id')?.value || '').trim();
+      if (!confirm('¿Está seguro de que desea eliminar los datos de Gases Nobles de esta guardia?')) {
+        return;
+      }
+
+      if (idGn) {
+        const url = `procesos_reg_rad.php?accion=eliminar_registro_generico&nombre_tabla=regrad_gases_nobles&nombre_campo_id=id_gases_nobles&id_registro=${idGn}`;
+        if (typeof SyncEngine !== 'undefined') {
+          SyncEngine.enqueue('delete_gases_nobles', url);
+        } else if (!IS_DEMO_MODE) {
+          fetch(url);
+        }
+      }
+
+      ['input-gn-ar41', 'input-gn-kr85', 'input-gn-kr85m', 'input-gn-xe133', 'input-gn-xe135', 'input-gn-xe135m'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '0.0';
+      });
+      const idEl = document.getElementById('input-gn-id');
+      if (idEl) idEl.value = '';
+
+      const badge = document.getElementById('badge-gases-nobles-status');
+      if (badge) {
+        badge.className = 'badge-amber';
+        badge.textContent = '○ Sin Cargar';
+      }
+
+      showToast('🗑️ Registro de Gases Nobles eliminado');
     }
 
     function saveInlineMeteorology() {
