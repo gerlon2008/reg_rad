@@ -1408,7 +1408,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       <div class="section-content active" id="sec-rutina">
         <div class="panel-box">
           <div class="panel-box-header">
-            <h2>📋 Relevamiento de Rutina en Recintos</h2>
+            <h2>📋 RELEVAMIENTO DE RUTINA</h2>
             <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
               Total: <?php echo count($rows_rutina); ?> mediciones registradas
             </span>
@@ -1470,7 +1470,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       <div class="section-content" id="sec-gases">
         <div class="panel-box">
           <div class="panel-box-header">
-            <h2>🏭 Emisión de Efluentes Gaseosos &amp; Chimenea</h2>
+            <h2>💨 EMISIÓN EFLUENTES GASEOSOS</h2>
           </div>
           <div class="panel-box-body">
             <div class="gas-sub-grid">
@@ -1626,7 +1626,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       <div class="section-content" id="sec-tareas">
         <div class="panel-box">
           <div class="panel-box-header">
-            <h2>📝 Tareas Diarias de Campo &amp; Relevamientos PTR</h2>
+            <h2>📋 TAREAS DE CAMPO &amp; PTR</h2>
             <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
               <?php echo count($rows_tareas); ?> tareas registradas en este turno
             </span>
@@ -1699,7 +1699,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       <div class="section-content" id="sec-actas">
         <div class="panel-box">
           <div class="panel-box-header">
-            <h2>📖 Novedades del Libro de Actas</h2>
+            <h2>📖 LIBRO DE ACTAS</h2>
             <span style="font-size: 11px; color: var(--text-muted);">
               Asentado en Planilla #<?php echo $id_planilla; ?>
             </span>
@@ -1716,7 +1716,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       <div class="section-content" id="sec-liquidos">
         <div class="panel-box">
           <div class="panel-box-header">
-            <h2>💧 Descarga de Efluentes Líquidos</h2>
+            <h2>💧 EMISIÓN DE EFLUENTES LÍQUIDOS</h2>
           </div>
           <div class="panel-box-body">
             <?php if (empty($rows_efluentes_liq)): ?>
@@ -1759,7 +1759,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
         <!-- Espectrometría del Aire -->
         <div class="panel-box" style="margin-top: 14px;">
           <div class="panel-box-header">
-            <h2>🧪 Espectrometría del Aire de Zona Controlada</h2>
+            <h2>🔬 ESPECTROMETRÍA DEL AIRE DE ZONA CONTROLADA</h2>
           </div>
           <div class="panel-box-body">
             <?php if (empty($rows_espectrometria)): ?>
@@ -1806,7 +1806,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       <div class="section-content" id="sec-contaminacion">
         <div class="panel-box">
           <div class="panel-box-header">
-            <h2>🔬 Contaminación Superficial &amp; Tasa de Dosis Equivalente</h2>
+            <h2>🧽 MEDICIÓN DE CONT. SUPERFICIAL Y TASA DE DOSIS EQUIVALENTE</h2>
           </div>
           <div class="panel-box-body">
             <table class="data-table">
@@ -1840,7 +1840,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
         <!-- Eficiencia Dryers -->
         <div class="panel-box" style="margin-top: 14px;">
           <div class="panel-box-header">
-            <h2>⚙️ Eficiencia de Secadores de Aire Pesado (Dryers)</h2>
+            <h2>🔄 EFICIENCIA DRYERS</h2>
           </div>
           <div class="panel-box-body">
             <table class="data-table">
@@ -1875,7 +1875,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       <div class="section-content" id="sec-obs">
         <div class="panel-box">
           <div class="panel-box-header">
-            <h2>💬 Observaciones Generales de la Guardia</h2>
+            <h2>📝 OBSERVACIONES GENERALES DE LA GUARDIA</h2>
           </div>
           <div class="panel-box-body">
             <div class="terminal-box"><?php echo htmlspecialchars($row_planilla['observaciones'], ENT_QUOTES, 'UTF-8'); ?></div>

@@ -1811,32 +1811,32 @@ if (file_exists($miconex_path)) {
     <nav class="sidebar-menu">
       <div class="menu-header">Módulos de Turno</div>
       <button class="menu-btn active" data-section="sec-rutina">
-        <span>📋 Relevamiento Rutina</span>
+        <span>📋 RELEVAMIENTO DE RUTINA</span>
         <span class="menu-badge" id="menu-badge-rutina"><?php echo count($relevamientos_rutina_iniciales); ?></span>
       </button>
       <button class="menu-btn" data-section="sec-gaseosos">
-        <span>💨 Efluentes Gaseosos &amp; 7923</span>
+        <span>💨 EMISIÓN EFLUENTES GASEOSOS</span>
         <span class="menu-badge">RO 8.4%</span>
       </button>
       <button class="menu-btn" data-section="sec-liquidos">
-        <span>💧 Efluentes Líquidos</span>
+        <span>💧 EMISIÓN DE EFLUENTES LÍQUIDOS</span>
         <span class="menu-badge">Nominal</span>
       </button>
       <button class="menu-btn" data-section="sec-contaminacion">
-        <span>🧽 Frotis &amp; Dryers</span>
+        <span>🧽 CONT. SUPERFICIAL &amp; DRYERS</span>
         <span class="menu-badge">0</span>
       </button>
       <button class="menu-btn" data-section="sec-actas" id="btn-sidebar-actas">
-        <span>📖 Libro de Actas &amp; Tareas PTR</span>
+        <span>📖 LIBRO DE ACTAS &amp; TAREAS PTR</span>
         <span class="menu-badge" id="menu-badge-actas">2</span>
       </button>
 
       <div class="menu-header" style="margin-top: 14px;">Administración &amp; Cierre</div>
       <button class="menu-btn" data-section="sec-historial">
-        <span>🗂️ Historial de Planillas</span>
+        <span>📁 HISTORIAL DE PLANILLAS</span>
       </button>
       <button class="menu-btn" data-section="sec-cierre">
-        <span>🔒 Cierre de Turno</span>
+        <span>🔒 CIERRE DE TURNO</span>
       </button>
     </nav>
 
@@ -2010,7 +2010,7 @@ if (file_exists($miconex_path)) {
         <div class="panel-box">
           <div class="panel-header">
             <div class="panel-title">
-              <span>📋</span> Relevamientos Radiológicos de Recintos (Carga Continua)
+              <span>📋</span> RELEVAMIENTO DE RUTINA
             </div>
             <span style="font-size: 11.5px; font-family: var(--font-mono); color: var(--text-muted);">
               [ Ingrese los valores y pulse <span style="color: var(--accent-cyan);">Enter</span> para registrar ]
@@ -2139,7 +2139,7 @@ if (file_exists($miconex_path)) {
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
           <div class="panel-box">
             <div class="panel-header">
-              <div class="panel-title"><span>💨</span> Descarga Gaseosa por Chimenea (Cálculo de RO)</div>
+              <div class="panel-title"><span>💨</span> EMISIÓN EFLUENTES GASEOSOS</div>
             </div>
             <div class="panel-body">
               <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px;">
@@ -2174,7 +2174,7 @@ if (file_exists($miconex_path)) {
 
           <div class="panel-box">
             <div class="panel-header">
-              <div class="panel-title"><span>🌤️</span> Condiciones Meteorológicas</div>
+              <div class="panel-title"><span>🌤️</span> CONDICIÓN METEOROLÓGICA</div>
             </div>
             <div class="panel-body">
               <div class="field-group" style="margin-bottom: 12px;">
@@ -2211,7 +2211,7 @@ if (file_exists($miconex_path)) {
       <section class="section-panel" id="sec-liquidos">
         <div class="panel-box">
           <div class="panel-header">
-            <div class="panel-title"><span>💧</span> Tanques de Descarga de Efluentes Líquidos Activos</div>
+            <div class="panel-title"><span>💧</span> EMISIÓN DE EFLUENTES LÍQUIDOS</div>
           </div>
           <div class="panel-body">
             <table class="data-table">
@@ -2253,7 +2253,7 @@ if (file_exists($miconex_path)) {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
           <div class="panel-box">
             <div class="panel-header">
-              <div class="panel-title"><span>🧽</span> Contaminación Superficial (Frotis)</div>
+              <div class="panel-title"><span>🧽</span> MEDICIÓN DE CONT. SUPERFICIAL Y TASA DE DOSIS EQUIVALENTE</div>
             </div>
             <div class="panel-body">
               <div class="field-group" style="margin-bottom: 12px; position: relative;">
@@ -2283,7 +2283,7 @@ if (file_exists($miconex_path)) {
 
           <div class="panel-box">
             <div class="panel-header">
-              <div class="panel-title"><span>💨</span> Eficiencia de Secadores (Dryers D2O)</div>
+              <div class="panel-title"><span>🔄</span> EFICIENCIA DRYERS</div>
             </div>
             <div class="panel-body">
               <div class="field-group" style="margin-bottom: 12px;">
@@ -2316,7 +2316,7 @@ if (file_exists($miconex_path)) {
       <section class="section-panel" id="sec-actas" data-alias="sec-tareas">
         <div class="panel-box">
           <div class="panel-header">
-            <div class="panel-title"><span>📖</span> Libro de Actas &amp; Novedades de Guardia (SyR)</div>
+            <div class="panel-title"><span>📖</span> LIBRO DE ACTAS &amp; TAREAS PTR</div>
             <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);" id="actas-counter-badge">
               0 actas asentadas en este turno
             </span>
@@ -2494,7 +2494,7 @@ if (file_exists($miconex_path)) {
       <section class="section-panel" id="sec-historial">
         <div class="panel-box">
           <div class="panel-header">
-            <div class="panel-title"><span>🗂️</span> Historial de Planillas Anteriores</div>
+            <div class="panel-title"><span>📁</span> HISTORIAL DE PLANILLAS ANTERIORES</div>
           </div>
           <div class="panel-body">
             <table class="data-table">
@@ -2538,7 +2538,7 @@ if (file_exists($miconex_path)) {
       <section class="section-panel" id="sec-cierre">
         <div class="panel-box">
           <div class="panel-header">
-            <div class="panel-title"><span>🔒</span> Formalización y Cierre de Planilla Diaria</div>
+            <div class="panel-title"><span>🔒</span> FORMALIZACIÓN Y CIERRE DE PLANILLA DIARIA</div>
           </div>
           <div class="panel-body">
             <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 20px;">
