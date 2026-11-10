@@ -876,6 +876,42 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       border-right: none;
     }
 
+    /* Contenedor con scroll y encabezados fijos (Sticky Table Headers) */
+    .table-scroll-wrapper {
+      position: relative;
+      background: var(--bg-card);
+    }
+
+    .table-scroll-wrapper::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    .table-scroll-wrapper::-webkit-scrollbar-track {
+      background: rgba(4, 15, 13, 0.8);
+    }
+    .table-scroll-wrapper::-webkit-scrollbar-thumb {
+      background: var(--border-card);
+      border-radius: 4px;
+    }
+    .table-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-cyan);
+    }
+
+    .table-scroll-wrapper .data-table thead tr:first-child th {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 25 !important;
+      background: #091c18 !important;
+    }
+
+    .table-scroll-wrapper .data-table thead tr:nth-child(2) th {
+      position: sticky !important;
+      top: 29px !important;
+      z-index: 24 !important;
+      background: #091c18 !important;
+      box-shadow: 0 1px 0 var(--border-card);
+    }
+
     /* Filas intercaladas (Zebra Striping de Alto Contraste) */
     .data-table tbody tr:nth-child(odd) td {
       background-color: rgba(14, 39, 34, 0.45);
@@ -1378,10 +1414,11 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
             </span>
           </div>
           <div class="panel-box-body">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th rowspan="2" style="width: 85px;">Fecha</th>
+            <div class="table-scroll-wrapper" style="max-height: calc(100vh - 350px); min-height: 320px; overflow-y: auto; overflow-x: auto; border: 1px solid var(--border-card); border-radius: 6px;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th rowspan="2" style="width: 85px;">Fecha</th>
                   <th rowspan="2" style="width: 65px;">Hora</th>
                   <th rowspan="2" style="text-align: left;">Recinto / Ubicación</th>
                   <th colspan="3">Mediciones Radiológicas</th>
@@ -1423,7 +1460,8 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                   </tr>
                 <?php endforeach; ?>
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
         </div>
       </div>

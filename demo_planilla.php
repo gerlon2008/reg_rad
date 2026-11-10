@@ -97,6 +97,24 @@ $ayudantes_array = array(
   array('id' => 13, 'nombre' => 'TICERA, GUILLERMO (AYUDANTE)')
 );
 
+$ptrs_array_inicial = array(
+  array('id' => 1042, 'titulo' => 'Mantenimiento preventivo de bomba de purificación de agua pesada PHT (P-01)'),
+  array('id' => 1045, 'titulo' => 'Relevamiento radiológico para inspección térmica de cañerías en Edificio Reactor'),
+  array('id' => 1048, 'titulo' => 'Cambio de resinas en lechos de purificación de moderador R-005'),
+  array('id' => 1050, 'titulo' => 'Inspección de sello de bomba principal de refrigerante primario 3331-P01'),
+  array('id' => 1052, 'titulo' => 'Reemplazo de filtros de secadores de aire pesado DRY-01/02'),
+  array('id' => 1055, 'titulo' => 'Muestreo radiológico y prueba hidrostática de sistema 3432'),
+  array('id' => 1060, 'titulo' => 'Apertura de canal de combustible y calibración de detector neutrónico'),
+  array('id' => 1065, 'titulo' => 'Mantenimiento de esclusa de personal y válvulas de venteo de contención'),
+  array('id' => 1070, 'titulo' => 'Descontaminación y frotis en sala de cambiadores de calor de moderador'),
+  array('id' => 1075, 'titulo' => 'Inspección visual de penetraciones de cables en blindaje biológico'),
+  array('id' => 1080, 'titulo' => 'Revisión y calibración de monitores de radiación en chimenea'),
+  array('id' => 1085, 'titulo' => 'Recorrida técnica y relevamiento de tasas de dosis en bóveda del reactor'),
+  array('id' => 1090, 'titulo' => 'Inspección de actuadores neumáticos del sistema de parada rápida SDS-1'),
+  array('id' => 1095, 'titulo' => 'Toma de muestras de agua pesada en cabezales de colectores de moderador'),
+  array('id' => 1100, 'titulo' => 'Mantenimiento de detectores de gas en sala de control principal')
+);
+
 $relevamientos_rutina_iniciales = array(
   array(
     'id' => 1,
@@ -1345,6 +1363,41 @@ if (file_exists($miconex_path)) {
       border-bottom: 2px solid var(--border-card);
     }
 
+    /* Contenedor con scroll y encabezados fijos (Sticky Table Headers) */
+    .table-scroll-wrapper {
+      max-height: calc(100vh - 430px);
+      min-height: 280px;
+      overflow-y: auto;
+      overflow-x: auto;
+      border: 1px solid var(--border-card);
+      border-radius: 6px;
+      background: var(--bg-card);
+      position: relative;
+    }
+
+    .table-scroll-wrapper::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    .table-scroll-wrapper::-webkit-scrollbar-track {
+      background: rgba(4, 15, 13, 0.8);
+    }
+    .table-scroll-wrapper::-webkit-scrollbar-thumb {
+      background: var(--border-card);
+      border-radius: 4px;
+    }
+    .table-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-cyan);
+    }
+
+    .table-scroll-wrapper table.data-table thead th {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 20 !important;
+      background: #091c18 !important;
+      box-shadow: 0 1px 0 var(--border-card);
+    }
+
     /* Filas intercaladas (Zebra Striping de Alto Contraste) */
     .data-table tbody tr:nth-child(odd) td {
       background-color: rgba(14, 39, 34, 0.45);
@@ -2027,8 +2080,9 @@ if (file_exists($miconex_path)) {
               </div>
             </div>
 
-            <!-- Tabla de Mediciones -->
-            <table class="data-table" id="rutina-table">
+            <!-- Tabla de Mediciones (Encabezados Sticky fijos al scrollear) -->
+            <div class="table-scroll-wrapper" id="rutina-scroll-wrapper">
+              <table class="data-table" id="rutina-table">
               <thead>
                 <tr>
                   <th style="width: 105px;">Fecha</th>
@@ -2073,7 +2127,8 @@ if (file_exists($miconex_path)) {
                 </tr>
                 <?php } ?>
               </tbody>
-            </table>
+              </table>
+            </div>
 
           </div>
         </div>
@@ -2201,15 +2256,14 @@ if (file_exists($miconex_path)) {
               <div class="panel-title"><span>🧽</span> Contaminación Superficial (Frotis)</div>
             </div>
             <div class="panel-body">
-              <div class="field-group" style="margin-bottom: 12px;">
-                <label class="field-label">Recinto de Muestreo</label>
-                <select class="field-control">
-                  <?php foreach ($recintos_array as $item) { ?>
-                    <option value="<?php echo htmlspecialchars($item['recinto'], ENT_QUOTES, 'UTF-8'); ?>">
-                      <?php echo htmlspecialchars($item['recinto'], ENT_QUOTES, 'UTF-8'); ?>
-                    </option>
-                  <?php } ?>
-                </select>
+              <div class="field-group" style="margin-bottom: 12px; position: relative;">
+                <label class="field-label">Recinto de Muestreo <span style="color:var(--accent-cyan); font-size:9.5px;">[🔍 Buscar]</span></label>
+                <div class="searchable-select-wrapper" id="frotis-recinto-wrapper">
+                  <input type="text" id="frotis-recinto" class="field-control" placeholder="Escriba código o nombre de recinto..." autocomplete="off" style="padding-right: 28px;">
+                  <button type="button" class="btn-clear-ctrl" id="btn-clear-frotis-recinto" title="Borrar recinto" style="display:none;">&times;</button>
+                  <input type="hidden" id="frotis-recinto-id" value="">
+                  <div class="searchable-dropdown" id="frotis-recinto-dropdown"></div>
+                </div>
               </div>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                 <div class="field-group">
@@ -2281,43 +2335,46 @@ if (file_exists($miconex_path)) {
                 <textarea id="acta-texto" class="field-control" style="height: 75px; padding: 8px 10px; resize: vertical; font-size: 12px;" placeholder="Describa el trabajo realizado, novedad de guardia, inspección o evento..."></textarea>
               </div>
 
-              <!-- Metadata: Oficial, Ayudante, Recinto, PTR -->
+              <!-- Metadata: Oficial, Ayudante, Recinto, PTR con Buscadores Inteligentes y Crucecita X -->
               <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px;">
-                <div class="field-group">
-                  <label class="field-label">Oficial Responsable</label>
-                  <select id="acta-oficial" class="field-control" style="font-weight:700; color:#ffffff;">
-                    <?php foreach ($oficiales_array as $of) { ?>
-                      <option value="<?php echo htmlspecialchars($of['nombre'], ENT_QUOTES, 'UTF-8'); ?>" <?php if($of['nombre'] == $oficial_actual) echo "selected"; ?>>
-                        <?php echo htmlspecialchars($of['nombre'], ENT_QUOTES, 'UTF-8'); ?>
-                      </option>
-                    <?php } ?>
-                  </select>
+                <div class="field-group" style="position: relative;">
+                  <label class="field-label">Oficial Responsable <span style="color:var(--accent-cyan); font-size:9.5px;">[🔍 Buscar]</span></label>
+                  <div class="searchable-select-wrapper" id="acta-oficial-wrapper">
+                    <input type="text" id="acta-oficial" class="field-control" placeholder="Buscar oficial..." value="<?php echo htmlspecialchars($oficial_actual, ENT_QUOTES, 'UTF-8'); ?>" autocomplete="off" style="font-weight:700; color:#ffffff; padding-right: 28px;">
+                    <button type="button" class="btn-clear-ctrl" id="btn-clear-acta-oficial" title="Borrar oficial" style="display: <?php echo !empty($oficial_actual) ? 'block' : 'none'; ?>;">&times;</button>
+                    <input type="hidden" id="acta-oficial-id" value="<?php echo htmlspecialchars($oficial_actual, ENT_QUOTES, 'UTF-8'); ?>">
+                    <div class="searchable-dropdown" id="acta-oficial-dropdown"></div>
+                  </div>
                 </div>
-                <div class="field-group">
-                  <label class="field-label">Personal que Asistió / Ayudante</label>
-                  <select id="acta-ayudante" class="field-control">
-                    <option value="">-- Sin ayudante / N/A --</option>
-                    <?php foreach ($ayudantes_array as $ayu) { ?>
-                      <option value="<?php echo $ayu['id']; ?>">
-                        <?php echo htmlspecialchars($ayu['nombre'], ENT_QUOTES, 'UTF-8'); ?>
-                      </option>
-                    <?php } ?>
-                  </select>
+
+                <div class="field-group" style="position: relative;">
+                  <label class="field-label">Personal que Asistió / Ayudante <span style="color:var(--accent-cyan); font-size:9.5px;">[🔍 Buscar]</span></label>
+                  <div class="searchable-select-wrapper" id="acta-ayudante-wrapper">
+                    <input type="text" id="acta-ayudante" class="field-control" placeholder="-- Sin ayudante / Buscar... --" autocomplete="off" style="padding-right: 28px;">
+                    <button type="button" class="btn-clear-ctrl" id="btn-clear-acta-ayudante" title="Borrar ayudante" style="display:none;">&times;</button>
+                    <input type="hidden" id="acta-ayudante-id" value="">
+                    <div class="searchable-dropdown" id="acta-ayudante-dropdown"></div>
+                  </div>
                 </div>
-                <div class="field-group">
-                  <label class="field-label">Recinto Asociado <span style="color:var(--text-dim);">(Opcional)</span></label>
-                  <select id="acta-recinto" class="field-control">
-                    <option value="">-- General de Planta / Sin recinto específico --</option>
-                    <?php foreach ($recintos_array as $item) { ?>
-                      <option value="<?php echo htmlspecialchars($item['recinto'], ENT_QUOTES, 'UTF-8'); ?>">
-                        <?php echo htmlspecialchars($item['recinto'], ENT_QUOTES, 'UTF-8'); ?>
-                      </option>
-                    <?php } ?>
-                  </select>
+
+                <div class="field-group" style="position: relative;">
+                  <label class="field-label">Recinto Asociado <span style="color:var(--text-dim); font-size:9.5px;">[🔍 Buscar]</span></label>
+                  <div class="searchable-select-wrapper" id="acta-recinto-wrapper">
+                    <input type="text" id="acta-recinto" class="field-control" placeholder="General de Planta / Escriba para buscar..." autocomplete="off" style="padding-right: 28px;">
+                    <button type="button" class="btn-clear-ctrl" id="btn-clear-acta-recinto" title="Borrar recinto" style="display:none;">&times;</button>
+                    <input type="hidden" id="acta-recinto-id" value="">
+                    <div class="searchable-dropdown" id="acta-recinto-dropdown"></div>
+                  </div>
                 </div>
-                <div class="field-group">
-                  <label class="field-label">N° PTR Asociado <span style="color:var(--text-dim); font-size:9.5px;">(Opcional)</span></label>
-                  <input type="text" id="acta-ptr" class="field-control mono" placeholder="ej: 1042">
+
+                <div class="field-group" style="position: relative;">
+                  <label class="field-label">N° PTR Asociado <span style="color:var(--accent-cyan); font-size:9.5px;">[🔍 Buscar PTR]</span></label>
+                  <div class="searchable-select-wrapper" id="acta-ptr-wrapper">
+                    <input type="text" id="acta-ptr" class="field-control mono" placeholder="Buscar N° o título de PTR activo..." autocomplete="off" style="padding-right: 28px;">
+                    <button type="button" class="btn-clear-ctrl" id="btn-clear-acta-ptr" title="Borrar PTR" style="display:none;">&times;</button>
+                    <input type="hidden" id="acta-ptr-id" value="">
+                    <div class="searchable-dropdown" id="acta-ptr-dropdown"></div>
+                  </div>
                 </div>
               </div>
 
@@ -2361,11 +2418,12 @@ if (file_exists($miconex_path)) {
               </div>
             </div>
 
-            <!-- TABLA DE ACTAS ASENTADAS EN EL TURNO -->
+            <!-- TABLA DE ACTAS ASENTADAS EN EL TURNO (Encabezados Sticky fijos) -->
             <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">
               📋 Actas Registradas en Esta Guardia:
             </div>
-            <table class="data-table" id="tabla-actas-guardia">
+            <div class="table-scroll-wrapper" id="actas-scroll-wrapper" style="max-height: 300px; min-height: 180px;">
+              <table class="data-table" id="tabla-actas-guardia">
               <thead>
                 <tr>
                   <th style="width: 65px;">Hora</th>
@@ -2425,7 +2483,8 @@ if (file_exists($miconex_path)) {
                   <td style="text-align: center;" onclick="event.stopPropagation();"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
                 </tr>
               </tbody>
-            </table>
+              </table>
+            </div>
 
           </div>
         </div>
@@ -3351,86 +3410,178 @@ if (file_exists($miconex_path)) {
     });
 
   
-    // ================= BUSCADOR INTELIGENTE DE RECINTOS (SELECT2 VANILLA OFFLINE) =================
+    // ================= BUSCADORES INTELIGENTES SELECT2 VANILLA (RECINTOS, OFICIALES, AYUDANTES, PTRs) =================
     const rawRecintos = <?php echo json_encode($recintos_array); ?>;
     const recintosList = rawRecintos.map(item => {
-      if (typeof item === 'string') return { id: item, name: item };
-      return { id: item.id, name: item.recinto };
+      if (typeof item === 'string') return { id: item, name: item, subtext: '' };
+      return { id: String(item.id), name: item.recinto, subtext: '#' + item.id };
     });
 
-    const recintoInput = document.getElementById('q-recinto');
-    const recintoIdInput = document.getElementById('q-recinto-id');
-    const recintoDropdown = document.getElementById('recinto-dropdown');
-    let highlightedIndex = -1;
-    let filteredRecintos = [];
+    const rawOficiales = <?php echo json_encode($oficiales_array); ?>;
+    const oficialesList = rawOficiales.map(item => ({
+      id: item.nombre,
+      name: item.nombre,
+      subtext: 'OFICIAL'
+    }));
 
-    function renderRecintosDropdown(filterText = '') {
-      const query = filterText.trim().toLowerCase();
-      if (!query) {
-        filteredRecintos = recintosList.slice(0, 60);
-      } else {
-        filteredRecintos = recintosList.filter(r => r.name.toLowerCase().includes(query)).slice(0, 60);
+    const rawAyudantes = <?php echo json_encode($ayudantes_array); ?>;
+    const ayudantesList = rawAyudantes.map(item => ({
+      id: String(item.id),
+      name: item.nombre,
+      subtext: 'AYUDANTE'
+    }));
+
+    // Listado Oficial de PTRs Activos CNE (con fallback offline completo)
+    let listaPTRs = <?php echo json_encode(array_map(function($p) {
+        return array(
+            'id' => (string)$p['id'],
+            'name' => 'PTR ' . $p['id'] . ' - ' . $p['titulo'],
+            'titulo' => $p['titulo'],
+            'subtext' => '#' . $p['id']
+        );
+    }, $ptrs_array_inicial)); ?>;
+
+    // Sincronización en segundo plano con el Web Service Oficial de PTRs CNE (sin bloquear)
+    if (window.fetch) {
+      fetch('https://syrapp.cne.central.nasa/ptr/simplestWebService.php?action=listadoPTRs_activos')
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data) && data.length > 0) {
+            listaPTRs = data.map(item => ({
+              id: String(item.id),
+              name: 'PTR ' + item.id + ' - ' + (item.titulo_tarea_elca || ('Tarea PTR ' + item.id)),
+              titulo: item.titulo_tarea_elca || ('PTR ' + item.id),
+              subtext: '#' + item.id
+            }));
+            console.log('✅ PTRs activos sincronizados exitosamente desde CNE Web Service:', listaPTRs.length);
+          }
+        })
+        .catch(err => {
+          console.log('ℹ️ Operando con catálogo de PTRs offline precargado');
+        });
+    }
+
+    /**
+     * Controlador genérico y robusto para selectores con buscador en vivo, navegación por teclado y crucecita X
+     */
+    function setupSearchableDropdown(cfg) {
+      const input = document.getElementById(cfg.inputId);
+      const hidden = cfg.hiddenId ? document.getElementById(cfg.hiddenId) : null;
+      const dropdown = document.getElementById(cfg.dropdownId);
+      const clearBtn = cfg.clearBtnId ? document.getElementById(cfg.clearBtnId) : null;
+      if (!input || !dropdown) return null;
+
+      let highlightedIndex = -1;
+      let filteredItems = [];
+
+      function updateClearBtn() {
+        if (clearBtn) {
+          clearBtn.style.display = input.value ? 'block' : 'none';
+        }
       }
 
-      recintoDropdown.innerHTML = '';
-      highlightedIndex = -1;
+      function render(queryText = '') {
+        const rawItems = typeof cfg.getItems === 'function' ? cfg.getItems() : (cfg.items || []);
+        const query = (queryText || '').trim().toLowerCase();
 
-      if (filteredRecintos.length === 0) {
-        recintoDropdown.innerHTML = '<div class="searchable-empty">No se encontraron recintos con "' + filterText + '"</div>';
-      } else {
-        filteredRecintos.forEach((r, idx) => {
-          const div = document.createElement('div');
-          div.className = 'searchable-item';
-          div.setAttribute('data-index', idx);
+        if (!query) {
+          filteredItems = rawItems.slice(0, 60);
+        } else {
+          filteredItems = rawItems.filter(item => {
+            const text = (item.name || item.id || '').toLowerCase();
+            const sub = (item.subtext || '').toLowerCase();
+            return text.includes(query) || sub.includes(query);
+          }).slice(0, 60);
+        }
 
-          if (query) {
-            const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-            div.innerHTML = `<span>${r.name.replace(regex, '<mark>$1</mark>')}</span><span style="font-size:10px; color:var(--text-dim); font-family:var(--font-mono);">#${r.id}</span>`;
-          } else {
-            div.innerHTML = `<span>${r.name}</span><span style="font-size:10px; color:var(--text-dim); font-family:var(--font-mono);">#${r.id}</span>`;
-          }
+        dropdown.innerHTML = '';
+        highlightedIndex = -1;
 
-          div.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            selectRecinto(r.id, r.name);
+        if (filteredItems.length === 0) {
+          dropdown.innerHTML = '<div class="searchable-empty">No se encontraron resultados para "' + (queryText || '') + '"</div>';
+        } else {
+          filteredItems.forEach((item, idx) => {
+            const div = document.createElement('div');
+            div.className = 'searchable-item';
+            div.setAttribute('data-index', idx);
+
+            let labelHtml = item.name;
+            if (query) {
+              const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+              labelHtml = item.name.replace(regex, '<mark>$1</mark>');
+            }
+
+            const subHtml = item.subtext ? `<span style="font-size:10px; color:var(--text-dim); font-family:var(--font-mono); margin-left:8px;">${item.subtext}</span>` : '';
+            div.innerHTML = `<span>${labelHtml}</span>${subHtml}`;
+
+            div.addEventListener('mousedown', (e) => {
+              e.preventDefault();
+              selectItem(item);
+            });
+
+            dropdown.appendChild(div);
           });
+        }
 
-          recintoDropdown.appendChild(div);
+        dropdown.classList.add('open');
+        updateClearBtn();
+      }
+
+      function selectItem(item) {
+        if (cfg.formatValueOnSelect) {
+          input.value = cfg.formatValueOnSelect(item);
+        } else {
+          input.value = item.name;
+        }
+        if (hidden) {
+          hidden.value = item.id;
+        }
+        dropdown.classList.remove('open');
+        updateClearBtn();
+
+        if (typeof cfg.onSelect === 'function') {
+          cfg.onSelect(item);
+        }
+        if (cfg.nextFocusId) {
+          const next = document.getElementById(cfg.nextFocusId);
+          if (next) next.focus();
+        }
+      }
+
+      function clear() {
+        input.value = '';
+        if (hidden) hidden.value = '';
+        dropdown.classList.remove('open');
+        updateClearBtn();
+        if (typeof cfg.onClear === 'function') {
+          cfg.onClear();
+        }
+        input.focus();
+      }
+
+      if (clearBtn) {
+        clearBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          clear();
         });
       }
 
-      recintoDropdown.classList.add('open');
-    }
-
-    function selectRecinto(id, name) {
-      recintoInput.value = name;
-      recintoIdInput.value = id;
-      recintoDropdown.classList.remove('open');
-      const clearBtn = document.getElementById('btn-clear-recinto');
-      if (clearBtn) clearBtn.style.display = name ? 'block' : 'none';
-      if (typeof updateRecintoHistory === 'function') {
-        updateRecintoHistory(id, name);
-      }
-      const nextInput = document.getElementById('q-gases');
-      if (nextInput) nextInput.focus();
-    }
-
-    if (recintoInput) {
-      recintoInput.addEventListener('focus', () => {
-        renderRecintosDropdown(recintoInput.value);
+      input.addEventListener('focus', () => {
+        render(input.value);
       });
 
-      recintoInput.addEventListener('input', () => {
-        renderRecintosDropdown(recintoInput.value);
-        const clearBtn = document.getElementById('btn-clear-recinto');
-        if (clearBtn) clearBtn.style.display = recintoInput.value ? 'block' : 'none';
+      input.addEventListener('input', () => {
+        render(input.value);
+        if (hidden) hidden.value = input.value;
+        updateClearBtn();
       });
 
-      recintoInput.addEventListener('keydown', (e) => {
-        const items = recintoDropdown.querySelectorAll('.searchable-item');
-        if (!recintoDropdown.classList.contains('open')) {
+      input.addEventListener('keydown', (e) => {
+        const items = dropdown.querySelectorAll('.searchable-item');
+        if (!dropdown.classList.contains('open')) {
           if (e.key === 'ArrowDown' || e.key === 'Enter') {
-            renderRecintosDropdown(recintoInput.value);
+            render(input.value);
             e.preventDefault();
             return;
           }
@@ -3440,47 +3591,123 @@ if (file_exists($miconex_path)) {
           e.preventDefault();
           if (items.length > 0) {
             highlightedIndex = (highlightedIndex + 1) % items.length;
-            updateHighlighted(items);
+            items.forEach((it, i) => it.classList.toggle('highlighted', i === highlightedIndex));
+            if (items[highlightedIndex]) items[highlightedIndex].scrollIntoView({ block: 'nearest' });
           }
         } else if (e.key === 'ArrowUp') {
           e.preventDefault();
           if (items.length > 0) {
             highlightedIndex = (highlightedIndex - 1 + items.length) % items.length;
-            updateHighlighted(items);
+            items.forEach((it, i) => it.classList.toggle('highlighted', i === highlightedIndex));
+            if (items[highlightedIndex]) items[highlightedIndex].scrollIntoView({ block: 'nearest' });
           }
         } else if (e.key === 'Enter') {
-          if (highlightedIndex >= 0 && items[highlightedIndex]) {
+          if (highlightedIndex >= 0 && filteredItems[highlightedIndex]) {
             e.preventDefault();
-            const r = filteredRecintos[highlightedIndex];
-            if (r) selectRecinto(r.id, r.name);
-          } else if (filteredRecintos.length > 0 && recintoDropdown.classList.contains('open')) {
+            selectItem(filteredItems[highlightedIndex]);
+          } else if (filteredItems.length > 0 && dropdown.classList.contains('open')) {
             e.preventDefault();
-            const r = filteredRecintos[0];
-            selectRecinto(r.id, r.name);
+            selectItem(filteredItems[0]);
           }
         } else if (e.key === 'Escape') {
-          recintoDropdown.classList.remove('open');
+          dropdown.classList.remove('open');
         }
       });
-    }
 
-    function updateHighlighted(items) {
-      items.forEach((it, idx) => {
-        if (idx === highlightedIndex) {
-          it.classList.add('highlighted');
-          it.scrollIntoView({ block: 'nearest' });
-        } else {
-          it.classList.remove('highlighted');
+      document.addEventListener('click', (e) => {
+        if (!input.contains(e.target) && !dropdown.contains(e.target) && (!clearBtn || !clearBtn.contains(e.target))) {
+          dropdown.classList.remove('open');
         }
       });
+
+      return { clear, render, selectItem };
     }
 
-    document.addEventListener('click', (e) => {
-      const wrapper = document.getElementById('recinto-search-wrapper');
-      if (wrapper && !wrapper.contains(e.target)) {
-        recintoDropdown.classList.remove('open');
-      }
+    // 1. Buscador de Recintos en Rutina
+    const routineRecintoSelect = setupSearchableDropdown({
+      inputId: 'q-recinto',
+      hiddenId: 'q-recinto-id',
+      dropdownId: 'recinto-dropdown',
+      clearBtnId: 'btn-clear-recinto',
+      getItems: () => recintosList,
+      onSelect: (item) => {
+        if (typeof updateRecintoHistory === 'function') {
+          updateRecintoHistory(item.id, item.name);
+        }
+      },
+      onClear: () => {
+        if (typeof clearRecintoSelection === 'function') {
+          clearRecintoSelection();
+        }
+      },
+      nextFocusId: 'q-gases'
     });
+
+    // 2. Buscador de Oficial Responsable en Actas
+    const actaOficialSelect = setupSearchableDropdown({
+      inputId: 'acta-oficial',
+      hiddenId: 'acta-oficial-id',
+      dropdownId: 'acta-oficial-dropdown',
+      clearBtnId: 'btn-clear-acta-oficial',
+      getItems: () => oficialesList,
+      nextFocusId: 'acta-ayudante'
+    });
+
+    // 3. Buscador de Personal / Ayudante en Actas
+    const actaAyudanteSelect = setupSearchableDropdown({
+      inputId: 'acta-ayudante',
+      hiddenId: 'acta-ayudante-id',
+      dropdownId: 'acta-ayudante-dropdown',
+      clearBtnId: 'btn-clear-acta-ayudante',
+      getItems: () => ayudantesList,
+      nextFocusId: 'acta-recinto'
+    });
+
+    // 4. Buscador de Recinto Asociado en Actas
+    const actaRecintoSelect = setupSearchableDropdown({
+      inputId: 'acta-recinto',
+      hiddenId: 'acta-recinto-id',
+      dropdownId: 'acta-recinto-dropdown',
+      clearBtnId: 'btn-clear-acta-recinto',
+      getItems: () => recintosList,
+      nextFocusId: 'acta-ptr'
+    });
+
+    // 5. Selector y Buscador de PTRs Activos en Actas
+    const actaPtrSelect = setupSearchableDropdown({
+      inputId: 'acta-ptr',
+      hiddenId: 'acta-ptr-id',
+      dropdownId: 'acta-ptr-dropdown',
+      clearBtnId: 'btn-clear-acta-ptr',
+      getItems: () => listaPTRs,
+      formatValueOnSelect: (item) => 'PTR ' + item.id + ' - ' + (item.titulo || item.name.replace(/^PTR \d+ - /, '')),
+      onSelect: (item) => {
+        const ptrIdHidden = document.getElementById('acta-ptr-id');
+        if (ptrIdHidden) ptrIdHidden.value = item.id;
+        // Si el texto de la observación está vacío, sugerir la descripción de la tarea PTR
+        const textoArea = document.getElementById('acta-texto');
+        if (textoArea && !textoArea.value.trim()) {
+          textoArea.value = (item.titulo || item.name) + ': ';
+        }
+      },
+      nextFocusId: 'acta-dosis'
+    });
+
+    // 6. Buscador de Recinto en Contaminación Superficial (Frotis)
+    const frotisRecintoSelect = setupSearchableDropdown({
+      inputId: 'frotis-recinto',
+      hiddenId: 'frotis-recinto-id',
+      dropdownId: 'frotis-recinto-dropdown',
+      clearBtnId: 'btn-clear-frotis-recinto',
+      getItems: () => recintosList
+    });
+
+    // Exponer helpers globales para cruces X y compatibilidad
+    window.clearActaOficial = () => actaOficialSelect && actaOficialSelect.clear();
+    window.clearActaAyudante = () => actaAyudanteSelect && actaAyudanteSelect.clear();
+    window.clearActaRecinto = () => actaRecintoSelect && actaRecintoSelect.clear();
+    window.clearActaPtr = () => actaPtrSelect && actaPtrSelect.clear();
+    window.clearFrotisRecinto = () => frotisRecintoSelect && frotisRecintoSelect.clear();
 
   
     // ================= IMPLEMENTACIÓN VANILLA DATEPICKER LATAM (DD/MM/AAAA) =================
@@ -4060,13 +4287,27 @@ if (file_exists($miconex_path)) {
 
     function asentarNuevaActa() {
       const texto = document.getElementById('acta-texto').value.trim();
-      const oficialSelect = document.getElementById('acta-oficial');
-      const oficial = oficialSelect ? oficialSelect.value.toUpperCase() : 'OFICIAL DE GUARDIA';
-      const ayudanteSelect = document.getElementById('acta-ayudante');
-      const ayudanteId = ayudanteSelect ? ayudanteSelect.value : '';
-      const ayudanteNombre = ayudanteSelect && ayudanteSelect.selectedIndex > 0 ? ayudanteSelect.options[ayudanteSelect.selectedIndex].text.toUpperCase() : '-';
-      const recinto = document.getElementById('acta-recinto').value || 'General de Planta';
-      const ptr = document.getElementById('acta-ptr').value.trim();
+      const oficialHidden = document.getElementById('acta-oficial-id');
+      const oficialInput = document.getElementById('acta-oficial');
+      const oficial = ((oficialHidden && oficialHidden.value) ? oficialHidden.value : (oficialInput ? oficialInput.value : 'OFICIAL DE GUARDIA')).toUpperCase();
+
+      const ayudanteHidden = document.getElementById('acta-ayudante-id');
+      const ayudanteInput = document.getElementById('acta-ayudante');
+      const ayudanteId = ayudanteHidden ? ayudanteHidden.value : '';
+      const ayudanteNombre = (ayudanteInput && ayudanteInput.value.trim()) ? ayudanteInput.value.trim().toUpperCase() : '-';
+
+      const recintoInput = document.getElementById('acta-recinto');
+      const recinto = (recintoInput && recintoInput.value.trim()) ? recintoInput.value.trim() : 'General de Planta';
+
+      const ptrHidden = document.getElementById('acta-ptr-id');
+      const ptrInput = document.getElementById('acta-ptr');
+      let rawPtr = (ptrHidden && ptrHidden.value) ? ptrHidden.value : (ptrInput ? ptrInput.value.trim() : '');
+      let ptr = '';
+      if (rawPtr) {
+        const m = rawPtr.match(/\d+/);
+        ptr = m ? m[0] : rawPtr;
+      }
+
       const dosis = document.getElementById('acta-dosis').value.trim() || '0.0';
       const tritio = document.getElementById('acta-tritio').value.trim() || '0.0';
       const contBeta = document.getElementById('acta-cont-beta').value.trim() || '0.0';
@@ -4151,9 +4392,11 @@ if (file_exists($miconex_path)) {
 
       showToast('✔️ Acta de guardia asentada correctamente');
 
-      // Limpiar formulario
+      // Limpiar formulario con los nuevos buscadores
       document.getElementById('acta-texto').value = '';
-      document.getElementById('acta-ptr').value = '';
+      if (window.clearActaAyudante) window.clearActaAyudante();
+      if (window.clearActaRecinto) window.clearActaRecinto();
+      if (window.clearActaPtr) window.clearActaPtr();
       document.getElementById('acta-dosis').value = '';
       document.getElementById('acta-tritio').value = '';
       document.getElementById('acta-cont-beta').value = '';
