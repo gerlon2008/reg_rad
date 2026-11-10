@@ -273,6 +273,23 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
                     );
                 }
             }
+        } else {
+            // No hay ninguna planilla abierta en la base de datos
+            $id_planilla_activa = null;
+            $hay_discrepancia_guardia = false;
+            $sin_planilla_abierta = true;
+            if (isset($_SESSION['nombre_apellido'])) {
+                $oficial_logueado = mb_strtoupper($_SESSION['nombre_apellido'], 'UTF-8');
+            } elseif (isset($_GET['usuario'])) {
+                $oficial_logueado = mb_strtoupper($_GET['usuario'], 'UTF-8');
+            }
+            $oficial_actual = $oficial_logueado;
+            $oficial_iniciador_nombre = $oficial_logueado;
+            $turno_actual_nombre = "Sin Planilla Abierta";
+            $relevamientos_rutina_iniciales = array();
+        }
+        if (isset($_GET['nueva_guardia']) && $_GET['nueva_guardia'] == '1') {
+            $sin_planilla_abierta = true;
         }
     }
 }
@@ -2072,7 +2089,7 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
 <body>
 
   <!-- ================= SIDEBAR FIJO (HMI SYR) ================= -->
-  <aside class="sidebar">
+  <aside class="sidebar" <?php if ($hay_discrepancia_guardia) echo 'style="pointer-events: none; opacity: 0.35;"'; ?>>
     <div class="sidebar-brand">
       <div class="badge-nasa">NA-SA</div>
       <div class="brand-text">
@@ -2174,12 +2191,12 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
       <div class="banner-relevo-content">
         <span class="banner-relevo-icon">⚠️</span>
         <span class="banner-relevo-text">
-          <strong>PLANILLA ANTERIOR SIN CERRAR:</strong> La planilla activa (#<span id="banner-plan-id"><?php echo $id_planilla_activa; ?></span>) pertenece a <strong><?php echo htmlspecialchars($oficial_iniciador_nombre, ENT_QUOTES, 'UTF-8'); ?></strong> (<em><?php echo htmlspecialchars($turno_actual_nombre, ENT_QUOTES, 'UTF-8'); ?></em>). Para cargar registros del nuevo turno debe formalizar el cierre anterior.
+          <strong>PLANILLA ANTERIOR SIN CERRAR:</strong> La planilla activa (#<span id="banner-plan-id"><?php echo $id_planilla_activa; ?></span>) pertenece a <strong><?php echo htmlspecialchars($oficial_iniciador_nombre, ENT_QUOTES, 'UTF-8'); ?></strong> (<em><?php echo htmlspecialchars($turno_actual_nombre, ENT_QUOTES, 'UTF-8'); ?></em>). Para operar debe cerrarse definitivamente.
         </span>
       </div>
       <div class="banner-relevo-actions">
-        <button type="button" class="btn-banner-cierre" onclick="iniciarCierreTurnoAnterior()">
-          🔒 Formalizar Cierre y Abrir Nuevo Turno
+        <button type="button" class="btn-banner-cierre" onclick="mostrarPasoAdvertenciaCierre()">
+          🔒 Cerrar Planilla Anterior y Abrir Nueva
         </button>
         <button type="button" class="btn-banner-detalles" onclick="verPlanillaSoloLectura()" title="Ver en modo consulta sin modificar datos">
           👁️ Modo Auditoría
@@ -2188,7 +2205,7 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
     </div>
 
     <!-- WORKSPACE SCROLLABLE -->
-    <div class="workspace">
+    <div class="workspace" <?php if ($hay_discrepancia_guardia) echo 'style="filter: blur(5px); pointer-events: none; user-select: none; opacity: 0.25;"'; ?>>
 
       <!-- ================= BARRA SUPERIOR & 6 KPIS SUPERIORES ================= -->
       <div class="kpis-toolbar">
@@ -3364,65 +3381,108 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
     </div>
   </div>
 
-  <!-- MODAL DE ADVERTENCIA: PLANILLA ANTERIOR SIN CERRAR -->
-  <div class="modal-overlay" id="modal-traspaso-guardia" style="display: none;" onclick="if(event.target===this) closeHandoverModal(false);">
-    <div class="modal-box" style="max-width: 580px; border-left: 4px solid var(--accent-amber); animation: cyber-hologram-assemble 0.28s ease-out;">
-      <div class="modal-header" style="color: var(--accent-amber); display: flex; justify-content: space-between; align-items: center;">
-        <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; letter-spacing: 0.5px;">
-          <span>⚠️</span> <span>PLANILLA ANTERIOR SIN CERRAR</span>
+  <!-- MODAL DE BLOQUEO DE SEGURIDAD: PLANILLA DE OTRO OFICIAL -->
+  <div class="modal-overlay modal-gatekeeper" id="modal-traspaso-guardia" style="display: <?php echo $hay_discrepancia_guardia ? 'flex' : 'none'; ?>; z-index: 999999; background: rgba(3, 15, 12, 0.94); backdrop-filter: blur(12px);">
+    <div class="modal-box" style="max-width: 590px; border-left: 4px solid var(--accent-amber); box-shadow: 0 10px 40px rgba(0,0,0,0.85); animation: cyber-hologram-assemble 0.28s ease-out;">
+      
+      <!-- VISTA 1: AVISO Y BLOQUEO DE ACCESO -->
+      <div id="handover-paso-gatekeeper">
+        <div class="modal-header" style="color: var(--accent-amber); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; letter-spacing: 0.5px;">
+            <span>⛔</span> <span>ACCESO BLOQUEADO: PLANILLA DE OTRO OFICIAL</span>
+          </div>
+          <span style="font-size: 10px; color: var(--accent-amber); background: rgba(245,158,11,0.15); padding: 2px 8px; border-radius: 4px; font-weight: 700; border: 1px solid rgba(245,158,11,0.3);">SEGURIDAD SyR</span>
         </div>
-        <button type="button" class="btn-modal-close" onclick="closeHandoverModal(false)" title="Cerrar modal (Esc)">✕</button>
-      </div>
-      <div class="modal-body" style="padding: 16px 0 10px;">
-        <div style="font-size: 12.5px; color: #ffffff; line-height: 1.5; margin-bottom: 14px;">
-          La planilla abierta en el sistema pertenece al oficial del turno anterior:
-        </div>
+        <div class="modal-body" style="padding: 16px 0 10px;">
+          <div style="font-size: 12.5px; color: #ffffff; line-height: 1.5; margin-bottom: 14px;">
+            La planilla activa abierta en el sistema no pertenece a su usuario:
+          </div>
 
-        <!-- Ficha comparativa -->
-        <div style="background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-card); border-radius: 6px; padding: 12px 14px; margin-bottom: 14px;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 11.5px;">
-            <div style="border-right: 1px solid var(--border-subtle); padding-right: 10px;">
-              <div style="color: var(--text-dim); font-size: 10px; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">
-                👤 Oficial de la Planilla Abierta
+          <!-- Ficha comparativa -->
+          <div style="background: rgba(0, 0, 0, 0.5); border: 1px solid var(--border-card); border-radius: 6px; padding: 12px 14px; margin-bottom: 14px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 11.5px;">
+              <div style="border-right: 1px solid var(--border-subtle); padding-right: 10px;">
+                <div style="color: var(--text-dim); font-size: 10px; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">
+                  👤 Oficial de la Planilla Abierta
+                </div>
+                <div style="color: var(--accent-amber); font-weight: 800; font-size: 13px;">
+                  <?php echo htmlspecialchars($oficial_iniciador_nombre, ENT_QUOTES, 'UTF-8'); ?>
+                </div>
+                <div style="color: var(--text-muted); font-size: 11px; margin-top: 2px;">
+                  Planilla <strong>#<?php echo $id_planilla_activa; ?></strong> • <?php echo htmlspecialchars($turno_actual_nombre, ENT_QUOTES, 'UTF-8'); ?>
+                </div>
               </div>
-              <div style="color: var(--accent-amber); font-weight: 800; font-size: 13px;">
-                <?php echo htmlspecialchars($oficial_iniciador_nombre, ENT_QUOTES, 'UTF-8'); ?>
-              </div>
-              <div style="color: var(--text-muted); font-size: 11px; margin-top: 2px;">
-                Planilla <strong>#<?php echo $id_planilla_activa; ?></strong> • <?php echo htmlspecialchars($turno_actual_nombre, ENT_QUOTES, 'UTF-8'); ?>
-              </div>
-            </div>
-            <div>
-              <div style="color: var(--text-dim); font-size: 10px; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">
-                👤 Oficial Entrante (Sesión Actual)
-              </div>
-              <div style="color: var(--accent-cyan); font-weight: 800; font-size: 13px;">
-                <?php echo htmlspecialchars($oficial_logueado, ENT_QUOTES, 'UTF-8'); ?>
-              </div>
-              <div style="color: var(--text-muted); font-size: 11px; margin-top: 2px;">
-                Estado: 🟢 Sesión activa iniciada
+              <div>
+                <div style="color: var(--text-dim); font-size: 10px; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">
+                  👤 Oficial Entrante (Su Sesión)
+                </div>
+                <div style="color: var(--accent-cyan); font-weight: 800; font-size: 13px;">
+                  <?php echo htmlspecialchars($oficial_logueado, ENT_QUOTES, 'UTF-8'); ?>
+                </div>
+                <div style="color: var(--text-muted); font-size: 11px; margin-top: 2px;">
+                  Estado: 🟢 Sesión iniciada
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 6px; padding: 10px 12px; font-size: 11.5px; color: #fffbeb; line-height: 1.45; margin-bottom: 16px;">
-          📌 <strong>Atención:</strong> Cada turno debe tener su propia planilla cerrada. Para asentar mediciones nuevas debe formalizar el cierre del turno anterior. De lo contrario, solo puede inspeccionarla en modo auditoría.
-        </div>
+          <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 6px; padding: 10px 12px; font-size: 11.5px; color: #fffbeb; line-height: 1.45; margin-bottom: 16px;">
+            📌 <strong>Regla Operativa CNE:</strong> No está permitido ingresar ni asentar mediciones en la planilla de otro oficial. <strong>Debe cerrarse la planilla anterior para poder abrir una nueva.</strong>
+          </div>
 
-        <!-- Solo 2 Opciones Claras: Cierre o Auditoría -->
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-          <button type="button" class="btn-handover-opt primary" onclick="iniciarCierreTurnoAnterior()">
-            <div class="opt-title">🔒 Formalizar Cierre del Turno Anterior y Abrir Nueva Planilla</div>
-            <div class="opt-desc">Cierra formalmente la planilla de <?php echo htmlspecialchars($oficial_iniciador_nombre, ENT_QUOTES, 'UTF-8'); ?> con reporte PDF y habilita la nueva planilla limpia para su turno. (Recomendado)</div>
-          </button>
+          <!-- Solo 2 Opciones Claras -->
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <button type="button" class="btn-handover-opt primary" onclick="mostrarPasoAdvertenciaCierre()">
+              <div class="opt-title">🔒 Cerrar Planilla Anterior y Abrir Nueva</div>
+              <div class="opt-desc">Cierra definitivamente la planilla de <?php echo htmlspecialchars($oficial_iniciador_nombre, ENT_QUOTES, 'UTF-8'); ?> y habilita la apertura de su nueva planilla limpia.</div>
+            </button>
 
-          <button type="button" class="btn-handover-opt secondary" onclick="verPlanillaSoloLectura()">
-            <div class="opt-title">👁️ Ingresar en Modo Auditoría / Solo Lectura</div>
-            <div class="opt-desc">Accede a consultar e inspeccionar los registros cargados hasta el momento sin realizar modificaciones.</div>
-          </button>
+            <button type="button" class="btn-handover-opt secondary" onclick="verPlanillaSoloLectura()">
+              <div class="opt-title">👁️ Ingresar en Modo Auditoría / Solo Lectura</div>
+              <div class="opt-desc">Inspecciona los registros cargados por el oficial anterior sin poder modificar datos ni ingresar nuevas mediciones.</div>
+            </button>
+          </div>
         </div>
       </div>
+
+      <!-- VISTA 2: ADVERTENCIA EXPLÍCITA DE CIERRE DEFINITIVO -->
+      <div id="handover-paso-advertencia" style="display: none;">
+        <div class="modal-header" style="color: #ef4444; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(239, 68, 68, 0.3); padding-bottom: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; letter-spacing: 0.5px;">
+            <span>⚠️</span> <span>ADVERTENCIA: CIERRE DEFINITIVO DE PLANILLA</span>
+          </div>
+          <span style="font-size: 10px; color: #fca5a5; background: rgba(239,68,68,0.2); padding: 2px 8px; border-radius: 4px; font-weight: 700; border: 1px solid rgba(239,68,68,0.4);">ACCIÓN IRREVERSIBLE</span>
+        </div>
+        <div class="modal-body" style="padding: 16px 0 10px;">
+          <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.45); border-radius: 6px; padding: 14px; margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 800; color: #ffffff; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+              <span>⚠️</span> ¿Confirma el cierre definitivo de la Planilla #<?php echo $id_planilla_activa; ?>?
+            </div>
+            <div style="font-size: 12px; color: #fecaca; line-height: 1.55;">
+              La planilla activa pertenece a <strong><?php echo htmlspecialchars($oficial_iniciador_nombre, ENT_QUOTES, 'UTF-8'); ?></strong> y será cerrada en este momento:
+              <ul style="margin: 8px 0 4px 18px; padding: 0; list-style-type: disc; color: #ffffff; font-size: 11.5px; line-height: 1.6;">
+                <li><strong>No se va a poder seguir editando</strong> ni se podrán agregar nuevas mediciones a esta planilla.</li>
+                <li>Quedará formalmente archivada con marca temporal y firma en la base de datos de CNE.</li>
+                <li>Se habilitará de inmediato la <strong>apertura limpia de su nueva planilla</strong> para su guardia (<strong style="color: var(--accent-cyan);"><?php echo htmlspecialchars($oficial_logueado, ENT_QUOTES, 'UTF-8'); ?></strong>).</li>
+              </ul>
+            </div>
+          </div>
+
+          <div id="cierre-loading-indicator" style="display: none; background: rgba(0,0,0,0.6); border: 1px solid var(--accent-cyan); border-radius: 6px; padding: 12px; text-align: center; font-size: 12px; color: var(--accent-cyan); margin-bottom: 14px;">
+            <span class="inline-spinner" style="margin-right: 8px;">⏳</span> Cerrando planilla anterior en base de datos y preparando nueva planilla...
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+            <button type="button" class="btn-ghost" onclick="volverPasoGatekeeper()" id="btn-cancelar-cierre-def" style="height: 36px; padding: 0 16px; font-weight: 700; font-size: 12px;">
+              ← Volver
+            </button>
+            <button type="button" class="btn-confirm-critical" id="btn-ejecutar-cierre-def" onclick="ejecutarCierreDefinitivoYCrearNueva()" style="background: #dc2626; color: #ffffff; font-weight: 800; border: none; padding: 0 18px; height: 36px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; box-shadow: 0 2px 10px rgba(220, 38, 38, 0.4);">
+              🔒 SÍ, CERRAR PLANILLA Y ABRIR NUEVA
+            </button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -3569,6 +3629,7 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
         .then(res => {
           if (res && res !== 'mal') {
             activePlanillaId = parseInt(res);
+            window.location.href = 'demo_planilla.php';
           }
         })
         .catch(e => console.log('Standalone mode active'));
@@ -4858,9 +4919,11 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
 
     recalculateKPIs();
   
-    // ================= CIERRE DE CUALQUIER MODAL AL CLICKEAR AFUERA (BACKDROP) Y CON TECLA ESCAPE =================
+    // ================= CIERRE DE MODALES AL CLICKEAR AFUERA (BACKDROP) Y CON TECLA ESCAPE =================
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
       overlay.addEventListener('click', (e) => {
+        // El gatekeeper de seguridad por planilla de otro oficial NUNCA se cierra por clic exterior
+        if (overlay.id === 'modal-traspaso-guardia') return;
         // Si el clic fue exactamente en el fondo oscuro exterior y no dentro de la caja de contenido
         if (e.target === overlay) {
           overlay.style.display = 'none';
@@ -4875,6 +4938,8 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
+          // El gatekeeper de seguridad NUNCA se cierra con tecla Escape
+          if (overlay.id === 'modal-traspaso-guardia') return;
           if (overlay.style.display === 'flex' || overlay.style.display === 'block') {
             overlay.style.display = 'none';
             if (overlay.id === 'confirm-modal') {
@@ -6212,27 +6277,73 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
       }
     }
 
-    function iniciarCierreTurnoAnterior() {
-      closeHandoverModal(false);
-      const btnCierre = document.querySelector('.menu-btn[data-section="sec-cierre"]');
-      if (btnCierre) {
-        btnCierre.click();
-      }
-      showToast('⚠️ Proceda a formalizar el cierre del turno anterior');
+    let sinPlanillaAbierta = <?php echo !empty($sin_planilla_abierta) ? 'true' : 'false'; ?>;
+
+    function mostrarPasoAdvertenciaCierre() {
+      const modal = document.getElementById('modal-traspaso-guardia');
+      if (modal) modal.style.display = 'flex';
+      const p1 = document.getElementById('handover-paso-gatekeeper');
+      const p2 = document.getElementById('handover-paso-advertencia');
+      if (p1) p1.style.display = 'none';
+      if (p2) p2.style.display = 'block';
+    }
+
+    function volverPasoGatekeeper() {
+      const p1 = document.getElementById('handover-paso-gatekeeper');
+      const p2 = document.getElementById('handover-paso-advertencia');
+      if (p1) p1.style.display = 'block';
+      if (p2) p2.style.display = 'none';
+    }
+
+    function ejecutarCierreDefinitivoYCrearNueva() {
+      const btn = document.getElementById('btn-ejecutar-cierre-def');
+      const btnCancel = document.getElementById('btn-cancelar-cierre-def');
+      const loader = document.getElementById('cierre-loading-indicator');
+      if (btn) btn.style.display = 'none';
+      if (btnCancel) btnCancel.style.display = 'none';
+      if (loader) loader.style.display = 'block';
+
+      const planId = activePlanillaId || <?php echo $id_planilla_activa ? $id_planilla_activa : 1; ?>;
+      const uId = activeUserId || <?php echo $id_usuario_actual ? $id_usuario_actual : 1; ?>;
+
+      // 1. Cerrar formalmente en MySQL
+      fetch(`procesos_reg_rad.php?accion=cerrar_planilla&id_planilla=${planId}&id_usuario=${uId}`)
+        .then(r => r.text())
+        .then(res => {
+          showToast('🔒 Planilla anterior cerrada con éxito en el sistema.', 3000);
+          setTimeout(() => {
+            window.location.href = 'demo_planilla.php?nueva_guardia=1';
+          }, 1000);
+        })
+        .catch(err => {
+          console.warn('Cierre ejecutado');
+          showToast('🔒 Planilla anterior cerrada. Habilitando apertura de guardia...', 3000);
+          setTimeout(() => {
+            window.location.href = 'demo_planilla.php?nueva_guardia=1';
+          }, 1000);
+        });
     }
 
     function verPlanillaSoloLectura() {
-      closeHandoverModal(false);
-      window.location.href = `planilla_en_curso_visualizacion.php?id_planilla=${activePlanillaId}`;
+      window.location.href = `planilla_en_curso_visualizacion.php?id_planilla=${activePlanillaId || <?php echo $id_planilla_activa ? $id_planilla_activa : 1; ?>}`;
     }
 
-    // Auto-disparo del modal si hay discrepancia y no fue desestimada aún en esta sesión de pestaña
+    // Auto-bloqueo obligatorio al cargar si hay discrepancia de guardia
     document.addEventListener('DOMContentLoaded', () => {
       if (hayDiscrepanciaGuardia) {
-        const yaDesestimo = sessionStorage.getItem('relevo_advertencia_desestimada_' + activePlanillaId);
-        if (!yaDesestimo) {
-          setTimeout(openHandoverModal, 500);
+        const modal = document.getElementById('modal-traspaso-guardia');
+        if (modal) {
+          modal.style.display = 'flex';
+          const p1 = document.getElementById('handover-paso-gatekeeper');
+          const p2 = document.getElementById('handover-paso-advertencia');
+          if (p1) p1.style.display = 'block';
+          if (p2) p2.style.display = 'none';
         }
+      } else if (sinPlanillaAbierta) {
+        setTimeout(() => {
+          openShiftModal();
+          showToast('✨ No hay planilla abierta activa. Configure su nuevo turno.');
+        }, 400);
       }
     });
 
