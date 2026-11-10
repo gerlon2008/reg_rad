@@ -2169,20 +2169,20 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
       </div>
     </header>
 
-    <!-- BANNER DE RELEVO DE GUARDIA / PLANILLA PENDIENTE -->
+    <!-- BANNER DE ADVERTENCIA: PLANILLA ANTERIOR SIN CERRAR -->
     <div id="banner-relevo-guardia" class="banner-relevo-guardia" style="display: <?php echo $hay_discrepancia_guardia ? 'flex' : 'none'; ?>;">
       <div class="banner-relevo-content">
         <span class="banner-relevo-icon">⚠️</span>
         <span class="banner-relevo-text">
-          <strong>PLANILLA EN CURSO DE OTRO OFICIAL:</strong> Esta planilla (#<span id="banner-plan-id"><?php echo $id_planilla_activa; ?></span>) fue iniciada por <strong><?php echo htmlspecialchars($oficial_iniciador_nombre, ENT_QUOTES, 'UTF-8'); ?></strong> (<em><?php echo htmlspecialchars($turno_actual_nombre, ENT_QUOTES, 'UTF-8'); ?></em>). Está operando como <strong><span id="banner-user-name"><?php echo htmlspecialchars($oficial_logueado, ENT_QUOTES, 'UTF-8'); ?></span></strong>.
+          <strong>PLANILLA ANTERIOR SIN CERRAR:</strong> La planilla activa (#<span id="banner-plan-id"><?php echo $id_planilla_activa; ?></span>) pertenece a <strong><?php echo htmlspecialchars($oficial_iniciador_nombre, ENT_QUOTES, 'UTF-8'); ?></strong> (<em><?php echo htmlspecialchars($turno_actual_nombre, ENT_QUOTES, 'UTF-8'); ?></em>). Para cargar registros del nuevo turno debe formalizar el cierre anterior.
         </span>
       </div>
       <div class="banner-relevo-actions">
         <button type="button" class="btn-banner-cierre" onclick="iniciarCierreTurnoAnterior()">
           🔒 Formalizar Cierre y Abrir Nuevo Turno
         </button>
-        <button type="button" class="btn-banner-detalles" onclick="openHandoverModal()" title="Ver opciones de traspaso">
-          ⚙️ Opciones de Traspaso
+        <button type="button" class="btn-banner-detalles" onclick="verPlanillaSoloLectura()" title="Ver en modo consulta sin modificar datos">
+          👁️ Modo Auditoría
         </button>
       </div>
     </div>
@@ -3364,18 +3364,18 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
     </div>
   </div>
 
-  <!-- MODAL DE ADVERTENCIA DE RELEVO: PLANILLA ANTERIOR SIN CERRAR -->
+  <!-- MODAL DE ADVERTENCIA: PLANILLA ANTERIOR SIN CERRAR -->
   <div class="modal-overlay" id="modal-traspaso-guardia" style="display: none;" onclick="if(event.target===this) closeHandoverModal(false);">
-    <div class="modal-box" style="max-width: 620px; border-left: 4px solid var(--accent-amber); animation: cyber-hologram-assemble 0.28s ease-out;">
+    <div class="modal-box" style="max-width: 580px; border-left: 4px solid var(--accent-amber); animation: cyber-hologram-assemble 0.28s ease-out;">
       <div class="modal-header" style="color: var(--accent-amber); display: flex; justify-content: space-between; align-items: center;">
         <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; letter-spacing: 0.5px;">
-          <span>⚠️</span> <span>AVISO DE RELEVO: PLANILLA ANTERIOR SIN CERRAR</span>
+          <span>⚠️</span> <span>PLANILLA ANTERIOR SIN CERRAR</span>
         </div>
         <button type="button" class="btn-modal-close" onclick="closeHandoverModal(false)" title="Cerrar modal (Esc)">✕</button>
       </div>
       <div class="modal-body" style="padding: 16px 0 10px;">
         <div style="font-size: 12.5px; color: #ffffff; line-height: 1.5; margin-bottom: 14px;">
-          Se detectó una <strong>Planilla de Guardia abierta</strong> en el sistema iniciada por otro oficial:
+          La planilla abierta en el sistema pertenece al oficial del turno anterior:
         </div>
 
         <!-- Ficha comparativa -->
@@ -3383,7 +3383,7 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 11.5px;">
             <div style="border-right: 1px solid var(--border-subtle); padding-right: 10px;">
               <div style="color: var(--text-dim); font-size: 10px; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">
-                👤 Oficial Saliente (Inició Planilla)
+                👤 Oficial de la Planilla Abierta
               </div>
               <div style="color: var(--accent-amber); font-weight: 800; font-size: 13px;">
                 <?php echo htmlspecialchars($oficial_iniciador_nombre, ENT_QUOTES, 'UTF-8'); ?>
@@ -3407,24 +3407,19 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
         </div>
 
         <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 6px; padding: 10px 12px; font-size: 11.5px; color: #fffbeb; line-height: 1.45; margin-bottom: 16px;">
-          📌 <strong>Importante:</strong> Es posible que el oficial del turno anterior haya olvidado cerrar la planilla al retirarse. Seleccione cómo desea proceder:
+          📌 <strong>Atención:</strong> Cada turno debe tener su propia planilla cerrada. Para asentar mediciones nuevas debe formalizar el cierre del turno anterior. De lo contrario, solo puede inspeccionarla en modo auditoría.
         </div>
 
-        <!-- Opciones de acción -->
+        <!-- Solo 2 Opciones Claras: Cierre o Auditoría -->
         <div style="display: flex; flex-direction: column; gap: 10px;">
           <button type="button" class="btn-handover-opt primary" onclick="iniciarCierreTurnoAnterior()">
             <div class="opt-title">🔒 Formalizar Cierre del Turno Anterior y Abrir Nueva Planilla</div>
-            <div class="opt-desc">Cierra formalmente la planilla de <?php echo htmlspecialchars($oficial_iniciador_nombre, ENT_QUOTES, 'UTF-8'); ?> con reporte PDF y crea la planilla limpia para su nuevo turno. (Recomendado)</div>
+            <div class="opt-desc">Cierra formalmente la planilla de <?php echo htmlspecialchars($oficial_iniciador_nombre, ENT_QUOTES, 'UTF-8'); ?> con reporte PDF y habilita la nueva planilla limpia para su turno. (Recomendado)</div>
           </button>
 
-          <button type="button" class="btn-handover-opt secondary" onclick="continuarComoRelevo()">
-            <div class="opt-title">✍️ Continuar en esta Planilla (Relevo / Co-responsable)</div>
-            <div class="opt-desc">Mantiene la planilla actual abierta. Sus nuevas mediciones y actas quedarán firmadas a su nombre (<?php echo htmlspecialchars($oficial_logueado, ENT_QUOTES, 'UTF-8'); ?>).</div>
-          </button>
-
-          <button type="button" class="btn-handover-opt tertiary" onclick="verPlanillaSoloLectura()">
-            <div class="opt-title">👁️ Modo Solo Lectura / Auditoría</div>
-            <div class="opt-desc">Inspecciona los registros cargados hasta el momento sin riesgo de modificar ni agregar datos.</div>
+          <button type="button" class="btn-handover-opt secondary" onclick="verPlanillaSoloLectura()">
+            <div class="opt-title">👁️ Ingresar en Modo Auditoría / Solo Lectura</div>
+            <div class="opt-desc">Accede a consultar e inspeccionar los registros cargados hasta el momento sin realizar modificaciones.</div>
           </button>
         </div>
       </div>
@@ -6223,18 +6218,7 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
       if (btnCierre) {
         btnCierre.click();
       }
-      showToast('⚠️ Proceda a formalizar el cierre de la guardia anterior');
-    }
-
-    function continuarComoRelevo() {
-      sessionStorage.setItem('relevo_advertencia_aceptada_' + activePlanillaId, '1');
-      closeHandoverModal(false);
-      showToast('✍️ Operando como relevo en la Planilla #' + activePlanillaId);
-      const indicator = document.querySelector('.session-indicator');
-      if (indicator) {
-        indicator.innerHTML = `🟢 Relevo Activo • Iniciada por: ${oficialIniciador.split(',')[0]}`;
-        indicator.style.color = 'var(--accent-amber)';
-      }
+      showToast('⚠️ Proceda a formalizar el cierre del turno anterior');
     }
 
     function verPlanillaSoloLectura() {
@@ -6242,12 +6226,11 @@ $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficia
       window.location.href = `planilla_en_curso_visualizacion.php?id_planilla=${activePlanillaId}`;
     }
 
-    // Auto-disparo del modal si hay discrepancia y no fue aceptada aún en esta sesión de pestaña
+    // Auto-disparo del modal si hay discrepancia y no fue desestimada aún en esta sesión de pestaña
     document.addEventListener('DOMContentLoaded', () => {
       if (hayDiscrepanciaGuardia) {
-        const yaAcepto = sessionStorage.getItem('relevo_advertencia_aceptada_' + activePlanillaId);
         const yaDesestimo = sessionStorage.getItem('relevo_advertencia_desestimada_' + activePlanillaId);
-        if (!yaAcepto && !yaDesestimo) {
+        if (!yaDesestimo) {
           setTimeout(openHandoverModal, 500);
         }
       }
