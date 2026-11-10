@@ -62,6 +62,21 @@ $gn_xe135_db = "0.0";
 $gn_xe135m_db = "0.0";
 $hay_gases_nobles_db = false;
 
+$rows_espectrometria_db = array(
+  array(
+    'id_conc_rad' => 1,
+    'tipo' => 'GN',
+    'recinto' => 501,
+    'recinto_nombre' => 'R-501',
+    'hora' => '17:54:00',
+    'ar41' => 0.0,
+    'xe133' => 0.0,
+    'xe135' => 0.0,
+    'kr88' => 0.0,
+    'fecha' => '2026-11-08'
+  )
+);
+
 $recintos_array = array(
   array('id' => 1, 'recinto' => 'R-001 - Edificio de Contención (+15m)'),
   array('id' => 2, 'recinto' => 'R-002 - Edificio de Contención (-5m)'),
@@ -322,6 +337,20 @@ if (file_exists($miconex_path)) {
                 $gn_xe135_db = ($row_gn['xe135'] !== null && $row_gn['xe135'] !== '') ? ($row_gn['xe135'] > 1e4 ? round($row_gn['xe135'] / 1e9, 2) : round($row_gn['xe135'], 2)) : "0.0";
                 $gn_xe135m_db = ($row_gn['xe135m'] !== null && $row_gn['xe135m'] !== '') ? ($row_gn['xe135m'] > 1e4 ? round($row_gn['xe135m'] / 1e9, 2) : round($row_gn['xe135m'], 2)) : "0.0";
                 $hay_gases_nobles_db = true;
+            }
+
+            // 13. Espectrometría del Aire de Zona Controlada
+            $rows_espectrometria_db = array();
+            $q_esp = "SELECT a.*, b.recinto as recinto_nombre 
+                      FROM regrad_espectr_conc_radionuclei a 
+                      LEFT JOIN graf_tritio_recintos b ON b.id = a.recinto 
+                      WHERE a.id_planilla = $id_planilla_activa 
+                      ORDER BY a.fecha DESC, a.hora DESC";
+            $res_esp = mysql_query($q_esp, $miconex);
+            if ($res_esp && mysql_num_rows($res_esp) > 0) {
+                while ($row_e = mysql_fetch_assoc($res_esp)) {
+                    $rows_espectrometria_db[] = $row_e;
+                }
             }
 
             
@@ -2200,6 +2229,10 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         <span>💨 EMISIÓN EFLUENTES GASEOSOS</span>
         <span class="menu-badge">RO 8.4%</span>
       </button>
+      <button class="menu-btn" data-section="sec-espectrometria">
+        <span>🔬 ESPECTROMETRÍA DE AIRE (ZC)</span>
+        <span class="menu-badge" id="menu-badge-espectrometria"><?php echo count($rows_espectrometria_db); ?></span>
+      </button>
       <button class="menu-btn" data-section="sec-liquidos">
         <span>💧 EMISIÓN DE EFLUENTES LÍQUIDOS</span>
         <span class="menu-badge">Nominal</span>
@@ -2715,6 +2748,92 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                   🗑️ Borrar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SECCIÓN: ESPECTROMETRÍA DEL AIRE DE ZONA CONTROLADA ================= -->
+      <section class="section-panel" id="sec-espectrometria">
+        <div class="panel-box">
+          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="panel-title">
+              <span>🔬</span> ESPECTROMETRÍA DEL AIRE DE ZONA CONTROLADA
+            </div>
+            <button type="button" class="btn-new-shift" onclick="openEspectrometriaModal()" style="padding: 5px 12px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; height: 30px; border-radius: 6px;">
+              <span>➕ Cargar datos de Espectrometría</span>
+            </button>
+          </div>
+          <div class="panel-body">
+            <div style="overflow-x: auto;">
+              <table class="data-table" id="tabla-espectrometria-aire" style="font-size: 11.5px;">
+                <thead>
+                  <tr>
+                    <th rowspan="2" style="vertical-align: middle;">Concentración de</th>
+                    <th rowspan="2" style="vertical-align: middle;">Recinto</th>
+                    <th rowspan="2" style="vertical-align: middle; text-align: center; width: 80px;">Hora</th>
+                    <th colspan="4" style="text-align: center; border-bottom: 1px solid var(--border-card);">Radionucleídos (DAC)</th>
+                    <th rowspan="2" style="vertical-align: middle; text-align: right; width: 100px; color: var(--accent-cyan);">TOTAL (DAC)</th>
+                    <th rowspan="2" style="vertical-align: middle; text-align: center; width: 100px;">Acciones</th>
+                  </tr>
+                  <tr>
+                    <th style="text-align: right; width: 85px; color: #a78bfa;">Ar-41</th>
+                    <th style="text-align: right; width: 85px; color: #34d399;">Xe-133</th>
+                    <th style="text-align: right; width: 85px; color: #34d399;">Xe-135</th>
+                    <th style="text-align: right; width: 85px; color: #f59e0b;">Kr-88</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-espectrometria">
+                  <?php if (empty($rows_espectrometria_db)) { ?>
+                    <tr id="row-esp-empty">
+                      <td colspan="9" style="text-align: center; padding: 24px; color: var(--text-dim); font-style: italic;">
+                        - No se registraron espectrometrías de aire específicas en este turno -
+                      </td>
+                    </tr>
+                  <?php } else { ?>
+                    <?php foreach ($rows_espectrometria_db as $esp) { 
+                      $ar = (float)$esp['ar41'];
+                      $x3 = (float)$esp['xe133'];
+                      $x5 = (float)$esp['xe135'];
+                      $k8 = (float)$esp['kr88'];
+                      $tot = $ar + $x3 + $x5 + $k8;
+                      $hora_corta = substr($esp['hora'], 0, 5);
+                      $rec_nom = !empty($esp['recinto_nombre']) ? $esp['recinto_nombre'] : ('Recinto #' . $esp['recinto']);
+                    ?>
+                      <tr id="row-esp-<?php echo $esp['id_conc_rad']; ?>" 
+                          data-id="<?php echo $esp['id_conc_rad']; ?>"
+                          data-tipo="<?php echo htmlspecialchars($esp['tipo'], ENT_QUOTES, 'UTF-8'); ?>"
+                          data-recinto="<?php echo $esp['recinto']; ?>"
+                          data-recinto-nombre="<?php echo htmlspecialchars($rec_nom, ENT_QUOTES, 'UTF-8'); ?>"
+                          data-hora="<?php echo $hora_corta; ?>"
+                          data-fecha="<?php echo htmlspecialchars($esp['fecha'], ENT_QUOTES, 'UTF-8'); ?>"
+                          data-ar41="<?php echo $ar; ?>"
+                          data-xe133="<?php echo $x3; ?>"
+                          data-xe135="<?php echo $x5; ?>"
+                          data-kr88="<?php echo $k8; ?>">
+                        <td style="font-weight: 700; color: #ffffff;"><?php echo strtoupper(htmlspecialchars($esp['tipo'], ENT_QUOTES, 'UTF-8')); ?></td>
+                        <td><span style="font-weight: 600; color: var(--accent-cyan);"><?php echo htmlspecialchars($rec_nom, ENT_QUOTES, 'UTF-8'); ?></span></td>
+                        <td class="mono" style="text-align: center;"><?php echo $hora_corta; ?></td>
+                        <td class="mono num" style="text-align: right; color: #a78bfa;"><?php echo number_format($ar, 1); ?></td>
+                        <td class="mono num" style="text-align: right; color: #34d399;"><?php echo number_format($x3, 1); ?></td>
+                        <td class="mono num" style="text-align: right; color: #34d399;"><?php echo number_format($x5, 1); ?></td>
+                        <td class="mono num" style="text-align: right; color: #f59e0b;"><?php echo number_format($k8, 1); ?></td>
+                        <td class="mono num" style="text-align: right; font-weight: 800; color: var(--accent-cyan);"><?php echo number_format($tot, 1); ?></td>
+                        <td style="text-align: center;">
+                          <div style="display: inline-flex; gap: 6px;">
+                            <button type="button" class="btn-action-icon" onclick="openEspectrometriaModal(<?php echo $esp['id_conc_rad']; ?>)" title="Editar registro de espectrometría" style="background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--accent-cyan); padding: 3px 6px; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                              ✏️
+                            </button>
+                            <button type="button" class="btn-action-icon" onclick="deleteEspectrometria(<?php echo $esp['id_conc_rad']; ?>)" title="Eliminar registro" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--accent-red); padding: 3px 6px; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                              ⛔
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    <?php } ?>
+                  <?php } ?>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -3549,6 +3668,80 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
   <!-- NOTIFICACIÓN TOAST -->
   <div class="toast-popup" id="toast"></div>
+
+  <!-- ================= MODAL DE CARGA / EDICIÓN DE ESPECTROMETRÍA ================= -->
+  <div class="modal-overlay" id="modal-espectrometria" style="display: none;">
+    <div class="modal-box" style="width: 540px;">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <span style="color: var(--accent-cyan);">🔬</span>
+          <span id="modal-esp-title">Cargar Espectrometría del Aire (ZC)</span>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeEspectrometriaModal()" title="Cerrar (Esc)">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        <input type="hidden" id="esp-in-id" value="">
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="field-group">
+            <label class="field-label">Concentración de</label>
+            <input type="text" id="esp-in-tipo" class="field-control" value="GN" placeholder="Ej: GN">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Hora (HH:MM)</label>
+            <input type="text" id="esp-in-hora" class="field-control mono latam-timepicker-input" value="<?php echo $hora_actual; ?>" placeholder="HH:MM">
+          </div>
+        </div>
+
+        <div class="field-group" style="margin-bottom: 14px;">
+          <label class="field-label">Recinto de Planta</label>
+          <select id="esp-in-recinto" class="field-control">
+            <?php foreach ($recintos_array as $rec) { ?>
+              <option value="<?php echo $rec['id']; ?>">
+                <?php echo htmlspecialchars($rec['recinto'], ENT_QUOTES, 'UTF-8'); ?>
+              </option>
+            <?php } ?>
+          </select>
+        </div>
+
+        <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
+          Radionucleídos Identificados (Concentración en DAC):
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px;">
+          <div class="field-group">
+            <label class="field-label" style="text-align: center; color: #a78bfa; font-weight: 700;">Ar-41</label>
+            <input type="number" step="0.01" id="esp-in-ar41" class="field-control mono" value="0.0" style="text-align: center; font-weight: 700; color: #a78bfa;" oninput="calcEspectrometriaTotal()">
+            <span style="font-size: 9.5px; color: var(--text-dim); text-align: center; display: block; margin-top: 2px;">DAC</span>
+          </div>
+          <div class="field-group">
+            <label class="field-label" style="text-align: center; color: #34d399; font-weight: 700;">Xe-133</label>
+            <input type="number" step="0.01" id="esp-in-xe133" class="field-control mono" value="0.0" style="text-align: center; font-weight: 700; color: #34d399;" oninput="calcEspectrometriaTotal()">
+            <span style="font-size: 9.5px; color: var(--text-dim); text-align: center; display: block; margin-top: 2px;">DAC</span>
+          </div>
+          <div class="field-group">
+            <label class="field-label" style="text-align: center; color: #34d399; font-weight: 700;">Xe-135</label>
+            <input type="number" step="0.01" id="esp-in-xe135" class="field-control mono" value="0.0" style="text-align: center; font-weight: 700; color: #34d399;" oninput="calcEspectrometriaTotal()">
+            <span style="font-size: 9.5px; color: var(--text-dim); text-align: center; display: block; margin-top: 2px;">DAC</span>
+          </div>
+          <div class="field-group">
+            <label class="field-label" style="text-align: center; color: #f59e0b; font-weight: 700;">Kr-88</label>
+            <input type="number" step="0.01" id="esp-in-kr88" class="field-control mono" value="0.0" style="text-align: center; font-weight: 700; color: #f59e0b;" oninput="calcEspectrometriaTotal()">
+            <span style="font-size: 9.5px; color: var(--text-dim); text-align: center; display: block; margin-top: 2px;">DAC</span>
+          </div>
+        </div>
+
+        <div style="background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.25); border-radius: 6px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11.5px; font-weight: 700; color: var(--text-muted);">Concentración Total Radionucleídos:</span>
+          <span id="esp-total-preview" style="font-size: 16px; font-weight: 800; font-family: var(--font-mono); color: var(--accent-cyan);">0.0 DAC</span>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn-modal-cancel" onclick="closeEspectrometriaModal()">CANCELAR</button>
+        <button type="button" class="btn-modal-confirm" onclick="saveEspectrometria()">💾 GUARDAR ESPECTROMETRÍA</button>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL DE ALERTA DE SEGURIDAD RADIOLÓGICA -->
   <div class="modal-overlay" id="confirm-modal">
@@ -5061,6 +5254,197 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
       saveKpiMetrics();
       showToast('🗑️ Mediciones de chimenea eliminadas (pendientes)');
+    }
+
+    // ================= FUNCIONES DE ESPECTROMETRÍA DEL AIRE (ZC) =================
+    function calcEspectrometriaTotal() {
+      const ar = parseFloat(document.getElementById('esp-in-ar41')?.value) || 0;
+      const x3 = parseFloat(document.getElementById('esp-in-xe133')?.value) || 0;
+      const x5 = parseFloat(document.getElementById('esp-in-xe135')?.value) || 0;
+      const k8 = parseFloat(document.getElementById('esp-in-kr88')?.value) || 0;
+      const total = (ar + x3 + x5 + k8).toFixed(1);
+      const prev = document.getElementById('esp-total-preview');
+      if (prev) prev.textContent = `${total} DAC`;
+      return total;
+    }
+
+    function openEspectrometriaModal(id) {
+      const modal = document.getElementById('modal-espectrometria');
+      const title = document.getElementById('modal-esp-title');
+      const idInp = document.getElementById('esp-in-id');
+      const tipoInp = document.getElementById('esp-in-tipo');
+      const horaInp = document.getElementById('esp-in-hora');
+      const recintoInp = document.getElementById('esp-in-recinto');
+      const arInp = document.getElementById('esp-in-ar41');
+      const x3Inp = document.getElementById('esp-in-xe133');
+      const x5Inp = document.getElementById('esp-in-xe135');
+      const k8Inp = document.getElementById('esp-in-kr88');
+
+      if (id) {
+        title.textContent = 'Editar Espectrometría del Aire (ZC)';
+        idInp.value = id;
+        const row = document.getElementById(`row-esp-${id}`);
+        if (row) {
+          tipoInp.value = row.getAttribute('data-tipo') || 'GN';
+          horaInp.value = row.getAttribute('data-hora') || '';
+          if (recintoInp) recintoInp.value = row.getAttribute('data-recinto') || '1';
+          if (arInp) arInp.value = row.getAttribute('data-ar41') || '0.0';
+          if (x3Inp) x3Inp.value = row.getAttribute('data-xe133') || '0.0';
+          if (x5Inp) x5Inp.value = row.getAttribute('data-xe135') || '0.0';
+          if (k8Inp) k8Inp.value = row.getAttribute('data-kr88') || '0.0';
+        }
+      } else {
+        title.textContent = 'Cargar Espectrometría del Aire (ZC)';
+        idInp.value = '';
+        tipoInp.value = 'GN';
+        const d = new Date();
+        horaInp.value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        if (arInp) arInp.value = '0.0';
+        if (x3Inp) x3Inp.value = '0.0';
+        if (x5Inp) x5Inp.value = '0.0';
+        if (k8Inp) k8Inp.value = '0.0';
+      }
+
+      calcEspectrometriaTotal();
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeEspectrometriaModal() {
+      const modal = document.getElementById('modal-espectrometria');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function saveEspectrometria() {
+      const id = (document.getElementById('esp-in-id')?.value || '').trim();
+      const tipo = (document.getElementById('esp-in-tipo')?.value || 'GN').trim();
+      const hora = (document.getElementById('esp-in-hora')?.value || '').trim();
+      const recintoSelect = document.getElementById('esp-in-recinto');
+      const recintoId = recintoSelect ? recintoSelect.value : '1';
+      const recintoNombre = recintoSelect ? recintoSelect.options[recintoSelect.selectedIndex].text : '';
+      const ar41 = (document.getElementById('esp-in-ar41')?.value || '0').trim();
+      const xe133 = (document.getElementById('esp-in-xe133')?.value || '0').trim();
+      const xe135 = (document.getElementById('esp-in-xe135')?.value || '0').trim();
+      const kr88 = (document.getElementById('esp-in-kr88')?.value || '0').trim();
+
+      if (!hora) {
+        alert('Debe especificar la hora de la medición de espectrometría.');
+        return;
+      }
+
+      const fechaSql = '<?php echo date("Y-m-d"); ?>';
+      let url = '';
+      if (id) {
+        url = `procesos_reg_rad.php?accion=actualizar_valores_espectrometria_aire_edicion&id_espectrometria_aire=${id}&fecha=${fechaSql}&tipo=${encodeURIComponent(tipo)}&recinto=${recintoId}&hora=${encodeURIComponent(hora)}&ar41=${encodeURIComponent(ar41)}&xe133=${encodeURIComponent(xe133)}&xe135=${encodeURIComponent(xe135)}&kr88=${encodeURIComponent(kr88)}`;
+      } else {
+        url = `procesos_reg_rad.php?accion=guardar_valores_espectrometria_aire&id_planilla=${activePlanillaId || 1}&id_usuario=${activeUserId || 1}&fecha=${fechaSql}&tipo=${encodeURIComponent(tipo)}&recinto=${recintoId}&hora=${encodeURIComponent(hora)}&ar41=${encodeURIComponent(ar41)}&xe133=${encodeURIComponent(xe133)}&xe135=${encodeURIComponent(xe135)}&kr88=${encodeURIComponent(kr88)}`;
+      }
+
+      if (typeof SyncEngine !== 'undefined') {
+        SyncEngine.enqueue('espectrometria', url);
+      } else if (!IS_DEMO_MODE) {
+        fetch(url);
+      }
+
+      const totalVal = (parseFloat(ar41) + parseFloat(xe133) + parseFloat(xe135) + parseFloat(kr88)).toFixed(1);
+      const tbody = document.getElementById('tbody-espectrometria');
+      const emptyRow = document.getElementById('row-esp-empty');
+      if (emptyRow) emptyRow.remove();
+
+      if (id) {
+        const row = document.getElementById(`row-esp-${id}`);
+        if (row) {
+          row.setAttribute('data-tipo', tipo);
+          row.setAttribute('data-hora', hora);
+          row.setAttribute('data-recinto', recintoId);
+          row.setAttribute('data-recinto-nombre', recintoNombre);
+          row.setAttribute('data-ar41', ar41);
+          row.setAttribute('data-xe133', xe133);
+          row.setAttribute('data-xe135', xe135);
+          row.setAttribute('data-kr88', kr88);
+          row.cells[0].textContent = tipo.toUpperCase();
+          row.cells[1].innerHTML = `<span style="font-weight: 600; color: var(--accent-cyan);">${recintoNombre}</span>`;
+          row.cells[2].textContent = hora;
+          row.cells[3].textContent = parseFloat(ar41).toFixed(1);
+          row.cells[4].textContent = parseFloat(xe133).toFixed(1);
+          row.cells[5].textContent = parseFloat(xe135).toFixed(1);
+          row.cells[6].textContent = parseFloat(kr88).toFixed(1);
+          row.cells[7].textContent = totalVal;
+        }
+      } else {
+        const tempId = 'temp_' + Date.now();
+        const tr = document.createElement('tr');
+        tr.id = `row-esp-${tempId}`;
+        tr.setAttribute('data-id', tempId);
+        tr.setAttribute('data-tipo', tipo);
+        tr.setAttribute('data-recinto', recintoId);
+        tr.setAttribute('data-recinto-nombre', recintoNombre);
+        tr.setAttribute('data-hora', hora);
+        tr.setAttribute('data-fecha', fechaSql);
+        tr.setAttribute('data-ar41', ar41);
+        tr.setAttribute('data-xe133', xe133);
+        tr.setAttribute('data-xe135', xe135);
+        tr.setAttribute('data-kr88', kr88);
+        tr.innerHTML = `
+          <td style="font-weight: 700; color: #ffffff;">${tipo.toUpperCase()}</td>
+          <td><span style="font-weight: 600; color: var(--accent-cyan);">${recintoNombre}</span></td>
+          <td class="mono" style="text-align: center;">${hora}</td>
+          <td class="mono num" style="text-align: right; color: #a78bfa;">${parseFloat(ar41).toFixed(1)}</td>
+          <td class="mono num" style="text-align: right; color: #34d399;">${parseFloat(xe133).toFixed(1)}</td>
+          <td class="mono num" style="text-align: right; color: #34d399;">${parseFloat(xe135).toFixed(1)}</td>
+          <td class="mono num" style="text-align: right; color: #f59e0b;">${parseFloat(kr88).toFixed(1)}</td>
+          <td class="mono num" style="text-align: right; font-weight: 800; color: var(--accent-cyan);">${totalVal}</td>
+          <td style="text-align: center;">
+            <div style="display: inline-flex; gap: 6px;">
+              <button type="button" class="btn-action-icon" onclick="openEspectrometriaModal('${tempId}')" title="Editar registro" style="background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--accent-cyan); padding: 3px 6px; border-radius: 4px; cursor: pointer; font-size: 11px;">✏️</button>
+              <button type="button" class="btn-action-icon" onclick="deleteEspectrometria('${tempId}')" title="Eliminar registro" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--accent-red); padding: 3px 6px; border-radius: 4px; cursor: pointer; font-size: 11px;">⛔</button>
+            </div>
+          </td>
+        `;
+        tbody.prepend(tr);
+      }
+
+      // Actualizar contador del menú
+      const countEl = document.getElementById('menu-badge-espectrometria');
+      if (countEl) {
+        const rowsCount = tbody.querySelectorAll('tr:not(#row-esp-empty)').length;
+        countEl.textContent = rowsCount;
+      }
+
+      closeEspectrometriaModal();
+      showToast('✅ Registro de Espectrometría guardado correctamente');
+    }
+
+    function deleteEspectrometria(id) {
+      if (!confirm('¿Está seguro de que desea eliminar este registro de espectrometría?')) return;
+
+      if (id && !String(id).startsWith('temp_')) {
+        const url = `procesos_reg_rad.php?accion=eliminar_registro_generico&nombre_tabla=regrad_espectr_conc_radionuclei&nombre_campo_id=id_conc_rad&id_registro=${id}`;
+        if (typeof SyncEngine !== 'undefined') {
+          SyncEngine.enqueue('delete_espectrometria', url);
+        } else if (!IS_DEMO_MODE) {
+          fetch(url);
+        }
+      }
+
+      const row = document.getElementById(`row-esp-${id}`);
+      if (row) row.remove();
+
+      const tbody = document.getElementById('tbody-espectrometria');
+      const rowsCount = tbody.querySelectorAll('tr:not(#row-esp-empty)').length;
+      if (rowsCount === 0) {
+        tbody.innerHTML = `
+          <tr id="row-esp-empty">
+            <td colspan="9" style="text-align: center; padding: 24px; color: var(--text-dim); font-style: italic;">
+              - No se registraron espectrometrías de aire específicas en este turno -
+            </td>
+          </tr>
+        `;
+      }
+
+      const countEl = document.getElementById('menu-badge-espectrometria');
+      if (countEl) countEl.textContent = rowsCount;
+
+      showToast('🗑️ Registro de espectrometría eliminado');
     }
 
     // ================= FUNCIONES DE GASES NOBLES CHIMENEA =================
