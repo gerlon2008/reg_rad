@@ -1794,6 +1794,51 @@ if (file_exists($miconex_path)) {
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
       z-index: 2000;
     }
+    /* ========================================================== */
+    /* TOOLTIPS PERSONALIZADOS CYBERPUNK RADIOLÓGICOS             */
+    /* ========================================================== */
+    #cyber-tooltip {
+      position: fixed;
+      z-index: 999999;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.12s cubic-bezier(0.4, 0, 0.2, 1), transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+      background: rgba(8, 26, 22, 0.96);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--accent-cyan, #10b981);
+      color: var(--text-main, #edfcf6);
+      font-family: var(--font-mono, monospace);
+      font-size: 11px;
+      line-height: 1.45;
+      padding: 6px 10px;
+      border-radius: 5px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8), 0 0 10px rgba(16, 185, 129, 0.25);
+      max-width: 320px;
+      word-wrap: break-word;
+      white-space: normal;
+      display: block;
+    }
+
+    #cyber-tooltip.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #cyber-tooltip.alert {
+      border-color: var(--accent-amber, #f59e0b);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.85), 0 0 14px rgba(245, 158, 11, 0.4);
+      background: rgba(26, 18, 7, 0.97);
+      color: #fffbeb;
+    }
+
+    #cyber-tooltip.danger {
+      border-color: var(--accent-red, #ef4444);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.85), 0 0 14px rgba(239, 68, 68, 0.45);
+      background: rgba(28, 10, 10, 0.97);
+      color: #fef2f2;
+    }
   </style>
 </head>
 <body>
@@ -4523,20 +4568,20 @@ if (file_exists($miconex_path)) {
 
       // Buscar historial o generar valores consistentes para el recinto
       const history = mockRecintoHistory[recintoId] || [
-        { fecha: 'Turno 3', hora: '23:30', oficial: 'ALTUNA', dosis: '4.5', tritio: '0.40', gases: '0.00' },
-        { fecha: 'Turno 2', hora: '15:40', oficial: 'ROLHAUSER', dosis: '4.0', tritio: '0.35', gases: '0.00' },
-        { fecha: 'Turno 1', hora: '08:10', oficial: 'GATICA', dosis: '3.8', tritio: '0.30', gases: '0.00' }
+        { fecha: '08/11/2026', hora: '23:30', dosis: '4.5', tritio: '0.40', gases: '0.00' },
+        { fecha: '08/11/2026', hora: '15:40', dosis: '4.0', tritio: '0.35', gases: '0.00' },
+        { fecha: '08/11/2026', hora: '08:10', dosis: '3.8', tritio: '0.30', gases: '0.00' }
       ];
 
       chipsList.innerHTML = history.map((item, idx) => `
         <div style="background: rgba(22, 54, 48, 0.7); border: 1px solid var(--border-card); border-radius: 4px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px;">
           <span style="font-weight: 800; color: var(--accent-cyan);">[${idx + 1}]</span>
           <span style="color: #ffffff; font-weight: 700;">📅 ${item.fecha} &bull; ${item.hora} hs:</span>
-          <span style="color: var(--accent-amber); font-weight: 700;">${item.dosis} µSv/h</span>
-          <span style="color: var(--text-dim);">|</span>
-          <span style="color: var(--accent-cyan); font-weight: 700;">${item.tritio} DAC</span>
-          <span style="color: var(--text-dim);">|</span>
-          <span style="color: #c084fc;">${item.gases} DAC</span>
+          <span style="color: #c084fc; font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">G. nobles:</span> ${item.gases} DAC</span>
+          <span style="color: var(--border-card);">|</span>
+          <span style="color: var(--accent-cyan); font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Tritio:</span> ${item.tritio} DAC</span>
+          <span style="color: var(--border-card);">|</span>
+          <span style="color: var(--accent-amber); font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Dosis:</span> ${item.dosis} µSv/h</span>
         </div>
       `).join('');
 
@@ -4733,19 +4778,19 @@ if (file_exists($miconex_path)) {
         ];
       }
 
-      // 2. Renderizar las 3 mediciones con SOLO Fecha y Hora (NO oficial, NO turno)
+      // 2. Renderizar las 3 mediciones con SOLO Fecha y Hora en orden: G. nobles, Tritio y Dosis
       container.innerHTML = history.map((item, idx) => `
         <div style="background: rgba(9, 28, 24, 0.85); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-cyan); border-radius: 6px; padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 11.5px;">
           <div style="display: flex; align-items: center; gap: 8px;">
             <span style="font-weight: 800; color: var(--accent-cyan); font-size: 12px;">[${idx + 1}]</span>
             <span style="color: #ffffff; font-weight: 700;">📅 ${item.fecha} &bull; ${item.hora} hs</span>
           </div>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="color: var(--accent-amber); font-weight: 700;">${item.dosis} µSv/h</span>
-            <span style="color: var(--text-dim);">|</span>
-            <span style="color: var(--accent-cyan); font-weight: 700;">${item.tritio} DAC</span>
-            <span style="color: var(--text-dim);">|</span>
-            <span style="color: #c084fc;">${item.gases} DAC</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="color: #c084fc; font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">G. nobles:</span> ${item.gases} DAC</span>
+            <span style="color: var(--border-card);">|</span>
+            <span style="color: var(--accent-cyan); font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Tritio:</span> ${item.tritio} DAC</span>
+            <span style="color: var(--border-card);">|</span>
+            <span style="color: var(--accent-amber); font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Dosis:</span> ${item.dosis} µSv/h</span>
           </div>
         </div>
       `).join('');
@@ -4849,6 +4894,95 @@ if (file_exists($miconex_path)) {
       }
     }
 
+    // ====================================================
+    // MOTOR DE TOOLTIPS CYBERPUNK (REEMPLAZO TOOLTIP NATIVO)
+    // ====================================================
+    (function initCyberTooltips() {
+      let tooltipEl = document.getElementById('cyber-tooltip');
+      if (!tooltipEl) {
+        tooltipEl = document.createElement('div');
+        tooltipEl.id = 'cyber-tooltip';
+        document.body.appendChild(tooltipEl);
+      }
+
+      let activeTarget = null;
+
+      function showTooltip(el, text) {
+        if (!text || !text.trim()) return;
+        activeTarget = el;
+
+        tooltipEl.className = '';
+        const isAlert = text.includes('⚠️') || text.includes('Alza') || text.includes('Supera') || text.includes('Discrepancia') || el.classList.contains('badge-amber');
+        const isDanger = text.includes('🚨') || text.includes('PELIGRO') || text.includes('CRÍTICO') || el.classList.contains('badge-red');
+
+        if (isDanger) {
+          tooltipEl.classList.add('danger');
+        } else if (isAlert) {
+          tooltipEl.classList.add('alert');
+        }
+
+        tooltipEl.textContent = text;
+        tooltipEl.classList.add('visible');
+        positionTooltip(el);
+      }
+
+      function positionTooltip(el) {
+        if (!tooltipEl.classList.contains('visible')) return;
+        const rect = el.getBoundingClientRect();
+        const tipRect = tooltipEl.getBoundingClientRect();
+        const margin = 8;
+
+        let left = rect.left + (rect.width / 2) - (tipRect.width / 2);
+        if (left < 10) left = 10;
+        if (left + tipRect.width > window.innerWidth - 10) {
+          left = window.innerWidth - tipRect.width - 10;
+        }
+
+        let top = rect.top - tipRect.height - margin;
+        if (top < 10) {
+          top = rect.bottom + margin;
+        }
+
+        tooltipEl.style.left = Math.round(left) + 'px';
+        tooltipEl.style.top = Math.round(top) + 'px';
+      }
+
+      function hideTooltip() {
+        activeTarget = null;
+        tooltipEl.classList.remove('visible');
+      }
+
+      // Interceptar mouseover en captura para suprimir de inmediato title nativo blanco
+      document.addEventListener('mouseover', function(e) {
+        const el = e.target.closest('[title], [data-tooltip]');
+        if (!el) return;
+
+        if (el.hasAttribute('title')) {
+          const titleVal = el.getAttribute('title');
+          if (titleVal && titleVal.trim()) {
+            el.setAttribute('data-tooltip', titleVal);
+          }
+          el.removeAttribute('title');
+        }
+
+        const tipText = el.getAttribute('data-tooltip');
+        if (tipText) {
+          showTooltip(el, tipText);
+        }
+      }, true);
+
+      document.addEventListener('mouseout', function(e) {
+        if (!activeTarget) return;
+        if (e.relatedTarget && activeTarget.contains(e.relatedTarget)) {
+          return;
+        }
+        hideTooltip();
+      }, true);
+
+      window.addEventListener('scroll', function() {
+        if (activeTarget) positionTooltip(activeTarget);
+      }, { passive: true });
+    })();
   </script>
     <!-- MODAL HUD: HISTORIAL DE LOS ÚLTIMOS 3 VALORES DEL RECINTO SELECCIONADO -->
   <div class="modal-overlay" id="modal-recinto-historial" style="display: none;" onclick="if(event.target===this) closeRecintoHistoryModal();">
