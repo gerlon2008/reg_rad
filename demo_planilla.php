@@ -43,6 +43,14 @@ $oficial_actual = $oficial_logueado;
 $jefe_turno_actual = "GÓMEZ, CARLOS";
 $estado_planta = "REACTOR EN POTENCIA 100%";
 $turno_actual_nombre = ($turno_default == 3) ? "Turno 3 (23:00 - 07:00)" : (($turno_default == 2) ? "Turno 2 (14:00 - 22:00)" : "Turno 1 (06:00 - 14:00)");
+$vent_gral_db = "1.45";
+$vent_reactor_db = "3.80";
+$c14_db = "12.4";
+$dedo_frio_ppm_db = "12";
+$dedo_frio_menor_que_db = 1;
+$met_vel_db = "14.5";
+$met_dir_db = "Sur";
+$met_pasquill_db = "Clase D (Neutral)";
 
 $recintos_array = array(
   array('id' => 1, 'recinto' => 'R-001 - Edificio de Contención (+15m)'),
@@ -241,6 +249,53 @@ if (file_exists($miconex_path)) {
             $jefe_turno_actual = mb_strtoupper($row_abierta['jefe_apellido'] . ", " . $row_abierta['jefe_nombre'], 'UTF-8');
             if (!empty($row_abierta['nombre_estado'])) {
                 $estado_planta = $row_abierta['nombre_estado'];
+            }
+
+            // 7. Catálogo completo de Estados de Planta para el selector
+            $res_est = mysql_query("SELECT nombre_estado FROM `regrad_estados_planta` WHERE habilitada = 1 ORDER BY nombre_estado", $miconex);
+            if ($res_est && mysql_num_rows($res_est) > 0) {
+                $estados_planta_array = array();
+                while ($row_e = mysql_fetch_assoc($res_est)) {
+                    $estados_planta_array[] = $row_e['nombre_estado'];
+                }
+            }
+
+            // 8. Chimenea - Tritio (Ventilación General y Reactor)
+            $res_tri = mysql_query("SELECT vent_gral, vent_reactor FROM `regrad_tritio` WHERE id_planilla = $id_planilla_activa ORDER BY id_tritio DESC LIMIT 1", $miconex);
+            if ($res_tri && mysql_num_rows($res_tri) > 0) {
+                $row_tri = mysql_fetch_assoc($res_tri);
+                if ($row_tri['vent_gral'] !== null && $row_tri['vent_gral'] !== '') {
+                    $vent_gral_db = round($row_tri['vent_gral'] / 1e9, 2);
+                }
+                if ($row_tri['vent_reactor'] !== null && $row_tri['vent_reactor'] !== '') {
+                    $vent_reactor_db = round($row_tri['vent_reactor'] / 1e9, 2);
+                }
+            }
+
+            // 9. Chimenea - Carbono-14
+            $res_c14 = mysql_query("SELECT medicion FROM `regrad_carbono14` WHERE id_planilla = $id_planilla_activa ORDER BY id_carbono14 DESC LIMIT 1", $miconex);
+            if ($res_c14 && mysql_num_rows($res_c14) > 0) {
+                $row_c14 = mysql_fetch_assoc($res_c14);
+                if ($row_c14['medicion'] !== null && $row_c14['medicion'] !== '') {
+                    $c14_db = round($row_c14['medicion'] / 1e6, 1);
+                }
+            }
+
+            // 10. Dedo Frío 73120
+            $res_df = mysql_query("SELECT ppm, menor_que FROM `regrad_dedo_frio` WHERE id_planilla = $id_planilla_activa ORDER BY id_dedo_frio DESC LIMIT 1", $miconex);
+            if ($res_df && mysql_num_rows($res_df) > 0) {
+                $row_df = mysql_fetch_assoc($res_df);
+                $dedo_frio_ppm_db = $row_df['ppm'];
+                $dedo_frio_menor_que_db = $row_df['menor_que'];
+            }
+
+            // 11. Condición Meteorológica
+            $res_met = mysql_query("SELECT velocidad_mseg, direc_viento, cond_pasquill FROM `regrad_cond_meteorologica` WHERE id_planilla = $id_planilla_activa ORDER BY id_cond_meteorologica DESC LIMIT 1", $miconex);
+            if ($res_met && mysql_num_rows($res_met) > 0) {
+                $row_met = mysql_fetch_assoc($res_met);
+                $met_vel_db = $row_met['velocidad_mseg'];
+                $met_dir_db = $row_met['direc_viento'];
+                $met_pasquill_db = $row_met['cond_pasquill'];
             }
 
             
@@ -2281,14 +2336,14 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             <div class="kpi-sub-item">
               <span class="kpi-sub-label">General</span>
               <div class="kpi-sub-val-row">
-                <span class="kpi-sub-val" id="kpi-vent-gral" style="color: #60a5fa;">1.45</span>
+                <span class="kpi-sub-val" id="kpi-vent-gral" style="color: #60a5fa;"><?php echo isset($vent_gral_db) && $vent_gral_db !== "" ? htmlspecialchars($vent_gral_db, ENT_QUOTES, 'UTF-8') : "-"; ?></span>
                 <span class="kpi-sub-unit" id="kpi-vent-gral-unit">GBq</span>
               </div>
             </div>
             <div class="kpi-sub-item">
               <span class="kpi-sub-label">Reactor</span>
               <div class="kpi-sub-val-row">
-                <span class="kpi-sub-val" id="kpi-vent-reactor" style="color: #22d3ee;">3.80</span>
+                <span class="kpi-sub-val" id="kpi-vent-reactor" style="color: #22d3ee;"><?php echo isset($vent_reactor_db) && $vent_reactor_db !== "" ? htmlspecialchars($vent_reactor_db, ENT_QUOTES, 'UTF-8') : "-"; ?></span>
                 <span class="kpi-sub-unit" id="kpi-vent-reactor-unit">GBq</span>
               </div>
             </div>
@@ -2303,10 +2358,10 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             <span class="kpi-action-icon">✏️ Cargar</span>
           </div>
           <div class="kpi-value-row">
-            <span class="kpi-value" id="kpi-met-val" style="color: #f59e0b; font-size: 15px; font-weight: 800;">Sur • 14.5</span>
+            <span class="kpi-value" id="kpi-met-val" style="color: #f59e0b; font-size: 15px; font-weight: 800;"><?php echo isset($met_dir_db) && $met_dir_db !== "" ? htmlspecialchars($met_dir_db . " • " . $met_vel_db, ENT_QUOTES, 'UTF-8') : "-"; ?></span>
             <span class="kpi-unit" id="kpi-met-unit">km/h</span>
           </div>
-          <div class="kpi-footer" id="kpi-met-footer">Pasquill Clase D (Neutral)</div>
+          <div class="kpi-footer" id="kpi-met-footer"><?php echo isset($met_pasquill_db) && $met_pasquill_db !== "" ? htmlspecialchars($met_pasquill_db, ENT_QUOTES, 'UTF-8') : "Pasquill Clase D (Neutral)"; ?></div>
         </div>
 
         <!-- KPI 5: Emisión C-14 (Métrica de Planta) -->
@@ -2316,7 +2371,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             <span class="kpi-action-icon">✏️ Cargar</span>
           </div>
           <div class="kpi-value-row">
-            <span class="kpi-value" id="kpi-c14">12.4</span>
+            <span class="kpi-value" id="kpi-c14"><?php echo isset($c14_db) && $c14_db !== "" ? htmlspecialchars($c14_db, ENT_QUOTES, 'UTF-8') : "-"; ?></span>
             <span class="kpi-unit">MBq</span>
           </div>
           <div class="kpi-footer" id="kpi-c14-footer">Muestreo acumulado turno</div>
@@ -2329,7 +2384,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             <span class="kpi-action-icon">📊 Últimos 5</span>
           </div>
           <div class="kpi-value-row">
-            <span class="kpi-value" id="kpi-dedo-frio">&lt; 12</span>
+            <span class="kpi-value" id="kpi-dedo-frio"><?php echo isset($dedo_frio_ppm_db) && $dedo_frio_ppm_db !== "" ? htmlspecialchars(($dedo_frio_menor_que_db ? "< " : "") . $dedo_frio_ppm_db, ENT_QUOTES, 'UTF-8') : "-"; ?></span>
             <span class="kpi-unit">ppm</span>
           </div>
           <!-- Micro-barra visual de los últimos 5 registros criogénicos -->
@@ -2485,21 +2540,21 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
               <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px;">
                 <div class="field-group">
                   <label class="field-label">Ventilación General (GBq)</label>
-                  <input type="text" class="field-control mono" id="input-vent-gral" value="1.45">
+                  <input type="text" class="field-control mono" id="input-vent-gral" value="<?php echo htmlspecialchars($vent_gral_db, ENT_QUOTES, 'UTF-8'); ?>">
                 </div>
                 <div class="field-group">
                   <label class="field-label">Ventilación Reactor (GBq)</label>
-                  <input type="text" class="field-control mono" id="input-vent-reactor" value="3.80">
+                  <input type="text" class="field-control mono" id="input-vent-reactor" value="<?php echo htmlspecialchars($vent_reactor_db, ENT_QUOTES, 'UTF-8'); ?>">
                 </div>
                 <div class="field-group">
                   <label class="field-label">Emisión Carbono-14 (MBq)</label>
-                  <input type="text" class="field-control mono" id="input-c14" value="12.4">
+                  <input type="text" class="field-control mono" id="input-c14" value="<?php echo htmlspecialchars($c14_db, ENT_QUOTES, 'UTF-8'); ?>">
                 </div>
               </div>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
                 <div class="field-group">
                   <label class="field-label">Dedo Frío 73120 (ppm)</label>
-                  <input type="text" class="field-control mono" id="input-dedo-frio" value="18.5">
+                  <input type="text" class="field-control mono" id="input-dedo-frio" value="<?php echo htmlspecialchars($dedo_frio_ppm_db, ENT_QUOTES, 'UTF-8'); ?>">
                 </div>
                 <div class="field-group">
                   <label class="field-label">Actividad Concentrador 7923 (MBq)</label>
@@ -2537,7 +2592,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
               </div>
               <div class="field-group" style="margin-bottom: 12px;">
                 <label class="field-label">Velocidad del Viento (km/h)</label>
-                <input type="text" id="input-met-vel" class="field-control mono" value="14.5">
+                <input type="text" id="input-met-vel" class="field-control mono" value="<?php echo htmlspecialchars($met_vel_db, ENT_QUOTES, 'UTF-8'); ?>">
               </div>
               <div class="field-group" style="margin-bottom: 14px;">
                 <label class="field-label">Estabilidad Pasquill</label>
@@ -2966,7 +3021,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             <label class="field-label">Jefe de Turno</label>
             <select class="field-control" id="modal-select-jefe">
               <?php foreach ($jefes_array as $jef) { ?>
-                <option value="<?php echo htmlspecialchars($jef['nombre'], ENT_QUOTES, 'UTF-8'); ?>" <?php if($jef['nombre'] == $jefe_turno_actual) echo "selected"; ?>>
+                <option value="<?php echo htmlspecialchars($jef['nombre'], ENT_QUOTES, 'UTF-8'); ?>" data-id="<?php echo (int)$jef['id']; ?>" <?php if($jef['nombre'] == $jefe_turno_actual) echo "selected"; ?>>
                   <?php echo htmlspecialchars($jef['nombre'], ENT_QUOTES, 'UTF-8'); ?>
                 </option>
               <?php } ?>
@@ -3033,11 +3088,11 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
             <div class="field-group">
               <label class="field-label">Ventilación General (GBq)</label>
-              <input type="text" id="kpi-in-vent-gral" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #60a5fa;" value="1.45">
+              <input type="text" id="kpi-in-vent-gral" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #60a5fa;" value="<?php echo htmlspecialchars($vent_gral_db, ENT_QUOTES, 'UTF-8'); ?>">
             </div>
             <div class="field-group">
               <label class="field-label">Ventilación Reactor (GBq)</label>
-              <input type="text" id="kpi-in-vent-reactor" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #22d3ee;" value="3.80">
+              <input type="text" id="kpi-in-vent-reactor" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #22d3ee;" value="<?php echo htmlspecialchars($vent_reactor_db, ENT_QUOTES, 'UTF-8'); ?>">
             </div>
           </div>
           <div id="alert-tab-tritio" class="kpi-field-alert"></div>
@@ -3103,7 +3158,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             </div>
             <div class="field-group">
               <label class="field-label">Actividad C-14 (MBq)</label>
-              <input type="text" id="kpi-in-c14-val" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #c084fc;" value="12.4">
+              <input type="text" id="kpi-in-c14-val" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #c084fc;" value="<?php echo htmlspecialchars($c14_db, ENT_QUOTES, 'UTF-8'); ?>">
             </div>
           </div>
           <div id="alert-tab-c14" class="kpi-field-alert"></div>
@@ -3165,7 +3220,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             </div>
             <div class="field-group">
               <label class="field-label">Concentración (ppm)</label>
-              <input type="text" id="kpi-in-dedofrio-val" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #f472b6;" value="12">
+              <input type="text" id="kpi-in-dedofrio-val" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #f472b6;" value="<?php echo htmlspecialchars($dedo_frio_ppm_db, ENT_QUOTES, 'UTF-8'); ?>">
             </div>
           </div>
           <label style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--text-muted); cursor: pointer; margin-top: 4px; margin-bottom: 14px;">
@@ -3315,7 +3370,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             </div>
             <div class="field-group">
               <label class="field-label">Velocidad del Viento (km/h)</label>
-              <input type="text" id="kpi-in-met-vel" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #f59e0b;" value="14.5" placeholder="Ej: 14.5">
+              <input type="text" id="kpi-in-met-vel" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #f59e0b;" value="<?php echo htmlspecialchars($met_vel_db, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Ej: 14.5">
             </div>
           </div>
           <div class="field-group" style="margin-bottom: 12px;">
@@ -4747,6 +4802,12 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         if (dedoFrio) {
           SyncEngine.enqueue('dedofrio', `procesos_reg_rad.php?accion=guardar_valores_dedo_frio&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&hora=${horaActualStr}&ppm=${dedoFrio}&menor_que=${isMenor ? 1 : 0}`);
         }
+        const metVel = (document.getElementById('kpi-in-met-vel') ? document.getElementById('kpi-in-met-vel').value : '').trim();
+        const metDir = (document.getElementById('kpi-in-met-dir') ? document.getElementById('kpi-in-met-dir').value : '').trim();
+        const metPasquill = (document.getElementById('kpi-in-met-pasquill') ? document.getElementById('kpi-in-met-pasquill').value : '').trim();
+        if (metVel || metDir || metPasquill) {
+          SyncEngine.enqueue('meteorologia', `procesos_reg_rad.php?accion=guardar_valores_condicion_meteorologica&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&hora=${horaActualStr}&velocidad_viento=${encodeURIComponent(metVel)}&direccion_viento=${encodeURIComponent(metDir)}&condicion_pasquill=${encodeURIComponent(metPasquill)}`);
+        }
       }
 
       closeKpiModal();
@@ -5570,7 +5631,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
   
     // ================= MOTOR DE COLA OFFLINE Y SINCRONIZACIÓN AUTOMÁTICA (OUTBOX) =================
-    const IS_DEMO_MODE = true; // true = MODO PRUEBA/DEMO: Protege la base de datos real contra cualquier escritura
+    const IS_DEMO_MODE = <?php echo (isset($miconex) && $miconex) ? "false" : "true"; ?>; // Conectado a MySQL: Cambios reales habilitados
 
     const SyncEngine = {
       QUEUE_KEY: 'regrad_offline_queue_v1',
