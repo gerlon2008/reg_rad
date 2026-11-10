@@ -1427,6 +1427,131 @@
     /* ========================================================== */
     /* TOOLTIPS PERSONALIZADOS CYBERPUNK RADIOLÓGICOS             */
     /* ========================================================== */
+    /* ========================================================== */
+    /* BANNER Y MODAL DE RELEVO DE GUARDIA / PLANILLA PENDIENTE   */
+    /* ========================================================== */
+    .banner-relevo-guardia {
+      background: rgba(245, 158, 11, 0.12);
+      border-bottom: 1px solid rgba(245, 158, 11, 0.4);
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      font-size: 11.5px;
+      font-family: var(--font-mono);
+      animation: cyber-hologram-assemble 0.25s ease-out;
+      position: sticky;
+      top: 0;
+      z-index: 90;
+    }
+    .banner-relevo-content {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #fffbeb;
+      line-height: 1.4;
+    }
+    .banner-relevo-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .banner-relevo-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .btn-banner-cierre {
+      background: var(--accent-amber);
+      color: #031510;
+      border: none;
+      padding: 4px 10px;
+      border-radius: 5px;
+      font-weight: 800;
+      font-size: 11px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+    }
+    .btn-banner-cierre:hover {
+      background: #fbbf24;
+      transform: translateY(-1px);
+    }
+    .btn-banner-detalles {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--accent-amber);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      padding: 4px 9px;
+      border-radius: 5px;
+      font-weight: 700;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-banner-detalles:hover {
+      background: rgba(245, 158, 11, 0.3);
+    }
+
+    .btn-handover-opt {
+      width: 100%;
+      text-align: left;
+      padding: 10px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      border: 1px solid var(--border-card);
+      background: rgba(0, 0, 0, 0.3);
+      font-family: var(--font-sans);
+    }
+    .btn-handover-opt:hover {
+      transform: translateX(3px);
+    }
+    .btn-handover-opt.primary {
+      border-color: rgba(245, 158, 11, 0.6);
+      background: rgba(245, 158, 11, 0.12);
+    }
+    .btn-handover-opt.primary:hover {
+      background: rgba(245, 158, 11, 0.22);
+      border-color: var(--accent-amber);
+    }
+    .btn-handover-opt.secondary {
+      border-color: rgba(16, 185, 129, 0.4);
+      background: rgba(16, 185, 129, 0.08);
+    }
+    .btn-handover-opt.secondary:hover {
+      background: rgba(16, 185, 129, 0.18);
+      border-color: var(--accent-cyan);
+    }
+    .btn-handover-opt.tertiary {
+      border-color: var(--border-card);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .btn-handover-opt.tertiary:hover {
+      background: rgba(255, 255, 255, 0.07);
+    }
+    .btn-handover-opt .opt-title {
+      font-weight: 800;
+      font-size: 12px;
+      color: #ffffff;
+    }
+    .btn-handover-opt.primary .opt-title {
+      color: var(--accent-amber);
+    }
+    .btn-handover-opt.secondary .opt-title {
+      color: var(--accent-cyan);
+    }
+    .btn-handover-opt .opt-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
     .kpi-multi-values.two-cols {
       grid-template-columns: 1fr 1fr;
       gap: 12px;
@@ -1653,6 +1778,24 @@
         <div class="clock-pill" id="live-clock">14:50:00 hs</div>
       </div>
     </header>
+
+    <!-- BANNER DE RELEVO DE GUARDIA / PLANILLA PENDIENTE -->
+    <div id="banner-relevo-guardia" class="banner-relevo-guardia" style="display: none;">
+      <div class="banner-relevo-content">
+        <span class="banner-relevo-icon">⚠️</span>
+        <span class="banner-relevo-text">
+          <strong>PLANILLA EN CURSO DE OTRO OFICIAL:</strong> Esta planilla (#<span id="banner-plan-id">10843</span>) fue iniciada por <strong id="banner-iniciador-name">ROLHAUSER, MARIANO</strong> (<em id="banner-turno-name">Turno 2 (14:00 - 22:00)</em>). Está operando como <strong><span id="banner-user-name">PEÑALOZA, JOSE</span></strong>.
+        </span>
+      </div>
+      <div class="banner-relevo-actions">
+        <button type="button" class="btn-banner-cierre" onclick="iniciarCierreTurnoAnterior()">
+          🔒 Formalizar Cierre y Abrir Nuevo Turno
+        </button>
+        <button type="button" class="btn-banner-detalles" onclick="openHandoverModal()" title="Ver opciones de traspaso">
+          ⚙️ Opciones de Traspaso
+        </button>
+      </div>
+    </div>
 
     <!-- WORKSPACE SCROLLABLE -->
     <div class="workspace">
@@ -2767,6 +2910,73 @@
         <button type="button" class="btn-modal-confirm" id="btn-delete-confirm" onclick="confirmDeleteRow()" style="background: var(--accent-red); color: #ffffff; font-weight: 800;">
           🗑️ SÍ, ELIMINAR REGISTRO
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE ADVERTENCIA DE RELEVO: PLANILLA ANTERIOR SIN CERRAR -->
+  <div class="modal-overlay" id="modal-traspaso-guardia" style="display: none;" onclick="if(event.target===this) closeHandoverModal(false);">
+    <div class="modal-box" style="max-width: 620px; border-left: 4px solid var(--accent-amber); animation: cyber-hologram-assemble 0.28s ease-out;">
+      <div class="modal-header" style="color: var(--accent-amber); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; letter-spacing: 0.5px;">
+          <span>⚠️</span> <span>AVISO DE RELEVO: PLANILLA ANTERIOR SIN CERRAR</span>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeHandoverModal(false)" title="Cerrar modal (Esc)">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 0 10px;">
+        <div style="font-size: 12.5px; color: #ffffff; line-height: 1.5; margin-bottom: 14px;">
+          Se detectó una <strong>Planilla de Guardia abierta</strong> en el sistema iniciada por otro oficial:
+        </div>
+
+        <!-- Ficha comparativa -->
+        <div style="background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-card); border-radius: 6px; padding: 12px 14px; margin-bottom: 14px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 11.5px;">
+            <div style="border-right: 1px solid var(--border-subtle); padding-right: 10px;">
+              <div style="color: var(--text-dim); font-size: 10px; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">
+                👤 Oficial Saliente (Inició Planilla)
+              </div>
+              <div style="color: var(--accent-amber); font-weight: 800; font-size: 13px;" id="m-handover-saliente">
+                ROLHAUSER, MARIANO
+              </div>
+              <div style="color: var(--text-muted); font-size: 11px; margin-top: 2px;">
+                Planilla <strong>#10843</strong> • Turno 2 (14:00 - 22:00)
+              </div>
+            </div>
+            <div>
+              <div style="color: var(--text-dim); font-size: 10px; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">
+                👤 Oficial Entrante (Sesión Actual)
+              </div>
+              <div style="color: var(--accent-cyan); font-weight: 800; font-size: 13px;" id="m-handover-entrante">
+                PEÑALOZA, JOSE
+              </div>
+              <div style="color: var(--text-muted); font-size: 11px; margin-top: 2px;">
+                Estado: 🟢 Sesión activa iniciada
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 6px; padding: 10px 12px; font-size: 11.5px; color: #fffbeb; line-height: 1.45; margin-bottom: 16px;">
+          📌 <strong>Importante:</strong> Es posible que el oficial del turno anterior haya olvidado cerrar la planilla al retirarse. Seleccione cómo desea proceder:
+        </div>
+
+        <!-- Opciones de acción -->
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <button type="button" class="btn-handover-opt primary" onclick="iniciarCierreTurnoAnterior()">
+            <div class="opt-title">🔒 Formalizar Cierre del Turno Anterior y Abrir Nueva Planilla</div>
+            <div class="opt-desc">Cierra formalmente la planilla anterior con reporte PDF y crea la planilla limpia para su nuevo turno. (Recomendado)</div>
+          </button>
+
+          <button type="button" class="btn-handover-opt secondary" onclick="continuarComoRelevo()">
+            <div class="opt-title">✍️ Continuar en esta Planilla (Relevo / Co-responsable)</div>
+            <div class="opt-desc">Mantiene la planilla actual abierta. Sus nuevas mediciones y actas quedarán firmadas a su nombre.</div>
+          </button>
+
+          <button type="button" class="btn-handover-opt tertiary" onclick="verPlanillaSoloLectura()">
+            <div class="opt-title">👁️ Modo Solo Lectura / Auditoría</div>
+            <div class="opt-desc">Inspecciona los registros cargados hasta el momento sin riesgo de modificar ni agregar datos.</div>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -5001,6 +5211,63 @@
         if (activeTarget) positionTooltip(activeTarget);
       }, { passive: true });
     })();
+    // ====================================================
+    // GESTIÓN DE RELEVO DE GUARDIA Y ADVERTENCIA DE PLANILLA ABIERTA
+    // ====================================================
+    let oficialIniciador = 'ROLHAUSER, MARIANO';
+    let oficialLogueado = document.getElementById('sidebar-user-name') ? document.getElementById('sidebar-user-name').textContent.trim() : 'PEÑALOZA, JOSE';
+    let hayDiscrepanciaGuardia = (oficialIniciador !== oficialLogueado);
+
+    function openHandoverModal() {
+      const modal = document.getElementById('modal-traspaso-guardia');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeHandoverModal(isDismiss) {
+      const modal = document.getElementById('modal-traspaso-guardia');
+      if (modal) modal.style.display = 'none';
+      if (isDismiss) {
+        sessionStorage.setItem('relevo_advertencia_desestimada_10843', '1');
+      }
+    }
+
+    function iniciarCierreTurnoAnterior() {
+      closeHandoverModal(false);
+      const btnCierre = document.querySelector('.menu-btn[data-section="sec-cierre"]');
+      if (btnCierre) {
+        btnCierre.click();
+      }
+      showToast('⚠️ Proceda a formalizar el cierre de la guardia anterior');
+    }
+
+    function continuarComoRelevo() {
+      sessionStorage.setItem('relevo_advertencia_aceptada_10843', '1');
+      closeHandoverModal(false);
+      showToast('✍️ Operando como relevo en la Planilla');
+      const indicator = document.querySelector('.session-indicator');
+      if (indicator) {
+        indicator.innerHTML = `🟢 Relevo Activo • Iniciada por: ${oficialIniciador.split(',')[0]}`;
+        indicator.style.color = 'var(--accent-amber)';
+      }
+    }
+
+    function verPlanillaSoloLectura() {
+      closeHandoverModal(false);
+      showToast('👁️ Modo solo lectura activado');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (hayDiscrepanciaGuardia) {
+        const banner = document.getElementById('banner-relevo-guardia');
+        if (banner) banner.style.display = 'flex';
+        const yaAcepto = sessionStorage.getItem('relevo_advertencia_aceptada_10843');
+        const yaDesestimo = sessionStorage.getItem('relevo_advertencia_desestimada_10843');
+        if (!yaAcepto && !yaDesestimo) {
+          setTimeout(openHandoverModal, 500);
+        }
+      }
+    });
+
   </script>
     <!-- MODAL HUD: HISTORIAL DE LOS ÚLTIMOS 3 VALORES DEL RECINTO SELECCIONADO -->
   <div class="modal-overlay" id="modal-recinto-historial" style="display: none;" onclick="if(event.target===this) closeRecintoHistoryModal();">
