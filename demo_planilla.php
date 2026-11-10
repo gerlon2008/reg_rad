@@ -3180,6 +3180,27 @@ if (file_exists($miconex_path)) {
     </div>
   </div>
 
+  <!-- MODAL DE CONFIRMACIÓN DE ELIMINACIÓN DE REGISTRO -->
+  <div class="modal-overlay" id="delete-confirm-modal" style="display: none;" onclick="if(event.target===this) closeDeleteModal();">
+    <div class="modal-box" style="max-width: 520px; border-left: 4px solid var(--accent-red); animation: cyber-hologram-assemble 0.25s ease-out;">
+      <div class="modal-header" style="color: var(--accent-red); display: flex; justify-content: space-between; align-items: center;">
+        <div class="modal-header-left" id="delete-modal-title" style="font-weight: 800; font-size: 13px; letter-spacing: 0.5px;">
+          🗑️ CONFIRMAR ELIMINACIÓN DE REGISTRO
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeDeleteModal()" title="Cerrar modal (Esc)">✕</button>
+      </div>
+      <div class="modal-body" id="delete-modal-body" style="padding: 16px 0 10px;">
+        <!-- Inyectado dinámicamente -->
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;">
+        <button type="button" class="btn-modal-cancel" id="btn-delete-cancel" onclick="closeDeleteModal()">CANCELAR</button>
+        <button type="button" class="btn-modal-confirm" id="btn-delete-confirm" onclick="confirmDeleteRow()" style="background: var(--accent-red); color: #ffffff; font-weight: 800;">
+          🗑️ SÍ, ELIMINAR REGISTRO
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= POPUPS FLOTANTES DE DATEPICKER Y TIMEPICKER LATAM ================= -->
   <div id="latam-datepicker-popup" class="latam-datepicker-popup">
     <div class="dp-header">
@@ -3821,10 +3842,121 @@ if (file_exists($miconex_path)) {
       if (el) el.addEventListener('input', evalRealtimeDiscrepancy);
     });
 
+    let rowToDelete = null;
+
     function deleteRow(btn) {
-      btn.closest('tr').remove();
-      recalculateKPIs();
-      showToast('Registro eliminado');
+      const tr = btn.closest('tr');
+      if (!tr) return;
+      rowToDelete = tr;
+
+      const isRutina = tr.closest('#table-body') !== null;
+      const isActa = tr.closest('#tbody-actas-guardia') !== null;
+
+      let tipo = 'Medición de Rutina';
+      let detalleHtml = '';
+
+      if (isRutina) {
+        const fecha = tr.getAttribute('data-fecha') || (tr.cells[0] ? tr.cells[0].textContent.trim() : '');
+        const hora = tr.getAttribute('data-hora') || (tr.cells[1] ? tr.cells[1].textContent.trim() : '');
+        const recinto = tr.getAttribute('data-recinto') || (tr.cells[2] ? tr.cells[2].textContent.trim().split('\n')[0] : '');
+        const gases = tr.getAttribute('data-gases') || (tr.cells[3] ? tr.cells[3].textContent.trim() : '0.00');
+        const tritio = tr.getAttribute('data-tritio') || (tr.cells[4] ? tr.cells[4].textContent.trim() : '0.00');
+        const dosis = tr.getAttribute('data-dosis') || (tr.cells[5] ? tr.cells[5].textContent.trim() : '0.0');
+
+        tipo = 'Medición de Relevamiento de Rutina';
+        detalleHtml = `
+          <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-red); border-radius: 6px; padding: 10px 14px; margin: 12px 0; font-family: var(--font-mono); font-size: 11.5px;">
+            <div style="font-weight: 800; color: #ffffff; margin-bottom: 6px; font-size: 12.5px;">📍 ${recinto}</div>
+            <div style="display: flex; gap: 12px; color: var(--text-muted); margin-bottom: 6px;">
+              <span>📅 ${fecha}</span>
+              <span>⏰ ${hora} hs</span>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.08);">
+              <span style="color: #c084fc;"><strong>G. nobles:</strong> ${gases} DAC</span>
+              <span style="color: var(--border-card);">|</span>
+              <span style="color: var(--accent-cyan);"><strong>Tritio:</strong> ${tritio} DAC</span>
+              <span style="color: var(--border-card);">|</span>
+              <span style="color: var(--accent-amber);"><strong>Dosis:</strong> ${dosis} µSv/h</span>
+            </div>
+          </div>
+        `;
+      } else if (isActa) {
+        tipo = 'Acta / Tarea de Guardia';
+        const hora = tr.cells[0] ? tr.cells[0].textContent.trim() : '';
+        const ptr = tr.cells[1] ? tr.cells[1].textContent.trim() : '';
+        const recinto = tr.cells[2] ? tr.cells[2].textContent.trim() : '';
+        const desc = tr.cells[5] ? tr.cells[5].textContent.trim() : '';
+        detalleHtml = `
+          <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-red); border-radius: 6px; padding: 10px 14px; margin: 12px 0; font-size: 11.5px;">
+            <div style="font-weight: 800; color: #ffffff; margin-bottom: 4px;">📖 Acta en ${recinto} ${ptr !== '-' ? '(' + ptr + ')' : ''} - ${hora} hs</div>
+            <div style="color: var(--text-muted); font-style: italic;">"${desc}"</div>
+          </div>
+        `;
+      } else {
+        tipo = 'Registro';
+        detalleHtml = `
+          <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-red); border-radius: 6px; padding: 10px 14px; margin: 12px 0; font-size: 11.5px; color: #ffffff;">
+            ¿Confirma que desea eliminar este registro seleccionado de la tabla?
+          </div>
+        `;
+      }
+
+      const modal = document.getElementById('delete-confirm-modal');
+      const body = document.getElementById('delete-modal-body');
+      if (body) {
+        body.innerHTML = `
+          <div style="font-size: 12.5px; line-height: 1.5; color: #ffffff;">
+            Está a punto de eliminar permanentemente el siguiente registro de <strong>${tipo}</strong>:
+            ${detalleHtml}
+            <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 6px; padding: 8px 12px; color: #fee2e2; font-size: 11px; display: flex; align-items: center; gap: 8px;">
+              <span>⚠️</span>
+              <span><strong>Acción irreversible:</strong> Este registro se removerá de la planilla activa y se recalcularán los indicadores del turno.</span>
+            </div>
+          </div>
+        `;
+      }
+
+      if (modal) modal.style.display = 'flex';
+      const cancelBtn = document.getElementById('btn-delete-cancel');
+      if (cancelBtn) cancelBtn.focus();
+    }
+
+    function confirmDeleteRow() {
+      if (rowToDelete) {
+        const isRutina = rowToDelete.closest('#table-body') !== null;
+        const isActa = rowToDelete.closest('#tbody-actas-guardia') !== null;
+        const recinto = rowToDelete.getAttribute('data-recinto') || '';
+        const recintoId = rowToDelete.getAttribute('data-recinto-id') || '';
+
+        rowToDelete.remove();
+        rowToDelete = null;
+
+        if (isRutina) {
+          recalculateKPIs();
+          if (recinto && typeof updateRecintoHistory === 'function') {
+            updateRecintoHistory(recintoId, recinto);
+          }
+        }
+        if (isActa) {
+          const tbody = document.getElementById('tbody-actas-guardia');
+          if (tbody) {
+            const count = tbody.querySelectorAll('tr').length;
+            const badge = document.getElementById('menu-badge-actas');
+            if (badge) badge.textContent = count;
+            const countHdr = document.getElementById('actas-counter-badge');
+            if (countHdr) countHdr.textContent = count + ' actas asentadas en este turno';
+          }
+        }
+
+        showToast('🗑️ Registro eliminado correctamente');
+      }
+      closeDeleteModal();
+    }
+
+    function closeDeleteModal() {
+      rowToDelete = null;
+      const modal = document.getElementById('delete-confirm-modal');
+      if (modal) modal.style.display = 'none';
     }
 
         // ================= MODAL INTERACTIVO DE ACTUALIZACIÓN DE KPIS =================
