@@ -951,6 +951,19 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       display: flex;
     }
 
+    /* Escala visual predeterminada equivalente al 90% del navegador */
+    @supports (zoom: 0.9) {
+      html {
+        zoom: 0.9;
+      }
+      .sidebar {
+        width: 292px;
+      }
+      .table-scroll-wrapper {
+        max-height: calc((100vh / 0.9) - 430px);
+      }
+    }
+
     /* ================= SIDEBAR ================= */
     .sidebar {
       width: 280px;
@@ -7608,20 +7621,48 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       }
     }
 
+    function fitZoomedViewportRoot() {
+      const root = document.documentElement;
+      root.style.width = '';
+      root.style.height = '';
+      const rect = root.getBoundingClientRect();
+      if (rect.width > 0 && Math.abs(rect.width - window.innerWidth) > 2) {
+        root.style.width = ((window.innerWidth * 100) / rect.width).toFixed(4) + '%';
+      }
+      if (rect.height > 0 && Math.abs(rect.height - window.innerHeight) > 2) {
+        root.style.height = ((window.innerHeight * 100) / rect.height).toFixed(4) + '%';
+      }
+    }
+    fitZoomedViewportRoot();
+    window.addEventListener('resize', fitZoomedViewportRoot);
+
+    function positionFixedBelowRect(popupEl, anchorRect, fallbackWidth) {
+      const prevVis = popupEl.style.visibility;
+      popupEl.style.visibility = 'hidden';
+      popupEl.style.left = '100px';
+      popupEl.style.top = '100px';
+      popupEl.style.display = 'block';
+      const probe = popupEl.getBoundingClientRect();
+      const scale = (probe.left > 10 && Number.isFinite(probe.left)) ? (100 / probe.left) : 1;
+      const visualW = probe.width || (fallbackWidth / scale);
+      let left = anchorRect.left;
+      if (left + visualW > window.innerWidth - 10) {
+        left = window.innerWidth - visualW - 10;
+      }
+      left = Math.max(10, left);
+      const top = anchorRect.bottom + 4;
+      popupEl.style.left = Math.round(left * scale) + 'px';
+      popupEl.style.top = Math.round(top * scale) + 'px';
+      popupEl.style.visibility = prevVis || '';
+    }
+
     function openDatepicker(inputEl) {
       closeTimepicker();
       dpTargetInput = inputEl;
       dpCurrentDate = parseLatamDate(inputEl.value);
 
       const rect = inputEl.getBoundingClientRect();
-      const popupWidth = 260;
-      let left = rect.left;
-      if (left + popupWidth > window.innerWidth) {
-        left = window.innerWidth - popupWidth - 10;
-      }
-      dpPopup.style.top = (rect.bottom + 4) + 'px';
-      dpPopup.style.left = Math.max(10, left) + 'px';
-      dpPopup.style.display = 'block';
+      positionFixedBelowRect(dpPopup, rect, 260);
 
       renderDatepickerGrid();
     }
@@ -7747,14 +7788,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       closeDatepicker();
       tpTargetInput = inputEl;
       const rect = inputEl.getBoundingClientRect();
-      const popupWidth = 260;
-      let left = rect.left;
-      if (left + popupWidth > window.innerWidth) {
-        left = window.innerWidth - popupWidth - 10;
-      }
-      tpPopup.style.top = (rect.bottom + 4) + 'px';
-      tpPopup.style.left = Math.max(10, left) + 'px';
-      tpPopup.style.display = 'block';
+      positionFixedBelowRect(tpPopup, rect, 260);
     }
 
     function closeTimepicker() {
@@ -8525,8 +8559,13 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
       function positionTooltip(el) {
         if (!tooltipEl.classList.contains('visible')) return;
+        tooltipEl.style.left = '100px';
+        tooltipEl.style.top = '100px';
+        const probe = tooltipEl.getBoundingClientRect();
+        const scale = (probe.left > 10 && Number.isFinite(probe.left)) ? (100 / probe.left) : 1;
+
         const rect = el.getBoundingClientRect();
-        const tipRect = tooltipEl.getBoundingClientRect();
+        const tipRect = probe;
         const margin = 8;
 
         let left = rect.left + (rect.width / 2) - (tipRect.width / 2);
@@ -8540,8 +8579,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           top = rect.bottom + margin;
         }
 
-        tooltipEl.style.left = Math.round(left) + 'px';
-        tooltipEl.style.top = Math.round(top) + 'px';
+        tooltipEl.style.left = Math.round(left * scale) + 'px';
+        tooltipEl.style.top = Math.round(top * scale) + 'px';
       }
 
       function hideTooltip() {
