@@ -960,27 +960,28 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       flex-shrink: 0;
     }
 
-    .sidebar-brand {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border-card);
+    .sidebar-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-subtle);
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
 
-    .badge-nasa {
-      background: linear-gradient(135deg, #047857, #10b981);
-      color: #ffffff;
-      font-family: var(--font-mono);
-      font-weight: 900;
-      font-size: 14px;
-      padding: 5px 10px;
-      border-radius: 6px;
-      letter-spacing: 1px;
+    .sidebar-brand-title {
+      font-weight: 800;
+      font-size: 13px;
+      color: var(--text-main);
+      letter-spacing: 0.5px;
     }
 
-    .brand-text h2 { font-size: 13.5px; font-weight: 700; color: #ffffff; }
-    .brand-text span { font-size: 11px; color: var(--accent-cyan); font-family: var(--font-mono); }
+    .sidebar-brand-sub {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 1px;
+    }
 
     .plant-status {
       margin: 14px 16px;
@@ -1112,55 +1113,153 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     }
 
     .topbar {
-      height: 52px;
-      background: var(--bg-card);
+      height: 48px;
+      background: var(--bg-sidebar);
       border-bottom: 1px solid var(--border-card);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 28px;
+      padding: 0 16px;
+      gap: 12px;
       flex-shrink: 0;
+      position: relative;
+      z-index: 40;
     }
 
     .topbar-left {
       display: flex;
       align-items: center;
       gap: 10px;
+      min-width: 0;
+      flex: 1;
     }
-    .theme-switcher-bar {
-      display: flex;
+
+    .topbar-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-main);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .sheet-badge {
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid var(--accent-cyan);
+      color: var(--accent-cyan);
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .sheet-badge.new-sheet {
+      background: rgba(245, 158, 11, 0.16);
+      border-color: var(--accent-amber);
+      color: var(--accent-amber);
+    }
+
+    .topbar-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .theme-dropdown {
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .btn-theme-toggle {
+      height: 28px;
+      display: inline-flex;
       align-items: center;
       gap: 6px;
       background: var(--bg-card-subtle);
       border: 1px solid var(--border-card);
-      padding: 3px 8px;
+      color: var(--text-main);
+      padding: 0 9px;
       border-radius: 6px;
+      font-family: var(--font-sans);
       font-size: 11px;
-      margin-left: 10px;
-    }
-    .theme-pill {
-      color: var(--text-muted);
-      text-decoration: none;
-      padding: 2px 7px;
-      border-radius: 4px;
-      transition: all 0.12s ease;
-      font-family: var(--font-mono);
-      font-size: 10.5px;
-    }
-    .theme-pill:hover {
-      color: #fff;
-      background: rgba(255, 255, 255, 0.08);
-    }
-    .theme-pill.active {
-      background: var(--accent-cyan);
-      color: #000 !important;
       font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .btn-theme-toggle:hover,
+    .theme-dropdown.open .btn-theme-toggle {
+      border-color: var(--accent-cyan);
+      background: var(--bg-card);
     }
 
-    .topbar-title {
-      font-size: 14px;
+    .theme-swatch-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+    }
+
+    .theme-dropdown-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      min-width: 215px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      padding: 5px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 1200;
+    }
+    .theme-dropdown.open .theme-dropdown-menu {
+      display: flex;
+    }
+
+    .theme-menu-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 7px 9px;
+      border-radius: 6px;
+      font-family: var(--font-sans);
+      font-size: 11.5px;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+    .theme-menu-item:hover {
+      background: var(--bg-card-subtle);
+      color: var(--text-main);
+    }
+    .theme-menu-item.active {
+      background: rgba(16, 185, 129, 0.14);
+      color: var(--accent-cyan);
       font-weight: 700;
-      color: #ffffff;
+    }
+    .theme-menu-item .theme-check {
+      opacity: 0;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .theme-menu-item.active .theme-check {
+      opacity: 1;
     }
 
     .shift-tag {
@@ -1190,18 +1289,22 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     .topbar-right {
       display: flex;
       align-items: center;
-      gap: 18px;
+      gap: 10px;
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      white-space: nowrap;
     }
 
     .clock-pill {
       color: var(--accent-cyan);
       background: var(--bg-page);
-      padding: 4px 12px;
+      padding: 3px 9px;
       border-radius: 4px;
       border: 1px solid var(--border-card);
       font-weight: 700;
+      font-size: 11px;
     }
 
     .workspace {
@@ -2849,11 +2952,10 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
   <!-- ================= SIDEBAR FIJO (HMI SYR) ================= -->
   <aside class="sidebar" <?php if ($hay_discrepancia_guardia) echo 'style="pointer-events: none; opacity: 0.35;"'; ?>>
-    <div class="sidebar-brand">
-      <div class="badge-nasa">NA-SA</div>
-      <div class="brand-text">
-        <h2>Registro Radiológico</h2>
-        <span>SyR • Central Nuclear Embalse</span>
+    <div class="sidebar-header">
+      <div>
+        <div class="sidebar-brand-title">REGISTRO RADIOLÓGICO</div>
+        <div class="sidebar-brand-sub">CNE &bull; SEGURIDAD RADIOLÓGICA</div>
       </div>
     </div>
 
@@ -2931,32 +3033,57 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     <header class="topbar">
       <div class="topbar-left">
         <span class="topbar-title" id="current-section-title">RELEVAMIENTO DE RUTINA</span>
-        
+        <span class="sheet-badge<?php echo $sin_planilla_abierta ? ' new-sheet' : ''; ?>">
+          <?php echo $sin_planilla_abierta ? 'SIN PLANILLA' : ('PLANILLA #' . intval($id_planilla_activa)); ?>
+        </span>
+        <span class="topbar-meta">
+          &bull; <span id="topbar-latam-date"><?php echo htmlspecialchars($fecha_operativa_default, ENT_QUOTES, 'UTF-8'); ?></span>
+          &bull; <span id="topbar-shift-tag"><?php echo htmlspecialchars($turno_actual_nombre, ENT_QUOTES, 'UTF-8'); ?></span>
+        </span>
+      </div>
+      <div class="topbar-right">
         <!-- BOTÓN VERIFICADOR / CHECKLIST DE CARGAS DEL TURNO -->
         <button type="button" class="btn-checklist-trigger" onclick="openChecklistModal()" title="Abrir Asistente de Verificación de Cargas del Turno">
-          <span>📋 ESTADO DE CARGAS</span>
+          <span>📋 Estado de Cargas</span>
           <span class="badge-checklist-pill" id="topbar-checklist-badge">Verificando...</span>
         </button>
 
-        <div class="theme-switcher-bar" id="theme-switcher-bar">
-        <span style="font-size:10px; color:var(--text-dim); font-weight:700; text-transform:uppercase;">🎨 FONDO:</span>
-        <button type="button" class="theme-pill active" data-theme="petrol" onclick="setAppTheme('petrol')">🌲 Verde Radiológico (Oficial)</button>
-        <button type="button" class="theme-pill" data-theme="navy" onclick="setAppTheme('navy')">🌊 Azul Abisal</button>
-        <button type="button" class="theme-pill" data-theme="plum" onclick="setAppTheme('plum')">🍇 Ciruela</button>
-        <button type="button" class="theme-pill" data-theme="titanio" onclick="setAppTheme('titanio')">⚙️ Titanio</button>
-        <button type="button" class="theme-pill" data-theme="ambar" onclick="setAppTheme('ambar')">⚡ Ámbar</button>
-      </div>
-      
-      
-      </div>
-      <div class="topbar-right">
+        <!-- SELECTOR COMPACTO DE TEMA / FONDO -->
+        <div class="theme-dropdown" id="theme-dropdown">
+          <button type="button" class="btn-theme-toggle" id="btn-theme-toggle" onclick="toggleThemeDropdown(event)" aria-haspopup="true" aria-expanded="false" title="Cambiar paleta de color / fondo">
+            <span class="theme-swatch-dot" id="theme-current-dot" style="background: #10b981;"></span>
+            <span id="theme-current-label">Verde</span>
+            <span style="font-size: 9px; color: var(--text-muted);">▾</span>
+          </button>
+          <div class="theme-dropdown-menu" id="theme-dropdown-menu" role="menu">
+            <div style="font-size: 9.5px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.6px; padding: 4px 8px 3px;">Paleta de fondo</div>
+            <button type="button" class="theme-menu-item active" data-theme="petrol" data-label="Verde" data-color="#10b981" onclick="setAppTheme('petrol')">
+              <span style="display:flex; align-items:center; gap:8px;"><span class="theme-swatch-dot" style="background:#10b981;"></span> Verde Radiológico</span>
+              <span class="theme-check">✓</span>
+            </button>
+            <button type="button" class="theme-menu-item" data-theme="navy" data-label="Azul" data-color="#06b6d4" onclick="setAppTheme('navy')">
+              <span style="display:flex; align-items:center; gap:8px;"><span class="theme-swatch-dot" style="background:#06b6d4;"></span> Azul Abisal</span>
+              <span class="theme-check">✓</span>
+            </button>
+            <button type="button" class="theme-menu-item" data-theme="plum" data-label="Ciruela" data-color="#e879f9" onclick="setAppTheme('plum')">
+              <span style="display:flex; align-items:center; gap:8px;"><span class="theme-swatch-dot" style="background:#e879f9;"></span> Ciruela</span>
+              <span class="theme-check">✓</span>
+            </button>
+            <button type="button" class="theme-menu-item" data-theme="titanio" data-label="Titanio" data-color="#38bdf8" onclick="setAppTheme('titanio')">
+              <span style="display:flex; align-items:center; gap:8px;"><span class="theme-swatch-dot" style="background:#38bdf8;"></span> Titanio</span>
+              <span class="theme-check">✓</span>
+            </button>
+            <button type="button" class="theme-menu-item" data-theme="ambar" data-label="Ámbar" data-color="#f59e0b" onclick="setAppTheme('ambar')">
+              <span style="display:flex; align-items:center; gap:8px;"><span class="theme-swatch-dot" style="background:#f59e0b;"></span> Ámbar</span>
+              <span class="theme-check">✓</span>
+            </button>
+          </div>
+        </div>
+
         <div class="sync-pill synced" id="sync-status-indicator" onclick="SyncEngine.flush(true)" title="Estado de sincronización: Haga clic para forzar reintento">
           ☁️ Servidor sincronizado
         </div>
-        <span>•</span>
-        <span>Jefe: <strong style="color: #ffffff;" id="topbar-jefe-turno"><?php echo htmlspecialchars($jefe_turno_actual, ENT_QUOTES, 'UTF-8'); ?></strong></span>
-        <span>•</span>
-        <span>Fecha: <strong style="color: #ffffff;" id="topbar-latam-date"><?php echo htmlspecialchars($fecha_operativa_default, ENT_QUOTES, 'UTF-8'); ?></strong></span>
+        <span>Jefe: <strong style="color: var(--text-main);" id="topbar-jefe-turno"><?php echo htmlspecialchars($jefe_turno_actual, ENT_QUOTES, 'UTF-8'); ?></strong></span>
         <div class="clock-pill" id="live-clock"><?php echo $hora_actual; ?>:00 hs</div>
       </div>
     </header>
@@ -7659,23 +7786,69 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
   
     // ================= SELECTOR DE FONDO Y TEMAS EN VIVO =================
-    function setAppTheme(themeName) {
+    function closeThemeDropdown() {
+      const dd = document.getElementById('theme-dropdown');
+      const btn = document.getElementById('btn-theme-toggle');
+      if (dd) dd.classList.remove('open');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleThemeDropdown(e) {
+      if (e) e.stopPropagation();
+      const dd = document.getElementById('theme-dropdown');
+      const btn = document.getElementById('btn-theme-toggle');
+      if (!dd) return;
+      const willOpen = !dd.classList.contains('open');
+      dd.classList.toggle('open', willOpen);
+      if (btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    }
+
+    document.addEventListener('click', function(e) {
+      const dd = document.getElementById('theme-dropdown');
+      if (dd && dd.classList.contains('open') && !dd.contains(e.target)) {
+        closeThemeDropdown();
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeThemeDropdown();
+      }
+    });
+
+    function setAppTheme(themeName, silent) {
       document.documentElement.setAttribute('data-theme', themeName);
       try {
         localStorage.setItem('regrad_active_theme', themeName);
       } catch(e) {}
 
-      document.querySelectorAll('#theme-switcher-bar .theme-pill').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-theme') === themeName);
+      let activeLabel = themeName;
+      let activeColor = '#10b981';
+      document.querySelectorAll('#theme-dropdown-menu .theme-menu-item').forEach(btn => {
+        const isMatch = btn.getAttribute('data-theme') === themeName;
+        btn.classList.toggle('active', isMatch);
+        if (isMatch) {
+          activeLabel = btn.getAttribute('data-label') || themeName;
+          activeColor = btn.getAttribute('data-color') || activeColor;
+        }
       });
-      showToast('🎨 Fondo aplicado: ' + themeName.toUpperCase());
+
+      const currentLabelEl = document.getElementById('theme-current-label');
+      const currentDotEl = document.getElementById('theme-current-dot');
+      if (currentLabelEl) currentLabelEl.textContent = activeLabel;
+      if (currentDotEl) currentDotEl.style.background = activeColor;
+
+      closeThemeDropdown();
+      if (!silent) {
+        showToast('🎨 Fondo aplicado: ' + activeLabel.toUpperCase());
+      }
     }
 
     // Restaurar tema guardado al cargar
     try {
       const savedTheme = localStorage.getItem('regrad_active_theme') || 'petrol';
       if (savedTheme) {
-        setAppTheme(savedTheme);
+        setAppTheme(savedTheme, true);
       }
     } catch(e) {}
 
