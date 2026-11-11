@@ -37,6 +37,7 @@ if ($current_hour >= 0 && $current_hour < 5) {
 
 // Variables por defecto (modo offline o fallback de demostración)
 $id_planilla_activa = 10843;
+$sin_planilla_abierta = false;
 $id_usuario_actual = isset($_SESSION['id_user']) ? $_SESSION['id_user'] : 1;
 // Oficial creador que inició la planilla activa
 $oficial_iniciador_nombre = "ROLHAUSER, MARIANO";
@@ -3044,8 +3045,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     <header class="topbar">
       <div class="topbar-left">
         <span class="topbar-title" id="current-section-title">RELEVAMIENTO DE RUTINA</span>
-        <span class="sheet-badge<?php echo $sin_planilla_abierta ? ' new-sheet' : ''; ?>">
-          <?php echo $sin_planilla_abierta ? 'SIN PLANILLA' : ('PLANILLA #' . intval($id_planilla_activa)); ?>
+        <span class="sheet-badge<?php echo !empty($sin_planilla_abierta) ? ' new-sheet' : ''; ?>">
+          <?php echo !empty($sin_planilla_abierta) ? 'SIN PLANILLA' : ('PLANILLA #' . intval($id_planilla_activa)); ?>
         </span>
         <span class="topbar-meta">
           &bull; <span id="topbar-latam-date"><?php echo htmlspecialchars($fecha_operativa_default, ENT_QUOTES, 'UTF-8'); ?></span>
