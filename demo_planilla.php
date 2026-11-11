@@ -792,29 +792,41 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             }
         }
 
-        // F. Últimas 20 Planillas Anteriores Cerradas
-        $q_hpl = "SELECT a.id_planilla_diaria, a.fecha, a.turno, b.horarios, c.nombre_estado, d.of_apellido, d.of_nombre, e.jefe_apellido, e.jefe_nombre
+        // F. Todas las Planillas Anteriores (excepto la que está en curso), desde la última cargada
+        if (!function_exists('regrad_safe_utf8')) {
+            function regrad_safe_utf8($s) {
+                if (!is_string($s)) return $s;
+                return (function_exists('mb_check_encoding') && !mb_check_encoding($s, 'UTF-8')) ? utf8_encode($s) : $s;
+            }
+        }
+        $where_hpl = (!empty($id_planilla_activa) && empty($sin_planilla_abierta))
+            ? ("WHERE a.id_planilla_diaria <> " . intval($id_planilla_activa))
+            : "";
+        $q_hpl = "SELECT a.id_planilla_diaria, a.fecha, a.fecha_hora_cerrado, a.turno, b.horarios, c.nombre_estado, d.of_apellido, d.of_nombre, e.jefe_apellido, e.jefe_nombre
                   FROM regrad_planilla_diaria_nueva a
                   LEFT JOIN regrad_turnos b ON b.id_turnos = a.turno
                   LEFT JOIN regrad_estados_planta c ON c.id_estado_planta = a.estado_planta
                   LEFT JOIN regrad_of_rad d ON d.id_of_rad = a.of_rad
                   LEFT JOIN regrad_jefes_turno e ON e.id_jefes_turno = a.jefe_turno
-                  WHERE a.fecha_hora_cerrado IS NOT NULL AND a.id_planilla_diaria >= 34
-                  ORDER BY a.fecha DESC, a.fecha_hora_cerrado DESC LIMIT 20";
+                  $where_hpl
+                  ORDER BY a.id_planilla_diaria DESC";
         $res_hpl = mysql_query($q_hpl, $miconex);
-        if ($res_hpl && mysql_num_rows($res_hpl) > 0) {
+        if ($res_hpl) {
+            $hist_planillas_db = array();
             while ($rw = mysql_fetch_assoc($res_hpl)) {
                 $pf = !empty($rw['fecha']) ? explode('-', $rw['fecha']) : array();
                 $f_lat = (count($pf) == 3) ? ($pf[2] . '/' . $pf[1] . '/' . $pf[0]) : ($rw['fecha'] ? $rw['fecha'] : '-');
                 $of_n = !empty($rw['of_apellido']) ? mb_strtoupper($rw['of_apellido'] . ', ' . $rw['of_nombre'], 'UTF-8') : '-';
-                $jf_n = !empty($rw['jefe_apellido']) ? mb_strtoupper($rw['jefe_apellido'] . ', ' . $rw['jefe_nombre'], 'UTF-8') : '-';
+                $jf_n = (!empty($rw['jefe_apellido']) || !empty($rw['jefe_nombre'])) ? mb_strtoupper(trim($rw['jefe_apellido'] . ', ' . $rw['jefe_nombre'], ', '), 'UTF-8') : '-';
+                $est_base = $rw['nombre_estado'] ? $rw['nombre_estado'] : (!empty($rw['fecha_hora_cerrado']) ? 'Cerrada' : 'Sin cerrar');
                 $hist_planillas_db[] = array(
                     'id' => intval($rw['id_planilla_diaria']),
-                    'fecha' => $f_lat,
-                    'turno' => $rw['horarios'] ? $rw['horarios'] : ('Turno ' . $rw['turno']),
-                    'oficial' => $of_n,
-                    'jefe' => $jf_n,
-                    'estado' => $rw['nombre_estado'] ? $rw['nombre_estado'] : 'Cerrada'
+                    'fecha' => regrad_safe_utf8($f_lat),
+                    'turno' => regrad_safe_utf8($rw['horarios'] ? $rw['horarios'] : ('Turno ' . $rw['turno'])),
+                    'oficial' => regrad_safe_utf8($of_n),
+                    'jefe' => regrad_safe_utf8($jf_n),
+                    'estado' => regrad_safe_utf8($est_base),
+                    'cerrada' => !empty($rw['fecha_hora_cerrado'])
                 );
             }
         }
@@ -3970,47 +3982,36 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       <section class="section-panel" id="sec-historial">
         <div class="panel-box">
           <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <div class="panel-title"><span>📁</span> HISTORIAL DE PLANILLAS ANTERIORES (ÚLTIMAS 20 GUARDIAS)</div>
+            <div class="panel-title"><span>📁</span> HISTORIAL DE PLANILLAS (<span id="hist-planillas-total-badge"><?php echo count($hist_planillas_db); ?></span>)</div>
             <div style="display: flex; align-items: center; gap: 8px;">
               <input type="text" id="hist-planillas-filter" class="field-control" style="width: 240px; height: 32px; font-size: 11.5px;" placeholder="🔍 Filtrar por N°, fecha, oficial o turno..." oninput="filterHistorialPlanillas(this.value)">
               <a href="vista_planillas_anteriores.php" target="_blank" class="btn-register" style="padding: 5px 12px; height: auto; font-size: 11px; text-decoration: none;">Buscador Completo ↗</a>
             </div>
           </div>
           <div class="panel-body">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>N° Planilla</th>
-                  <th>Fecha (DD/MM/AAAA)</th>
-                  <th>Turno</th>
-                  <th>Oficial a Cargo</th>
-                  <th>Jefe de Turno</th>
-                  <th>Estado Planta</th>
-                  <th style="text-align: center;">Visualización</th>
-                </tr>
-              </thead>
-              <tbody id="tbody-historial-planillas">
-                <?php if (empty($hist_planillas_db)) { ?>
+            <div class="table-scroll-wrapper" style="max-height: calc((100vh / 0.9) - 260px);">
+              <table class="data-table">
+                <thead>
                   <tr>
-                    <td colspan="7" style="text-align: center; color: var(--text-dim); padding: 18px; font-style: italic;">
-                      Sin planillas cerradas recientes registradas en MySQL.
-                    </td>
+                    <th>N° Planilla</th>
+                    <th>Fecha (DD/MM/AAAA)</th>
+                    <th>Turno</th>
+                    <th>Oficial a Cargo</th>
+                    <th>Jefe de Turno</th>
+                    <th>Estado Planta</th>
+                    <th style="text-align: center;">Visualización</th>
                   </tr>
-                <?php } else { foreach ($hist_planillas_db as $hp) { ?>
-                  <tr class="hist-planilla-row">
-                    <td class="num mono" style="font-weight: 700; color: var(--accent-cyan);">#<?php echo (int)$hp['id']; ?></td>
-                    <td class="mono"><?php echo htmlspecialchars($hp['fecha'], ENT_QUOTES, 'UTF-8'); ?></td>
-                    <td><?php echo htmlspecialchars($hp['turno'], ENT_QUOTES, 'UTF-8'); ?></td>
-                    <td style="font-weight: 600; color: #fff;"><?php echo htmlspecialchars($hp['oficial'], ENT_QUOTES, 'UTF-8'); ?></td>
-                    <td><?php echo htmlspecialchars($hp['jefe'], ENT_QUOTES, 'UTF-8'); ?></td>
-                    <td><span style="color: var(--accent-green); font-weight:700; font-size: 11px;"><?php echo htmlspecialchars($hp['estado'], ENT_QUOTES, 'UTF-8'); ?></span></td>
-                    <td style="text-align: center;">
-                      <button type="button" class="btn-del" style="color: var(--accent-cyan); border-color: var(--accent-cyan);" onclick="window.open('planilla_en_curso_visualizacion.php?id_planilla=<?php echo (int)$hp['id']; ?>', '_blank')">📄 Ver Planilla</button>
-                    </td>
-                  </tr>
-                <?php } } ?>
-              </tbody>
-            </table>
+                </thead>
+                <tbody id="tbody-historial-planillas"></tbody>
+              </table>
+            </div>
+            <div id="demo-hist-pagination-bar" style="display: none; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 8px 12px; background: var(--bg-card-subtle); border: 1px solid var(--border-card); border-radius: 6px; font-size: 11px; color: var(--text-muted);">
+              <span id="demo-hist-pagination-info">Mostrando 0 de 0 planillas</span>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn-del" style="color: var(--accent-cyan); border-color: var(--accent-cyan);" onclick="cargarMasHistDemo()">+ Cargar 100 más</button>
+                <button type="button" class="btn-del" onclick="mostrarTodasHistDemo()">Mostrar todas</button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -8350,13 +8351,79 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       // ================= MODAL INTERACTIVO DE HISTORIAL POR RECINTO GUARDADO =================
     let activeSelectedRecintoForPrefill = '';
 
+    const HIST_PLANILLAS_ALL = <?php
+      $json_d_hist = json_encode($hist_planillas_db);
+      if ($json_d_hist === false) $json_d_hist = '[]';
+      echo str_replace('</', '<\/', $json_d_hist);
+    ?>;
+    let histDemoFiltered = HIST_PLANILLAS_ALL;
+    let histDemoLimit = 100;
+
+    function escHistHtml(v) {
+      return String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function renderHistorialPlanillasDemo() {
+      const tbody = document.getElementById('tbody-historial-planillas');
+      const bar = document.getElementById('demo-hist-pagination-bar');
+      const info = document.getElementById('demo-hist-pagination-info');
+      const badge = document.getElementById('hist-planillas-total-badge');
+      if (!tbody) return;
+      if (badge) badge.textContent = histDemoFiltered.length;
+
+      if (!histDemoFiltered || histDemoFiltered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-dim); padding: 18px; font-style: italic;">Sin planillas registradas que coincidan con el filtro.</td></tr>';
+        if (bar) bar.style.display = 'none';
+        return;
+      }
+
+      const slice = histDemoFiltered.slice(0, histDemoLimit);
+      tbody.innerHTML = slice.map(hp => {
+        const badgeColor = (hp.cerrada === false) ? 'var(--accent-amber)' : 'var(--accent-green)';
+        const extraTag = (hp.cerrada === false) ? ' (Sin cerrar)' : '';
+        return `<tr class="hist-planilla-row">
+          <td class="num mono" style="font-weight: 700; color: var(--accent-cyan);">#${Number(hp.id)}</td>
+          <td class="mono">${escHistHtml(hp.fecha)}</td>
+          <td>${escHistHtml(hp.turno)}</td>
+          <td style="font-weight: 600; color: #fff;">${escHistHtml(hp.oficial)}</td>
+          <td>${escHistHtml(hp.jefe)}</td>
+          <td><span style="color: ${badgeColor}; font-weight:700; font-size: 11px;">${escHistHtml(hp.estado)}${extraTag}</span></td>
+          <td style="text-align: center;">
+            <button type="button" class="btn-del" style="color: var(--accent-cyan); border-color: var(--accent-cyan);" onclick="window.open('planilla_en_curso_visualizacion.php?id_planilla=${Number(hp.id)}', '_blank')">📄 Ver Planilla</button>
+          </td>
+        </tr>`;
+      }).join('');
+
+      if (bar && info) {
+        if (histDemoFiltered.length > slice.length) {
+          bar.style.display = 'flex';
+          info.textContent = `Mostrando ${slice.length} de ${histDemoFiltered.length} planillas (última cargada arriba)`;
+        } else {
+          bar.style.display = 'none';
+        }
+      }
+    }
+
+    function cargarMasHistDemo() {
+      histDemoLimit += 100;
+      renderHistorialPlanillasDemo();
+    }
+
+    function mostrarTodasHistDemo() {
+      histDemoLimit = histDemoFiltered.length;
+      renderHistorialPlanillasDemo();
+    }
+
     function filterHistorialPlanillas(term) {
       const q = (term || '').toLowerCase().trim();
-      document.querySelectorAll('.hist-planilla-row').forEach(tr => {
-        const txt = tr.textContent.toLowerCase();
-        tr.style.display = (!q || txt.includes(q)) ? '' : 'none';
-      });
+      histDemoFiltered = !q
+        ? HIST_PLANILLAS_ALL
+        : HIST_PLANILLAS_ALL.filter(hp => `#${hp.id} ${hp.id} ${hp.fecha} ${hp.turno} ${hp.oficial} ${hp.jefe} ${hp.estado}`.toLowerCase().includes(q));
+      histDemoLimit = 100;
+      renderHistorialPlanillasDemo();
     }
+
+    renderHistorialPlanillasDemo();
 
     function renderRecintoHistoryModalRows(history, container, trendBadge) {
       if (!history || history.length === 0) {

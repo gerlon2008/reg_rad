@@ -62,12 +62,30 @@ if ($db_connected) {
         }
     }
 
-    // 3. Obtener planillas cerradas
+    // Helper UTF-8 seguro para PHP 5.5 + json_encode
+    if (!function_exists('regrad_safe_utf8')) {
+        function regrad_safe_utf8($val) {
+            if (!is_string($val)) return $val;
+            if (function_exists('mb_check_encoding') && !mb_check_encoding($val, 'UTF-8')) {
+                return utf8_encode($val);
+            }
+            return $val;
+        }
+    }
+
+    // 3. Identificar la planilla en curso actual (para excluirla únicamente a ella)
+    $id_planilla_en_curso = 0;
+    $res_en_curso = @mysql_query("SELECT id_planilla_diaria FROM regrad_planilla_diaria_nueva WHERE fecha_hora_cerrado IS NULL ORDER BY id_planilla_diaria DESC LIMIT 1", $miconex);
+    if ($res_en_curso && ($row_ec = mysql_fetch_assoc($res_en_curso))) {
+        $id_planilla_en_curso = (int)$row_ec['id_planilla_diaria'];
+    }
+
+    // 4. Obtener TODAS las planillas (excepto la que está en curso), ordenadas desde la última cargada
+    $where_hist = ($id_planilla_en_curso > 0) ? ("WHERE a.id_planilla_diaria <> " . $id_planilla_en_curso) : "";
     $query_registros = "SELECT 
             a.id_planilla_diaria,
             a.fecha,
             a.fecha_hora_cerrado,
-            a.fecha_hora_creado,
             a.turno,
             a.estado_planta,
             b.horarios,
@@ -81,31 +99,37 @@ if ($db_connected) {
         LEFT JOIN regrad_estados_planta c ON c.id_estado_planta = a.estado_planta 
         LEFT JOIN regrad_of_rad d ON d.id_of_rad = a.of_rad 
         LEFT JOIN regrad_jefes_turno e ON e.id_jefes_turno = a.jefe_turno 
-        WHERE a.fecha_hora_cerrado IS NOT NULL AND a.id_planilla_diaria >= 34 
-        ORDER BY a.fecha DESC, a.fecha_hora_cerrado DESC";
+        $where_hist 
+        ORDER BY a.id_planilla_diaria DESC";
     $res_reg = @mysql_query($query_registros, $miconex);
     if ($res_reg) {
         while ($row = mysql_fetch_assoc($res_reg)) {
-            $oficial_nom = (!empty($row['of_apellido'])) ? mb_strtoupper($row['of_apellido'] . ", " . $row['of_nombre'], 'UTF-8') : "SIN ASIGNAR";
-            $jefe_nom = (!empty($row['jefe_apellido']) || !empty($row['jefe_nombre'])) ? mb_strtoupper($row['jefe_apellido'] . ", " . $row['jefe_nombre'], 'UTF-8') : "SIN ASIGNAR";
-            
+            $of_ap = regrad_safe_utf8($row['of_apellido']);
+            $of_no = regrad_safe_utf8($row['of_nombre']);
+            $jf_ap = regrad_safe_utf8($row['jefe_apellido']);
+            $jf_no = regrad_safe_utf8($row['jefe_nombre']);
+            $oficial_nom = (!empty($of_ap) || !empty($of_no)) ? mb_strtoupper(trim($of_ap . ", " . $of_no, ", "), 'UTF-8') : "SIN ASIGNAR";
+            $jefe_nom = (!empty($jf_ap) || !empty($jf_no)) ? mb_strtoupper(trim($jf_ap . ", " . $jf_no, ", "), 'UTF-8') : "SIN ASIGNAR";
+            $hor_str = !empty($row['horarios']) ? regrad_safe_utf8($row['horarios']) : ('Turno ' . $row['turno']);
+            $est_str = !empty($row['nombre_estado']) ? mb_strtoupper(regrad_safe_utf8($row['nombre_estado']), 'UTF-8') : 'POTENCIA 100%';
+
             $registros_historicos[] = array(
                 'id' => (int)$row['id_planilla_diaria'],
-                'fecha_sql' => $row['fecha'],
+                'fecha_sql' => $row['fecha'] ? $row['fecha'] : '',
                 'fecha_latam' => formafecha_latam($row['fecha']),
-                'hora_cierre' => !empty($row['fecha_hora_cerrado']) ? date('H:i', strtotime($row['fecha_hora_cerrado'])) : '--:--',
+                'hora_cierre' => !empty($row['fecha_hora_cerrado']) ? date('H:i', strtotime($row['fecha_hora_cerrado'])) : '',
                 'id_turno' => (int)$row['turno'],
-                'horarios' => !empty($row['horarios']) ? $row['horarios'] : 'Turno ' . $row['turno'],
+                'horarios' => $hor_str,
                 'oficial' => $oficial_nom,
                 'jefe' => $jefe_nom,
-                'estado_planta' => !empty($row['nombre_estado']) ? mb_strtoupper($row['nombre_estado'], 'UTF-8') : 'POTENCIA 100%'
+                'estado_planta' => $est_str
             );
         }
     }
 }
 
-// Si está offline o en modo demo, proveer datos mock realistas de Central Nuclear Embalse
-if (empty($registros_historicos)) {
+// Si está offline o en modo demo (sin conexión DB), proveer datos mock realistas de Central Nuclear Embalse
+if (!$db_connected) {
     $lista_oficiales = array(
         array('id' => 1, 'nombre' => 'ALTUNA, LEONARDO (P)'),
         array('id' => 2, 'nombre' => 'ROLHAUSER, MARIANO'),
@@ -956,7 +980,7 @@ if (empty($registros_historicos)) {
         <h1>
           <span>📁 Archivo Histórico de Planillas Diarias</span>
         </h1>
-        <p>Consulta, auditoría e inspección técnica de registros radiológicos formalizados y cerrados</p>
+        <p>Consulta, auditoría e inspección técnica de todas las planillas cargadas (última cargada arriba, excluyendo la planilla en curso)</p>
       </div>
       <div class="header-stats-chips">
         <div class="stat-chip">
@@ -989,9 +1013,11 @@ if (empty($registros_historicos)) {
         <label>Turno</label>
         <select id="filter-turno" class="filter-ctrl">
           <option value="">TODOS LOS TURNOS</option>
-          <option value="1">Turno 1 (23:00 a 07:00 hs)</option>
-          <option value="2">Turno 2 (07:00 a 15:00 hs)</option>
-          <option value="3">Turno 3 (15:00 a 23:00 hs)</option>
+          <?php foreach ($lista_turnos as $tu): ?>
+            <option value="<?php echo (int)$tu['id_turnos']; ?>">
+              <?php echo htmlspecialchars($tu['horarios'], ENT_QUOTES, 'UTF-8'); ?>
+            </option>
+          <?php endforeach; ?>
         </select>
       </div>
 
@@ -1038,58 +1064,15 @@ if (empty($registros_historicos)) {
             <th style="width: 220px; text-align: right;">Acciones</th>
           </tr>
         </thead>
-        <tbody id="tbody-historico">
-          <?php foreach ($registros_historicos as $r): 
-            $tClass = 't1';
-            if ($r['id_turno'] == 2) $tClass = 't2';
-            if ($r['id_turno'] == 3) $tClass = 't3';
-          ?>
-            <tr data-id="<?php echo $r['id']; ?>"
-                data-fecha-sql="<?php echo $r['fecha_sql']; ?>"
-                data-fecha-latam="<?php echo $r['fecha_latam']; ?>"
-                data-turno="<?php echo $r['id_turno']; ?>"
-                data-oficial="<?php echo htmlspecialchars($r['oficial'], ENT_QUOTES, 'UTF-8'); ?>"
-                data-jefe="<?php echo htmlspecialchars($r['jefe'], ENT_QUOTES, 'UTF-8'); ?>">
-              <td class="mono" style="font-weight: 700; color: var(--accent-cyan);">
-                #<?php echo $r['id']; ?>
-              </td>
-              <td class="mono">
-                <?php echo $r['fecha_latam']; ?>
-              </td>
-              <td>
-                <span class="shift-badge <?php echo $tClass; ?>">
-                  <?php echo htmlspecialchars($r['horarios'], ENT_QUOTES, 'UTF-8'); ?>
-                </span>
-              </td>
-              <td style="font-weight: 600; text-transform: uppercase;">
-                <?php echo htmlspecialchars($r['oficial'], ENT_QUOTES, 'UTF-8'); ?>
-              </td>
-              <td style="color: var(--text-muted); text-transform: uppercase;">
-                <?php echo htmlspecialchars($r['jefe'], ENT_QUOTES, 'UTF-8'); ?>
-              </td>
-              <td>
-                <span class="badge-plant"><?php echo htmlspecialchars($r['estado_planta'], ENT_QUOTES, 'UTF-8'); ?></span>
-              </td>
-              <td class="mono" style="text-align: center; color: var(--text-dim); font-size: 11px;">
-                <?php echo $r['hora_cierre']; ?> hs
-              </td>
-              <td>
-                <div class="row-actions">
-                  <a href="planilla_en_curso_visualizacion.php?id_planilla=<?php echo $r['id']; ?>" target="_blank" class="btn-action" title="Abrir visor completo de la planilla">
-                    <span>👁️ Ver Planilla</span>
-                  </a>
-                  <button type="button" class="btn-action btn-secondary" onclick="abrirNovedadesActas(<?php echo $r['id']; ?>, '<?php echo $r['fecha_latam']; ?>', '<?php echo addslashes($r['oficial']); ?>', '<?php echo addslashes($r['horarios']); ?>')" title="Ver Novedades del Libro de Actas">
-                    <span>📋 Actas</span>
-                  </button>
-                  <a href="planilla_en_curso_visualizacion.php?id_planilla=<?php echo $r['id']; ?>&print=1" target="_blank" class="btn-action btn-print" title="Imprimir informe oficial">
-                    <span>🖨️</span>
-                  </a>
-                </div>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-        </tbody>
+        <tbody id="tbody-historico"></tbody>
       </table>
+      <div id="hist-pagination-bar" style="display: none; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--border-card); background: var(--bg-sidebar); font-size: 11px; color: var(--text-muted);">
+        <span id="hist-pagination-info">Mostrando 0 de 0 planillas</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button type="button" class="btn-action" id="btn-load-more-hist" onclick="cargarMasPlanillas()">+ Cargar 150 más</button>
+          <button type="button" class="btn-action btn-secondary" id="btn-show-all-hist" onclick="mostrarTodasPlanillas()">Mostrar todas</button>
+        </div>
+      </div>
     </div>
 
   </main>
@@ -1164,7 +1147,16 @@ if (empty($registros_historicos)) {
   </div>
 
   <script>
-    // ================= FILTRADO REACTIVO EN VIVO =================
+    // ================= DATOS Y RENDERIZADO DE TODAS LAS PLANILLAS =================
+    const HISTORICO_PLANILLAS = <?php
+      $json_hist = json_encode($registros_historicos);
+      if ($json_hist === false) $json_hist = '[]';
+      echo str_replace('</', '<\/', $json_hist);
+    ?>;
+    const HIST_PAGE_STEP = 150;
+    let histFilteredList = HISTORICO_PLANILLAS;
+    let histRenderLimit = HIST_PAGE_STEP;
+
     const filterDesde = document.getElementById('filter-desde');
     const filterHasta = document.getElementById('filter-hasta');
     const filterTurno = document.getElementById('filter-turno');
@@ -1173,6 +1165,12 @@ if (empty($registros_historicos)) {
     const btnReset = document.getElementById('btn-reset-filters');
     const tbody = document.getElementById('tbody-historico');
     const chipFiltradas = document.getElementById('chip-filtradas-planillas');
+    const pagBar = document.getElementById('hist-pagination-bar');
+    const pagInfo = document.getElementById('hist-pagination-info');
+
+    function escHtml(str) {
+      return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
 
     function parseLatamDate(str) {
       if (!str || typeof str !== 'string') return null;
@@ -1188,6 +1186,74 @@ if (empty($registros_historicos)) {
       return null;
     }
 
+    function buildRowHtml(r) {
+      let tClass = 't1';
+      if (Number(r.id_turno) === 2) tClass = 't2';
+      if (Number(r.id_turno) === 3) tClass = 't3';
+      const cierreHtml = r.hora_cierre
+        ? `${escHtml(r.hora_cierre)} hs`
+        : '<span style="color: var(--accent-amber); font-weight: 700;">Sin cerrar</span>';
+      const jsFecha = JSON.stringify(r.fecha_latam || '');
+      const jsOficial = JSON.stringify(r.oficial || '');
+      const jsTurno = JSON.stringify(r.horarios || '');
+
+      return `<tr>
+        <td class="mono" style="font-weight: 700; color: var(--accent-cyan);">#${Number(r.id)}</td>
+        <td class="mono">${escHtml(r.fecha_latam)}</td>
+        <td><span class="shift-badge ${tClass}">${escHtml(r.horarios)}</span></td>
+        <td style="font-weight: 600; text-transform: uppercase;">${escHtml(r.oficial)}</td>
+        <td style="color: var(--text-muted); text-transform: uppercase;">${escHtml(r.jefe)}</td>
+        <td><span class="badge-plant">${escHtml(r.estado_planta)}</span></td>
+        <td class="mono" style="text-align: center; color: var(--text-dim); font-size: 11px;">${cierreHtml}</td>
+        <td>
+          <div class="row-actions">
+            <a href="planilla_en_curso_visualizacion.php?id_planilla=${Number(r.id)}" target="_blank" class="btn-action" title="Abrir visor completo de la planilla">
+              <span>👁️ Ver Planilla</span>
+            </a>
+            <button type="button" class="btn-action btn-secondary" onclick='abrirNovedadesActas(${Number(r.id)}, ${jsFecha}, ${jsOficial}, ${jsTurno})' title="Ver Novedades del Libro de Actas">
+              <span>📋 Actas</span>
+            </button>
+            <a href="planilla_en_curso_visualizacion.php?id_planilla=${Number(r.id)}&print=1" target="_blank" class="btn-action btn-print" title="Imprimir informe oficial">
+              <span>🖨️</span>
+            </a>
+          </div>
+        </td>
+      </tr>`;
+    }
+
+    function renderHistoricoTable() {
+      const total = histFilteredList.length;
+      chipFiltradas.textContent = total;
+
+      if (total === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No se encontraron planillas con los filtros seleccionados</td></tr>';
+        if (pagBar) pagBar.style.display = 'none';
+        return;
+      }
+
+      const slice = histFilteredList.slice(0, histRenderLimit);
+      tbody.innerHTML = slice.map(buildRowHtml).join('');
+
+      if (pagBar && pagInfo) {
+        if (total > slice.length) {
+          pagBar.style.display = 'flex';
+          pagInfo.textContent = `Mostrando ${slice.length} de ${total} planillas (ordenadas desde la última cargada)`;
+        } else {
+          pagBar.style.display = 'none';
+        }
+      }
+    }
+
+    function cargarMasPlanillas() {
+      histRenderLimit += HIST_PAGE_STEP;
+      renderHistoricoTable();
+    }
+
+    function mostrarTodasPlanillas() {
+      histRenderLimit = histFilteredList.length;
+      renderHistoricoTable();
+    }
+
     function applyFilters() {
       const desdeDate = parseLatamDate(filterDesde.value);
       const hastaDate = parseLatamDate(filterHasta.value);
@@ -1197,57 +1263,29 @@ if (empty($registros_historicos)) {
       const oficialVal = filterOficial.value.trim().toUpperCase();
       const searchVal = filterSearch.value.trim().toUpperCase();
 
-      const rows = tbody.querySelectorAll('tr:not(.empty-row)');
-      let visibleCount = 0;
-
-      rows.forEach(tr => {
-        let visible = true;
-        const rowFechaSql = tr.dataset.fechaSql;
-        const rowTurno = tr.dataset.turno;
-        const rowOficial = tr.dataset.oficial || '';
-        const rowJefe = tr.dataset.jefe || '';
-        const rowText = tr.textContent.toUpperCase();
-
-        // 1. Filtro Fecha Desde / Hasta
-        if (rowFechaSql) {
-          const rowDate = new Date(rowFechaSql + 'T00:00:00');
-          if (desdeDate && rowDate < desdeDate) visible = false;
-          if (hastaDate && rowDate > hastaDate) visible = false;
+      histFilteredList = HISTORICO_PLANILLAS.filter(r => {
+        if (r.fecha_sql) {
+          const rowDate = new Date(r.fecha_sql + 'T00:00:00');
+          if (desdeDate && rowDate < desdeDate) return false;
+          if (hastaDate && rowDate > hastaDate) return false;
+        } else if (desdeDate || hastaDate) {
+          return false;
         }
-
-        // 2. Filtro Turno
-        if (visible && turnoVal && rowTurno !== turnoVal) {
-          visible = false;
+        if (turnoVal && String(r.id_turno) !== String(turnoVal)) return false;
+        if (oficialVal && !String(r.oficial || '').toUpperCase().includes(oficialVal)) return false;
+        if (searchVal) {
+          const haystack = `#${r.id} ${r.id} ${r.fecha_latam} ${r.horarios} ${r.oficial} ${r.jefe} ${r.estado_planta}`.toUpperCase();
+          if (!haystack.includes(searchVal)) return false;
         }
-
-        // 3. Filtro Oficial
-        if (visible && oficialVal && !rowOficial.includes(oficialVal)) {
-          visible = false;
-        }
-
-        // 4. Búsqueda libre
-        if (visible && searchVal && !rowText.includes(searchVal)) {
-          visible = false;
-        }
-
-        tr.style.display = visible ? '' : 'none';
-        if (visible) visibleCount++;
+        return true;
       });
 
-      chipFiltradas.textContent = visibleCount;
-
-      let emptyTr = tbody.querySelector('.empty-row');
-      if (visibleCount === 0) {
-        if (!emptyTr) {
-          emptyTr = document.createElement('tr');
-          emptyTr.className = 'empty-row';
-          emptyTr.innerHTML = '<td colspan="8">No se encontraron planillas con los filtros seleccionados</td>';
-          tbody.appendChild(emptyTr);
-        }
-      } else if (emptyTr) {
-        emptyTr.remove();
-      }
+      histRenderLimit = HIST_PAGE_STEP;
+      renderHistoricoTable();
     }
+
+    // Carga inicial al abrir
+    renderHistoricoTable();
 
     [filterDesde, filterHasta, filterTurno, filterOficial, filterSearch].forEach(ctrl => {
       ctrl.addEventListener('input', applyFilters);
