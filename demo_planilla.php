@@ -952,7 +952,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
     /* ================= SIDEBAR ================= */
     .sidebar {
-      width: 270px;
+      width: 280px;
       background-color: var(--bg-sidebar);
       border-right: 1px solid var(--border-card);
       display: flex;
@@ -1020,17 +1020,17 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
     .sidebar-menu {
       flex: 1;
-      padding: 10px 12px;
+      padding: 8px 10px;
       overflow-y: auto;
     }
 
     .menu-header {
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 800;
       color: var(--text-dim);
       text-transform: uppercase;
-      letter-spacing: 1px;
-      padding: 8px 10px 4px;
+      letter-spacing: 0.9px;
+      padding: 8px 8px 4px;
     }
 
     .menu-btn {
@@ -1038,18 +1038,27 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      padding: 9px 12px;
-      margin-bottom: 4px;
+      gap: 6px;
+      padding: 7px 8px;
+      margin-bottom: 3px;
       background: transparent;
       border: 1px solid transparent;
       border-radius: 6px;
       color: var(--text-muted);
-      font-size: 12.5px;
-      font-weight: 500;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: -0.1px;
       text-align: left;
+      white-space: nowrap;
       cursor: pointer;
       transition: all 0.15s ease;
+    }
+
+    .menu-btn > span:first-child {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .menu-btn:hover {
@@ -1069,10 +1078,12 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       background: var(--bg-card);
       border: 1px solid var(--border-card);
       color: var(--accent-cyan);
-      font-size: 10px;
+      font-size: 9.5px;
       font-family: var(--font-mono);
-      padding: 2px 6px;
+      padding: 1px 6px;
       border-radius: 10px;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .sidebar-user {
