@@ -237,6 +237,33 @@ $relevamientos_rutina_iniciales = array(
   )
 );
 
+// Históricos de mediciones diarias / por turno (fallback offline)
+$hist_tritio_db = array(
+  array('fecha' => '08/11/2026', 'hora' => '23:00', 'oficial' => 'ALTUNA, LEONARDO (P)', 'vent_gral' => '1.45', 'vent_reactor' => '3.80', 'es_actual' => false),
+  array('fecha' => '08/11/2026', 'hora' => '15:00', 'oficial' => 'ROLHAUSER, MARIANO', 'vent_gral' => '1.30', 'vent_reactor' => '3.65', 'es_actual' => false),
+  array('fecha' => '08/11/2026', 'hora' => '07:00', 'oficial' => 'GATICA, CARLOS', 'vent_gral' => '1.40', 'vent_reactor' => '3.70', 'es_actual' => false)
+);
+$hist_c14_db = array(
+  array('fecha' => '08/11/2026', 'hora' => '06:00', 'oficial' => 'ALTUNA, LEONARDO (P)', 'medicion' => '12.4', 'es_actual' => false),
+  array('fecha' => '07/11/2026', 'hora' => '22:00', 'oficial' => 'ROLHAUSER, MARIANO', 'medicion' => '11.8', 'es_actual' => false),
+  array('fecha' => '07/11/2026', 'hora' => '14:00', 'oficial' => 'GATICA, CARLOS', 'medicion' => '12.0', 'es_actual' => false)
+);
+$hist_dedofrio_db = array(
+  array('fecha' => 'Hoy', 'hora' => '04:15', 'oficial' => 'ALTUNA, LEONARDO (P)', 'ppm' => '12', 'menor_que' => 1, 'es_actual' => false),
+  array('fecha' => 'Ayer', 'hora' => '20:30', 'oficial' => 'ROLHAUSER, MARIANO', 'ppm' => '10', 'menor_que' => 1, 'es_actual' => false),
+  array('fecha' => 'Ayer', 'hora' => '12:45', 'oficial' => 'GATICA, CARLOS', 'ppm' => '15', 'menor_que' => 0, 'es_actual' => false)
+);
+$hist_gases_nobles_db = array(
+  array('fecha' => '08/11/2026', 'hora' => '00:00-18:00', 'oficial' => 'ALTUNA, LEONARDO (P)', 'ar41' => '0.00', 'kr85' => '0.00', 'xe133' => '0.00', 'xe135' => '0.00', 'total' => '0.00', 'es_actual' => false)
+);
+$hist_met_db = array(
+  array('fecha' => '08/11/2026', 'hora' => '06:00', 'oficial' => 'ALTUNA, LEONARDO (P)', 'dir' => 'Sur', 'vel' => '14.5', 'pasquill' => 'Clase D', 'es_actual' => false)
+);
+$hist_planillas_db = array(
+  array('id' => 10842, 'fecha' => '08/11/2026', 'turno' => 'Turno 1 (06:00 - 14:00)', 'oficial' => 'RODRÍGUEZ, MIGUEL', 'jefe' => 'GÓMEZ, CARLOS', 'estado' => 'Cerrada'),
+  array('id' => 10841, 'fecha' => '07/11/2026', 'turno' => 'Turno 3 (23:00 - 07:00)', 'oficial' => 'PÉREZ, JUAN', 'jefe' => 'MARTÍNEZ, ESTEBAN', 'estado' => 'Cerrada')
+);
+
 // Conexión real a MySQL en servidor de producción CNE
 $miconex_path = $_SERVER["DOCUMENT_ROOT"] . "/ptr/Connections/miconex.php";
 if (file_exists($miconex_path)) {
@@ -628,6 +655,167 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         }
         if (isset($_GET['nueva_guardia']) && $_GET['nueva_guardia'] == '1') {
             $sin_planilla_abierta = true;
+        }
+
+        // ================= CARGA AL INGRESO: ÚLTIMOS 5 REGISTROS REALES DE MEDICIONES DIARIAS Y PLANILLAS =================
+        $hist_tritio_db = array();
+        $hist_c14_db = array();
+        $hist_dedofrio_db = array();
+        $hist_gases_nobles_db = array();
+        $hist_met_db = array();
+        $hist_planillas_db = array();
+
+        // A. Últimos 5 Tritio Chimenea
+        $q_ht = "SELECT a.*, o.of_apellido, o.of_nombre FROM regrad_tritio a
+                 LEFT JOIN regrad_planilla_diaria_nueva p ON p.id_planilla_diaria = a.id_planilla
+                 LEFT JOIN regrad_of_rad o ON o.id_of_rad = p.of_rad
+                 ORDER BY a.fecha DESC, a.id_tritio DESC LIMIT 5";
+        $res_ht = mysql_query($q_ht, $miconex);
+        if ($res_ht && mysql_num_rows($res_ht) > 0) {
+            while ($rw = mysql_fetch_assoc($res_ht)) {
+                $pf = !empty($rw['fecha']) ? explode('-', $rw['fecha']) : array();
+                $f_lat = (count($pf) == 3) ? ($pf[2] . '/' . $pf[1] . '/' . $pf[0]) : ($rw['fecha'] ? $rw['fecha'] : '-');
+                $h_str = !empty($rw['hora_hasta']) ? substr($rw['hora_hasta'], 0, 5) : (!empty($rw['hora_desde']) ? substr($rw['hora_desde'], 0, 5) : '--:--');
+                $of_n = !empty($rw['of_apellido']) ? mb_strtoupper($rw['of_apellido'] . ', ' . $rw['of_nombre'], 'UTF-8') : '-';
+                $hist_tritio_db[] = array(
+                    'fecha' => $f_lat,
+                    'hora' => $h_str,
+                    'oficial' => $of_n,
+                    'vent_gral' => ($rw['vent_gral'] !== null && $rw['vent_gral'] !== '') ? number_format(floatval($rw['vent_gral']) / 1e9, 2, '.', '') : '0.00',
+                    'vent_reactor' => ($rw['vent_reactor'] !== null && $rw['vent_reactor'] !== '') ? number_format(floatval($rw['vent_reactor']) / 1e9, 2, '.', '') : '0.00',
+                    'es_actual' => ($id_planilla_activa && intval($rw['id_planilla']) === intval($id_planilla_activa))
+                );
+            }
+        }
+
+        // B. Últimos 5 Carbono-14
+        $q_hc = "SELECT a.*, o.of_apellido, o.of_nombre FROM regrad_carbono14 a
+                 LEFT JOIN regrad_planilla_diaria_nueva p ON p.id_planilla_diaria = a.id_planilla
+                 LEFT JOIN regrad_of_rad o ON o.id_of_rad = p.of_rad
+                 ORDER BY a.fecha DESC, a.id_carbono14 DESC LIMIT 5";
+        $res_hc = mysql_query($q_hc, $miconex);
+        if ($res_hc && mysql_num_rows($res_hc) > 0) {
+            while ($rw = mysql_fetch_assoc($res_hc)) {
+                $pf = !empty($rw['fecha']) ? explode('-', $rw['fecha']) : array();
+                $f_lat = (count($pf) == 3) ? ($pf[2] . '/' . $pf[1] . '/' . $pf[0]) : ($rw['fecha'] ? $rw['fecha'] : '-');
+                $h_str = !empty($rw['hora']) ? substr($rw['hora'], 0, 5) : '--:--';
+                $of_n = !empty($rw['of_apellido']) ? mb_strtoupper($rw['of_apellido'] . ', ' . $rw['of_nombre'], 'UTF-8') : '-';
+                $hist_c14_db[] = array(
+                    'fecha' => $f_lat,
+                    'hora' => $h_str,
+                    'oficial' => $of_n,
+                    'medicion' => ($rw['medicion'] !== null && $rw['medicion'] !== '') ? number_format(floatval($rw['medicion']) / 1e6, 1, '.', '') : '0.0',
+                    'es_actual' => ($id_planilla_activa && intval($rw['id_planilla']) === intval($id_planilla_activa))
+                );
+            }
+        }
+
+        // C. Últimos 5 Dedo Frío 73120
+        $q_hdf = "SELECT a.*, o.of_apellido, o.of_nombre FROM regrad_dedo_frio a
+                  LEFT JOIN regrad_planilla_diaria_nueva p ON p.id_planilla_diaria = a.id_planilla
+                  LEFT JOIN regrad_of_rad o ON o.id_of_rad = p.of_rad
+                  ORDER BY a.fecha DESC, a.id_dedo_frio DESC LIMIT 5";
+        $res_hdf = mysql_query($q_hdf, $miconex);
+        if ($res_hdf && mysql_num_rows($res_hdf) > 0) {
+            while ($rw = mysql_fetch_assoc($res_hdf)) {
+                $pf = !empty($rw['fecha']) ? explode('-', $rw['fecha']) : array();
+                $f_lat = (count($pf) == 3) ? ($pf[2] . '/' . $pf[1] . '/' . $pf[0]) : ($rw['fecha'] ? $rw['fecha'] : '-');
+                $h_str = !empty($rw['hora_medicion']) ? substr($rw['hora_medicion'], 0, 5) : '--:--';
+                $of_n = !empty($rw['of_apellido']) ? mb_strtoupper($rw['of_apellido'] . ', ' . $rw['of_nombre'], 'UTF-8') : '-';
+                $hist_dedofrio_db[] = array(
+                    'fecha' => $f_lat,
+                    'hora' => $h_str,
+                    'oficial' => $of_n,
+                    'ppm' => ($rw['ppm'] !== null && $rw['ppm'] !== '') ? $rw['ppm'] : '0',
+                    'menor_que' => intval($rw['menor_que']),
+                    'es_actual' => ($id_planilla_activa && intval($rw['id_planilla']) === intval($id_planilla_activa))
+                );
+            }
+        }
+
+        // D. Últimos 5 Gases Nobles Chimenea
+        $q_hgn = "SELECT a.*, o.of_apellido, o.of_nombre FROM regrad_gases_nobles a
+                  LEFT JOIN regrad_planilla_diaria_nueva p ON p.id_planilla_diaria = a.id_planilla
+                  LEFT JOIN regrad_of_rad o ON o.id_of_rad = p.of_rad
+                  ORDER BY a.fecha DESC, a.id_gases_nobles DESC LIMIT 5";
+        $res_hgn = mysql_query($q_hgn, $miconex);
+        if ($res_hgn && mysql_num_rows($res_hgn) > 0) {
+            while ($rw = mysql_fetch_assoc($res_hgn)) {
+                $pf = !empty($rw['fecha']) ? explode('-', $rw['fecha']) : array();
+                $f_lat = (count($pf) == 3) ? ($pf[2] . '/' . $pf[1] . '/' . $pf[0]) : ($rw['fecha'] ? $rw['fecha'] : '-');
+                $h1 = !empty($rw['hora_desde']) ? substr($rw['hora_desde'], 0, 5) : '--:--';
+                $h2 = !empty($rw['hora_hasta']) ? substr($rw['hora_hasta'], 0, 5) : '--:--';
+                $of_n = !empty($rw['of_apellido']) ? mb_strtoupper($rw['of_apellido'] . ', ' . $rw['of_nombre'], 'UTF-8') : '-';
+                $v_ar = ($rw['ar41'] > 1e4) ? floatval($rw['ar41']) / 1e9 : floatval($rw['ar41']);
+                $v_kr85 = ($rw['kr85'] > 1e4) ? floatval($rw['kr85']) / 1e9 : floatval($rw['kr85']);
+                $v_kr85m = ($rw['kr85m'] > 1e4) ? floatval($rw['kr85m']) / 1e9 : floatval($rw['kr85m']);
+                $v_xe133 = ($rw['xe133'] > 1e4) ? floatval($rw['xe133']) / 1e9 : floatval($rw['xe133']);
+                $v_xe135 = ($rw['xe135'] > 1e4) ? floatval($rw['xe135']) / 1e9 : floatval($rw['xe135']);
+                $v_xe135m = ($rw['xe135m'] > 1e4) ? floatval($rw['xe135m']) / 1e9 : floatval($rw['xe135m']);
+                $tot_gn = $v_ar + $v_kr85 + $v_kr85m + $v_xe133 + $v_xe135 + $v_xe135m;
+                $hist_gases_nobles_db[] = array(
+                    'fecha' => $f_lat,
+                    'hora' => $h1 . '-' . $h2,
+                    'oficial' => $of_n,
+                    'ar41' => number_format($v_ar, 2, '.', ''),
+                    'kr85' => number_format($v_kr85 + $v_kr85m, 2, '.', ''),
+                    'xe133' => number_format($v_xe133, 2, '.', ''),
+                    'xe135' => number_format($v_xe135 + $v_xe135m, 2, '.', ''),
+                    'total' => number_format($tot_gn, 2, '.', ''),
+                    'es_actual' => ($id_planilla_activa && intval($rw['id_planilla']) === intval($id_planilla_activa))
+                );
+            }
+        }
+
+        // E. Últimos 5 Meteorología
+        $q_hmet = "SELECT a.*, o.of_apellido, o.of_nombre FROM regrad_cond_meteorologica a
+                   LEFT JOIN regrad_planilla_diaria_nueva p ON p.id_planilla_diaria = a.id_planilla
+                   LEFT JOIN regrad_of_rad o ON o.id_of_rad = p.of_rad
+                   ORDER BY a.fecha DESC, a.id_cond_meteorologica DESC LIMIT 5";
+        $res_hmet = mysql_query($q_hmet, $miconex);
+        if ($res_hmet && mysql_num_rows($res_hmet) > 0) {
+            while ($rw = mysql_fetch_assoc($res_hmet)) {
+                $pf = !empty($rw['fecha']) ? explode('-', $rw['fecha']) : array();
+                $f_lat = (count($pf) == 3) ? ($pf[2] . '/' . $pf[1] . '/' . $pf[0]) : ($rw['fecha'] ? $rw['fecha'] : '-');
+                $h_str = !empty($rw['hora']) ? substr($rw['hora'], 0, 5) : '--:--';
+                $of_n = !empty($rw['of_apellido']) ? mb_strtoupper($rw['of_apellido'] . ', ' . $rw['of_nombre'], 'UTF-8') : '-';
+                $hist_met_db[] = array(
+                    'fecha' => $f_lat,
+                    'hora' => $h_str,
+                    'oficial' => $of_n,
+                    'dir' => $rw['direc_viento'] ? $rw['direc_viento'] : '-',
+                    'vel' => $rw['velocidad_mseg'] !== null ? $rw['velocidad_mseg'] : '-',
+                    'pasquill' => $rw['cond_pasquill'] ? $rw['cond_pasquill'] : '-',
+                    'es_actual' => ($id_planilla_activa && intval($rw['id_planilla']) === intval($id_planilla_activa))
+                );
+            }
+        }
+
+        // F. Últimas 20 Planillas Anteriores Cerradas
+        $q_hpl = "SELECT a.id_planilla_diaria, a.fecha, a.turno, b.horarios, c.nombre_estado, d.of_apellido, d.of_nombre, e.jefe_apellido, e.jefe_nombre
+                  FROM regrad_planilla_diaria_nueva a
+                  LEFT JOIN regrad_turnos b ON b.id_turnos = a.turno
+                  LEFT JOIN regrad_estados_planta c ON c.id_estado_planta = a.estado_planta
+                  LEFT JOIN regrad_of_rad d ON d.id_of_rad = a.of_rad
+                  LEFT JOIN regrad_jefes_turno e ON e.id_jefes_turno = a.jefe_turno
+                  WHERE a.fecha_hora_cerrado IS NOT NULL AND a.id_planilla_diaria >= 34
+                  ORDER BY a.fecha DESC, a.fecha_hora_cerrado DESC LIMIT 20";
+        $res_hpl = mysql_query($q_hpl, $miconex);
+        if ($res_hpl && mysql_num_rows($res_hpl) > 0) {
+            while ($rw = mysql_fetch_assoc($res_hpl)) {
+                $pf = !empty($rw['fecha']) ? explode('-', $rw['fecha']) : array();
+                $f_lat = (count($pf) == 3) ? ($pf[2] . '/' . $pf[1] . '/' . $pf[0]) : ($rw['fecha'] ? $rw['fecha'] : '-');
+                $of_n = !empty($rw['of_apellido']) ? mb_strtoupper($rw['of_apellido'] . ', ' . $rw['of_nombre'], 'UTF-8') : '-';
+                $jf_n = !empty($rw['jefe_apellido']) ? mb_strtoupper($rw['jefe_apellido'] . ', ' . $rw['jefe_nombre'], 'UTF-8') : '-';
+                $hist_planillas_db[] = array(
+                    'id' => intval($rw['id_planilla_diaria']),
+                    'fecha' => $f_lat,
+                    'turno' => $rw['horarios'] ? $rw['horarios'] : ('Turno ' . $rw['turno']),
+                    'oficial' => $of_n,
+                    'jefe' => $jf_n,
+                    'estado' => $rw['nombre_estado'] ? $rw['nombre_estado'] : 'Cerrada'
+                );
+            }
         }
     }
 }
@@ -3629,8 +3817,12 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       <!-- ================= SECCIÓN 7: HISTORIAL ================= -->
       <section class="section-panel" id="sec-historial">
         <div class="panel-box">
-          <div class="panel-header">
-            <div class="panel-title"><span>📁</span> HISTORIAL DE PLANILLAS ANTERIORES</div>
+          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div class="panel-title"><span>📁</span> HISTORIAL DE PLANILLAS ANTERIORES (ÚLTIMAS 20 GUARDIAS)</div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input type="text" id="hist-planillas-filter" class="field-control" style="width: 240px; height: 32px; font-size: 11.5px;" placeholder="🔍 Filtrar por N°, fecha, oficial o turno..." oninput="filterHistorialPlanillas(this.value)">
+              <a href="vista_planillas_anteriores.php" target="_blank" class="btn-register" style="padding: 5px 12px; height: auto; font-size: 11px; text-decoration: none;">Buscador Completo ↗</a>
+            </div>
           </div>
           <div class="panel-body">
             <table class="data-table">
@@ -3641,29 +3833,30 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                   <th>Turno</th>
                   <th>Oficial a Cargo</th>
                   <th>Jefe de Turno</th>
-                  <th>Estado</th>
-                  <th style="text-align: center;">Reporte PDF</th>
+                  <th>Estado Planta</th>
+                  <th style="text-align: center;">Visualización</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr>
-                  <td class="num">#10842</td>
-                  <td>08/11/2026</td>
-                  <td>Turno 1 (06:00 - 14:00)</td>
-                  <td>Rodríguez, Miguel</td>
-                  <td>Gómez, Carlos</td>
-                  <td><span style="color: var(--accent-green); font-weight:700;">Cerrada</span></td>
-                  <td style="text-align: center;"><button class="btn-del" style="color: var(--accent-cyan); border-color: var(--accent-cyan);" onclick="showToast('Generando vista oficial de planilla #10842')">📄 Ver PDF</button></td>
-                </tr>
-                <tr>
-                  <td class="num">#10841</td>
-                  <td>07/11/2026</td>
-                  <td>Turno 3 (23:00 - 07:00)</td>
-                  <td>Pérez, Juan</td>
-                  <td>Martínez, Esteban</td>
-                  <td><span style="color: var(--accent-green); font-weight:700;">Cerrada</span></td>
-                  <td style="text-align: center;"><button class="btn-del" style="color: var(--accent-cyan); border-color: var(--accent-cyan);" onclick="showToast('Generando vista oficial de planilla #10841')">📄 Ver PDF</button></td>
-                </tr>
+              <tbody id="tbody-historial-planillas">
+                <?php if (empty($hist_planillas_db)) { ?>
+                  <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-dim); padding: 18px; font-style: italic;">
+                      Sin planillas cerradas recientes registradas en MySQL.
+                    </td>
+                  </tr>
+                <?php } else { foreach ($hist_planillas_db as $hp) { ?>
+                  <tr class="hist-planilla-row">
+                    <td class="num mono" style="font-weight: 700; color: var(--accent-cyan);">#<?php echo (int)$hp['id']; ?></td>
+                    <td class="mono"><?php echo htmlspecialchars($hp['fecha'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td><?php echo htmlspecialchars($hp['turno'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td style="font-weight: 600; color: #fff;"><?php echo htmlspecialchars($hp['oficial'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td><?php echo htmlspecialchars($hp['jefe'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td><span style="color: var(--accent-green); font-weight:700; font-size: 11px;"><?php echo htmlspecialchars($hp['estado'], ENT_QUOTES, 'UTF-8'); ?></span></td>
+                    <td style="text-align: center;">
+                      <button type="button" class="btn-del" style="color: var(--accent-cyan); border-color: var(--accent-cyan);" onclick="window.open('planilla_en_curso_visualizacion.php?id_planilla=<?php echo (int)$hp['id']; ?>', '_blank')">📄 Ver Planilla</button>
+                    </td>
+                  </tr>
+                <?php } } ?>
               </tbody>
             </table>
           </div>
@@ -3842,31 +4035,19 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                   <th style="padding: 5px 8px; text-align: center;">Estado</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr>
-                  <td class="mono">08/11/2026</td>
-                  <td class="mono">23:00</td>
-                  <td style="font-weight: 700;">ALTUNA, LEONARDO (P)</td>
-                  <td class="mono" style="text-align: right; color: #60a5fa; font-weight: 700;">1.45 GBq</td>
-                  <td class="mono" style="text-align: right; color: #22d3ee; font-weight: 700;">3.80 GBq</td>
-                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
-                </tr>
-                <tr>
-                  <td class="mono">08/11/2026</td>
-                  <td class="mono">15:00</td>
-                  <td>ROLHAUSER, MARIANO</td>
-                  <td class="mono" style="text-align: right; color: #60a5fa;">1.30 GBq</td>
-                  <td class="mono" style="text-align: right; color: #22d3ee;">3.65 GBq</td>
-                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
-                </tr>
-                <tr>
-                  <td class="mono">08/11/2026</td>
-                  <td class="mono">07:00</td>
-                  <td>GATICA, CARLOS</td>
-                  <td class="mono" style="text-align: right; color: #60a5fa;">1.40 GBq</td>
-                  <td class="mono" style="text-align: right; color: #22d3ee;">3.70 GBq</td>
-                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
-                </tr>
+              <tbody id="tbody-tritio-hist-5">
+                <?php if (empty($hist_tritio_db)) { ?>
+                  <tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:10px;">Sin registros históricos en BD</td></tr>
+                <?php } else { foreach ($hist_tritio_db as $ht) { ?>
+                  <tr>
+                    <td class="mono"><?php echo htmlspecialchars($ht['fecha'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="mono"><?php echo htmlspecialchars($ht['hora'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td style="font-weight: 700;"><?php echo htmlspecialchars($ht['oficial'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="mono" style="text-align: right; color: #60a5fa; font-weight: 700;"><?php echo htmlspecialchars($ht['vent_gral'], ENT_QUOTES, 'UTF-8'); ?> GBq</td>
+                    <td class="mono" style="text-align: right; color: #22d3ee; font-weight: 700;"><?php echo htmlspecialchars($ht['vent_reactor'], ENT_QUOTES, 'UTF-8'); ?> GBq</td>
+                    <td style="text-align: center;"><span class="sync-badge"><?php echo !empty($ht['es_actual']) ? '● Turno Actual' : '● Histórico'; ?></span></td>
+                  </tr>
+                <?php } } ?>
               </tbody>
             </table>
           </div>
@@ -3907,28 +4088,18 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                   <th style="padding: 5px 8px; text-align: center;">Estado</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr>
-                  <td class="mono">08/11/2026</td>
-                  <td class="mono">06:00</td>
-                  <td style="font-weight: 700;">ALTUNA, LEONARDO (P)</td>
-                  <td class="mono" style="text-align: right; color: #c084fc; font-weight: 700;">12.4 MBq</td>
-                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
-                </tr>
-                <tr>
-                  <td class="mono">07/11/2026</td>
-                  <td class="mono">22:00</td>
-                  <td>ROLHAUSER, MARIANO</td>
-                  <td class="mono" style="text-align: right; color: #c084fc;">11.8 MBq</td>
-                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
-                </tr>
-                <tr>
-                  <td class="mono">07/11/2026</td>
-                  <td class="mono">14:00</td>
-                  <td>GATICA, CARLOS</td>
-                  <td class="mono" style="text-align: right; color: #c084fc;">12.0 MBq</td>
-                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
-                </tr>
+              <tbody id="tbody-c14-hist-5">
+                <?php if (empty($hist_c14_db)) { ?>
+                  <tr><td colspan="5" style="text-align:center; color:var(--text-dim); padding:10px;">Sin registros históricos en BD</td></tr>
+                <?php } else { foreach ($hist_c14_db as $hc) { $overC14 = (floatval($hc['medicion']) >= 50.0); ?>
+                  <tr>
+                    <td class="mono"><?php echo htmlspecialchars($hc['fecha'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="mono"><?php echo htmlspecialchars($hc['hora'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td style="font-weight: 700;"><?php echo htmlspecialchars($hc['oficial'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="mono" style="text-align: right; color: #c084fc; font-weight: 700;"><?php echo htmlspecialchars($hc['medicion'], ENT_QUOTES, 'UTF-8'); ?> MBq</td>
+                    <td style="text-align: center;"><span class="sync-badge" style="<?php if($overC14) echo 'color:var(--accent-red);'; ?>"><?php echo $overC14 ? '▲ Límite' : (!empty($hc['es_actual']) ? '● Turno Actual' : '● Histórico'); ?></span></td>
+                  </tr>
+                <?php } } ?>
               </tbody>
             </table>
           </div>
@@ -3973,41 +4144,17 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                 </tr>
               </thead>
               <tbody id="tbody-dedofrio-modal-5">
-                <tr>
-                  <td class="mono">Hoy</td>
-                  <td class="mono">04:15</td>
-                  <td style="font-weight: 700;">ALTUNA, LEONARDO (P)</td>
-                  <td class="mono" style="text-align: right; color: #f472b6; font-weight: 700;">&lt; 12</td>
-                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
-                </tr>
-                <tr>
-                  <td class="mono">Ayer</td>
-                  <td class="mono">20:30</td>
-                  <td>ROLHAUSER, MARIANO</td>
-                  <td class="mono" style="text-align: right; color: #f472b6;">&lt; 10</td>
-                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
-                </tr>
-                <tr>
-                  <td class="mono">Ayer</td>
-                  <td class="mono">12:45</td>
-                  <td>GATICA, CARLOS</td>
-                  <td class="mono" style="text-align: right; color: #f472b6;">15</td>
-                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
-                </tr>
-                <tr>
-                  <td class="mono">Ayer</td>
-                  <td class="mono">05:00</td>
-                  <td>CISTERNA, GUSTAVO</td>
-                  <td class="mono" style="text-align: right; color: #f472b6;">&lt; 11</td>
-                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
-                </tr>
-                <tr>
-                  <td class="mono">07/11</td>
-                  <td class="mono">21:10</td>
-                  <td>PASCUAL, SEBASTIAN</td>
-                  <td class="mono" style="text-align: right; color: #f472b6;">14</td>
-                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
-                </tr>
+                <?php if (empty($hist_dedofrio_db)) { ?>
+                  <tr><td colspan="5" style="text-align:center; color:var(--text-dim); padding:10px;">Sin registros criogénicos históricos en BD</td></tr>
+                <?php } else { foreach ($hist_dedofrio_db as $hdf) { $overDf = (floatval($hdf['ppm']) > 50.0); ?>
+                  <tr>
+                    <td class="mono"><?php echo htmlspecialchars($hdf['fecha'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="mono"><?php echo htmlspecialchars($hdf['hora'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td style="font-weight: 700;"><?php echo htmlspecialchars($hdf['oficial'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="mono" style="text-align: right; color: #f472b6; font-weight: 700;"><?php echo (!empty($hdf['menor_que']) ? '&lt; ' : '') . htmlspecialchars($hdf['ppm'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td style="text-align: center;"><span class="sync-badge" style="<?php if($overDf) echo 'color:var(--accent-red);'; ?>"><?php echo $overDf ? '▲ >50 ppm' : (!empty($hdf['es_actual']) ? '● Turno Actual' : '● Nominal'); ?></span></td>
+                  </tr>
+                <?php } } ?>
               </tbody>
             </table>
           </div>
@@ -4049,27 +4196,21 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td class="mono">08/11/2026</td>
-                  <td class="mono">23:00</td>
-                  <td style="font-weight: 700;">ALTUNA, LEONARDO (P)</td>
-                  <td class="mono" style="text-align: right; color: var(--accent-green); font-weight: 700;">8.42%</td>
-                  <td style="text-align: center;"><span class="sync-badge">● Nominal (&lt; 15%)</span></td>
-                </tr>
-                <tr>
-                  <td class="mono">08/11/2026</td>
-                  <td class="mono">15:00</td>
-                  <td>ROLHAUSER, MARIANO</td>
-                  <td class="mono" style="text-align: right; color: var(--accent-green);">8.10%</td>
-                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
-                </tr>
-                <tr>
-                  <td class="mono">08/11/2026</td>
-                  <td class="mono">07:00</td>
-                  <td>GATICA, CARLOS</td>
-                  <td class="mono" style="text-align: right; color: var(--accent-green);">8.25%</td>
-                  <td style="text-align: center;"><span class="sync-badge">● Nominal</span></td>
-                </tr>
+                <?php if (isset($miconex) && $miconex) { ?>
+                  <tr>
+                    <td colspan="5" style="text-align: center; color: var(--text-dim); padding: 10px; font-style: italic;">
+                      El % RO real se consolida desde los módulos de Efluentes Gaseosos y Líquidos de cada guardia.
+                    </td>
+                  </tr>
+                <?php } else { ?>
+                  <tr>
+                    <td class="mono">08/11/2026</td>
+                    <td class="mono">23:00</td>
+                    <td style="font-weight: 700;">ALTUNA, LEONARDO (P)</td>
+                    <td class="mono" style="text-align: right; color: var(--accent-green); font-weight: 700;">8.42%</td>
+                    <td style="text-align: center;"><span class="sync-badge">● Nominal (Demo)</span></td>
+                  </tr>
+                <?php } ?>
               </tbody>
             </table>
           </div>
@@ -4109,6 +4250,39 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
               <option value="Clase B (Moderadamente inestable)">Clase B (Moderadamente inestable)</option>
               <option value="Clase C (Ligeramente inestable)">Clase C (Ligeramente inestable)</option>
             </select>
+          </div>
+
+          <!-- TABLA DE LOS ÚLTIMOS 5 REGISTROS METEOROLÓGICOS -->
+          <div style="background: rgba(9, 28, 24, 0.7); border: 1px solid var(--border-card); border-radius: 6px; padding: 10px 12px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-size: 10.5px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase;">
+                📊 Histórico Meteorológico (Últimos 5 registros)
+              </span>
+            </div>
+            <table class="data-table" style="font-size: 11px;">
+              <thead>
+                <tr>
+                  <th style="padding: 5px 8px;">Fecha</th>
+                  <th style="padding: 5px 8px;">Hora</th>
+                  <th style="padding: 5px 8px;">Dirección</th>
+                  <th style="padding: 5px 8px; text-align: right;">Vel.</th>
+                  <th style="padding: 5px 8px;">Pasquill</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php if (empty($hist_met_db)) { ?>
+                  <tr><td colspan="5" style="text-align:center; color:var(--text-dim); padding:10px;">Sin registros meteorológicos históricos en BD</td></tr>
+                <?php } else { foreach ($hist_met_db as $hm) { ?>
+                  <tr>
+                    <td class="mono"><?php echo htmlspecialchars($hm['fecha'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="mono"><?php echo htmlspecialchars($hm['hora'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td><?php echo htmlspecialchars($hm['dir'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="mono" style="text-align: right; color: #f59e0b; font-weight: 700;"><?php echo htmlspecialchars($hm['vel'], ENT_QUOTES, 'UTF-8'); ?> km/h</td>
+                    <td style="font-size: 10.5px;"><?php echo htmlspecialchars($hm['pasquill'], ENT_QUOTES, 'UTF-8'); ?></td>
+                  </tr>
+                <?php } } ?>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -4155,6 +4329,39 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             </div>
           </div>
           <div id="alert-tab-gasesnobles" class="kpi-field-alert"></div>
+
+          <!-- TABLA DE LOS ÚLTIMOS 5 REGISTROS DE GASES NOBLES -->
+          <div style="background: rgba(9, 28, 24, 0.7); border: 1px solid var(--border-card); border-radius: 6px; padding: 10px 12px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-size: 10.5px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase;">
+                📊 Histórico Gases Nobles Chimenea (Últimos 5)
+              </span>
+            </div>
+            <table class="data-table" style="font-size: 11px;">
+              <thead>
+                <tr>
+                  <th style="padding: 5px 8px;">Fecha</th>
+                  <th style="padding: 5px 8px;">Rango</th>
+                  <th style="padding: 5px 8px; text-align: right;">Ar-41</th>
+                  <th style="padding: 5px 8px; text-align: right;">Xe-133/135</th>
+                  <th style="padding: 5px 8px; text-align: right;">Total (GBq)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php if (empty($hist_gases_nobles_db)) { ?>
+                  <tr><td colspan="5" style="text-align:center; color:var(--text-dim); padding:10px;">Sin registros históricos de Gases Nobles en BD</td></tr>
+                <?php } else { foreach ($hist_gases_nobles_db as $hgn) { ?>
+                  <tr>
+                    <td class="mono"><?php echo htmlspecialchars($hgn['fecha'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="mono"><?php echo htmlspecialchars($hgn['hora'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="mono" style="text-align: right; color: #a78bfa;"><?php echo htmlspecialchars($hgn['ar41'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="mono" style="text-align: right; color: #34d399;"><?php echo htmlspecialchars($hgn['xe133'], ENT_QUOTES, 'UTF-8'); ?> / <?php echo htmlspecialchars($hgn['xe135'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td class="mono" style="text-align: right; font-weight: 700; color: #fff;"><?php echo htmlspecialchars($hgn['total'], ENT_QUOTES, 'UTF-8'); ?></td>
+                  </tr>
+                <?php } } ?>
+              </tbody>
+            </table>
+          </div>
         </div>
 
       </div>
@@ -4868,6 +5075,31 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     const UNIDADES_VOL_LIQ_CATALOG = <?php $j_uv = json_encode($unidades_vol_liq_array); echo $j_uv ? $j_uv : '[]'; ?>;
     const UNIDADES_CONC_LIQ_CATALOG = <?php $j_uc = json_encode($unidades_conc_liq_array); echo $j_uc ? $j_uc : '[]'; ?>;
     let liqEmitidos = <?php $j_el = json_encode($efluentes_liquidos_db); echo $j_el ? $j_el : '[]'; ?>;
+    const HIST_KPI_BASELINES = <?php
+      $b_df = null;
+      foreach ($hist_dedofrio_db as $row_b) { if (empty($row_b['es_actual'])) { $b_df = floatval($row_b['ppm']); break; } }
+      if ($b_df === null && !empty($hist_dedofrio_db)) { $b_df = floatval($hist_dedofrio_db[0]['ppm']); }
+
+      $b_vg = null; $b_vr = null;
+      foreach ($hist_tritio_db as $row_b) { if (empty($row_b['es_actual'])) { $b_vg = floatval($row_b['vent_gral']); $b_vr = floatval($row_b['vent_reactor']); break; } }
+      if ($b_vg === null && !empty($hist_tritio_db)) { $b_vg = floatval($hist_tritio_db[0]['vent_gral']); $b_vr = floatval($hist_tritio_db[0]['vent_reactor']); }
+
+      $b_c14 = null;
+      foreach ($hist_c14_db as $row_b) { if (empty($row_b['es_actual'])) { $b_c14 = floatval($row_b['medicion']); break; } }
+      if ($b_c14 === null && !empty($hist_c14_db)) { $b_c14 = floatval($hist_c14_db[0]['medicion']); }
+
+      $b_vel = null;
+      foreach ($hist_met_db as $row_b) { if (empty($row_b['es_actual'])) { $b_vel = floatval($row_b['vel']); break; } }
+      if ($b_vel === null && !empty($hist_met_db)) { $b_vel = floatval($hist_met_db[0]['vel']); }
+
+      echo json_encode(array(
+        'dedoFrio' => $b_df,
+        'ventGral' => $b_vg,
+        'ventReactor' => $b_vr,
+        'c14' => $b_c14,
+        'metVel' => $b_vel
+      ));
+    ?>;
 
     // ================= NAVEGACIÓN ENTRE SECCIONES (BOTONES LATERALES) =================
     const menuButtons = document.querySelectorAll('.menu-btn');
@@ -5097,11 +5329,54 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     /**
      * Obtiene mediciones previas del recinto desde la tabla viva o desde el histórico
      */
+    const recintoHistoryCache = new Map();
+
+    function resolveRecintoIdByName(name) {
+      if (!name || typeof recintosList === 'undefined') return '';
+      const norm = name.toLowerCase().trim();
+      const exact = recintosList.find(r => r.name.toLowerCase().trim() === norm);
+      if (exact) return String(exact.id);
+      const pref = recintosList.find(r => norm.startsWith(r.name.toLowerCase().trim()) || r.name.toLowerCase().trim().startsWith(norm));
+      return pref ? String(pref.id) : '';
+    }
+
+    async function fetchRealRecintoHistory(recintoId, recintoName) {
+      if (typeof IS_DEMO_MODE !== 'undefined' && IS_DEMO_MODE) return [];
+      const rid = recintoId || resolveRecintoIdByName(recintoName);
+      const cacheKey = rid ? `id:${rid}` : `nom:${(recintoName || '').toLowerCase().trim()}`;
+      if (recintoHistoryCache.has(cacheKey)) {
+        return recintoHistoryCache.get(cacheKey);
+      }
+      try {
+        const url = `procesos_reg_rad.php?accion=historial_recinto&id_recinto=${encodeURIComponent(rid || 0)}&recinto_nombre=${encodeURIComponent(recintoName || '')}&id_planilla_actual=${encodeURIComponent(activePlanillaId || 0)}&limite=6`;
+        const res = await fetch(url);
+        if (!res.ok) return [];
+        const data = await res.json();
+        const items = (data && Array.isArray(data.items)) ? data.items : [];
+        recintoHistoryCache.set(cacheKey, items);
+        if (data && data.id_recinto) {
+          recintoHistoryCache.set(`id:${data.id_recinto}`, items);
+        }
+        return items;
+      } catch (e) {
+        console.warn('Error consultando historial real del recinto:', e);
+        return [];
+      }
+    }
+
+    function getCachedRecintoDbHistory(recintoId, recintoName) {
+      const rid = recintoId || resolveRecintoIdByName(recintoName);
+      if (rid && recintoHistoryCache.has(`id:${rid}`)) return recintoHistoryCache.get(`id:${rid}`);
+      const normKey = `nom:${(recintoName || '').toLowerCase().trim()}`;
+      if (recintoHistoryCache.has(normKey)) return recintoHistoryCache.get(normKey);
+      return null;
+    }
+
     function getPreviousMeasurementsForRecinto(recintoName, recintoId) {
       const norm = (recintoName || '').toLowerCase().trim();
-      const rows = Array.from(document.querySelectorAll('#table-body tr')).filter(tr => {
+      const rows = Array.from(document.querySelectorAll('#table-body tr:not(#row-empty)')).filter(tr => {
         const r = (tr.getAttribute('data-recinto') || '').toLowerCase().trim();
-        return r === norm || r.startsWith(norm) || norm.startsWith(r);
+        return r && (r === norm || r.startsWith(norm) || norm.startsWith(r));
       });
 
       if (rows.length > 0) {
@@ -5112,28 +5387,29 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         }));
       }
 
-      // Buscar en mockRecintoHistory por ID o nombre
-      if (typeof mockRecintoHistory !== 'undefined') {
-        const byId = mockRecintoHistory[recintoId];
-        if (byId && byId.length > 0) {
-          return byId.map(h => ({
+      // En modo real: usar historial traído de MySQL si ya está en caché
+      const cached = getCachedRecintoDbHistory(recintoId, recintoName);
+      if (cached && cached.length > 0) {
+        return cached.map(h => ({
+          dosis: parseFloat(h.dosis || 0),
+          tritio: parseFloat(h.tritio || 0),
+          gases: parseFloat(h.gases || 0)
+        }));
+      }
+
+      // Solo en modo Demo Offline usar mockRecintoHistory / línea base ficticia
+      if (typeof IS_DEMO_MODE !== 'undefined' && IS_DEMO_MODE) {
+        if (typeof mockRecintoHistory !== 'undefined' && mockRecintoHistory[recintoId]) {
+          return mockRecintoHistory[recintoId].map(h => ({
             dosis: parseFloat(h.dosis || 0),
             tritio: parseFloat(h.tritio || 0),
             gases: parseFloat(h.gases || 0)
           }));
         }
+        return [{ dosis: 2.0, tritio: 0.25, gases: 0.00 }];
       }
 
-      // Valores de línea de base estándar según tipo de recinto
-      if (norm.includes('107') || norm.includes('108') || norm.includes('111')) {
-        return [{ dosis: 0.0, tritio: 0.20, gases: 0.00 }];
-      } else if (norm.includes('501')) {
-        return [{ dosis: 0.0, tritio: 0.30, gases: 0.00 }];
-      } else if (norm.includes('112')) {
-        return [{ dosis: 0.0, tritio: 0.80, gases: 0.00 }];
-      }
-
-      return [{ dosis: 2.0, tritio: 0.25, gases: 0.00 }];
+      return [];
     }
 
     /**
@@ -5686,7 +5962,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       // 1. Dedo Frío 73120 (Previo: 12 ppm, Límite Operacional: 50 ppm)
       if (metrics.dedoFrio !== '') {
         const dfVal = parseFloat(metrics.dedoFrio);
-        const prevDf = 12.0;
+        const prevDf = (typeof HIST_KPI_BASELINES !== 'undefined' && HIST_KPI_BASELINES.dedoFrio !== null) ? parseFloat(HIST_KPI_BASELINES.dedoFrio) : null;
         const limitDf = 50.0;
 
         if (!isNaN(dfVal)) {
@@ -5697,13 +5973,13 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
               param: 'Dedo Frío 73120',
               unit: 'ppm',
               val: (metrics.isMenor ? '< ' : '') + dfVal,
-              prevVal: '< ' + prevDf + ' ppm',
-              diffPct: Math.round(((dfVal - prevDf) / prevDf) * 100),
+              prevVal: (prevDf !== null ? prevDf + ' ppm' : 'Sin histórico'),
+              diffPct: (prevDf && prevDf > 0) ? Math.round(((dfVal - prevDf) / prevDf) * 100) : null,
               isOverLimit: true,
               limitVal: limitDf + ' ppm',
               msg: `Supera el Límite Operacional de Planta (${limitDf} ppm)`
             });
-          } else if (dfVal >= prevDf * 2 && (dfVal - prevDf) >= 5) {
+          } else if (prevDf !== null && prevDf > 0 && dfVal >= prevDf * 2 && (dfVal - prevDf) >= 5) {
             const pct = Math.round(((dfVal - prevDf) / prevDf) * 100);
             warnings.push({
               tab: 'tab-dedofrio',
@@ -5711,7 +5987,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
               param: 'Dedo Frío 73120',
               unit: 'ppm',
               val: (metrics.isMenor ? '< ' : '') + dfVal,
-              prevVal: '< ' + prevDf + ' ppm',
+              prevVal: prevDf + ' ppm',
               diffPct: pct,
               isOverLimit: false,
               msg: `Alza de +${pct}% respecto al valor previo`
@@ -5723,8 +5999,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       // 2. Ventilación Chimenea (Tritio)
       if (metrics.ventGral !== '') {
         const vgVal = parseFloat(metrics.ventGral);
-        const prevVg = 1.45;
-        if (!isNaN(vgVal) && vgVal >= prevVg * 2 && (vgVal - prevVg) >= 1.0) {
+        const prevVg = (typeof HIST_KPI_BASELINES !== 'undefined' && HIST_KPI_BASELINES.ventGral !== null) ? parseFloat(HIST_KPI_BASELINES.ventGral) : null;
+        if (!isNaN(vgVal) && prevVg !== null && prevVg > 0 && vgVal >= prevVg * 2 && (vgVal - prevVg) >= 1.0) {
           const pct = Math.round(((vgVal - prevVg) / prevVg) * 100);
           warnings.push({
             tab: 'tab-tritio',
@@ -5735,15 +6011,15 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             prevVal: prevVg + ' GBq',
             diffPct: pct,
             isOverLimit: false,
-            msg: `Alza de +${pct}% respecto al valor habitual (${prevVg} GBq)`
+            msg: `Alza de +${pct}% respecto al registro previo (${prevVg} GBq)`
           });
         }
       }
 
       if (metrics.ventReactor !== '') {
         const vrVal = parseFloat(metrics.ventReactor);
-        const prevVr = 3.80;
-        if (!isNaN(vrVal) && vrVal >= prevVr * 2 && (vrVal - prevVr) >= 2.0) {
+        const prevVr = (typeof HIST_KPI_BASELINES !== 'undefined' && HIST_KPI_BASELINES.ventReactor !== null) ? parseFloat(HIST_KPI_BASELINES.ventReactor) : null;
+        if (!isNaN(vrVal) && prevVr !== null && prevVr > 0 && vrVal >= prevVr * 2 && (vrVal - prevVr) >= 2.0) {
           const pct = Math.round(((vrVal - prevVr) / prevVr) * 100);
           warnings.push({
             tab: 'tab-tritio',
@@ -5754,16 +6030,16 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             prevVal: prevVr + ' GBq',
             diffPct: pct,
             isOverLimit: false,
-            msg: `Alza de +${pct}% respecto al valor habitual (${prevVr} GBq)`
+            msg: `Alza de +${pct}% respecto al registro previo (${prevVr} GBq)`
           });
         }
       }
 
-      // 3. Carbono-14 (Previo: 12.4 MBq)
+      // 3. Carbono-14
       if (metrics.c14 !== '') {
         const c14Val = parseFloat(metrics.c14);
-        const prevC14 = 12.4;
-        if (!isNaN(c14Val) && c14Val >= prevC14 * 2 && (c14Val - prevC14) >= 10.0) {
+        const prevC14 = (typeof HIST_KPI_BASELINES !== 'undefined' && HIST_KPI_BASELINES.c14 !== null) ? parseFloat(HIST_KPI_BASELINES.c14) : null;
+        if (!isNaN(c14Val) && prevC14 !== null && prevC14 > 0 && c14Val >= prevC14 * 2 && (c14Val - prevC14) >= 10.0) {
           const pct = Math.round(((c14Val - prevC14) / prevC14) * 100);
           warnings.push({
             tab: 'tab-c14',
@@ -7616,7 +7892,58 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       ]
     };
 
-    function updateRecintoHistory(recintoId, recintoName) {
+    function collectLiveRecintoRows(recintoName) {
+      const norm = (recintoName || '').toLowerCase().trim();
+      return Array.from(document.querySelectorAll('#table-body tr:not(#row-empty)')).filter(tr => {
+        const r = (tr.getAttribute('data-recinto') || (tr.cells[2] ? tr.cells[2].textContent : '')).toLowerCase().trim();
+        return r && (r === norm || r.startsWith(norm) || norm.startsWith(r));
+      }).map(tr => ({
+        fecha: tr.getAttribute('data-fecha') || (tr.cells[0] ? tr.cells[0].textContent.trim() : '-'),
+        hora: tr.getAttribute('data-hora') || (tr.cells[1] ? tr.cells[1].textContent.trim() : '--:--'),
+        dosis: parseFloat(tr.getAttribute('data-dosis') || (tr.cells[5] ? tr.cells[5].textContent.trim() : '0') || 0).toFixed(1),
+        tritio: parseFloat(tr.getAttribute('data-tritio') || (tr.cells[4] ? tr.cells[4].textContent.trim() : '0') || 0).toFixed(2),
+        gases: parseFloat(tr.getAttribute('data-gases') || (tr.cells[3] ? tr.cells[3].textContent.trim() : '0') || 0).toFixed(2)
+      }));
+    }
+
+    function renderRecintoChipsIntoPanel(history, chipsList, trendBadge) {
+      if (!history || history.length === 0) {
+        chipsList.innerHTML = '<div style="font-size: 11px; color: var(--text-dim); font-style: italic; padding: 4px 0;">○ Sin mediciones históricas registradas en BD para este recinto.</div>';
+        if (trendBadge) {
+          trendBadge.innerHTML = '○ Primer registro';
+          trendBadge.style.color = 'var(--text-dim)';
+        }
+        return;
+      }
+
+      chipsList.innerHTML = history.slice(0, 3).map((item, idx) => `
+        <div style="background: rgba(22, 54, 48, 0.7); border: 1px solid var(--border-card); border-radius: 4px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px;">
+          <span style="font-weight: 800; color: var(--accent-cyan);">[${idx + 1}]</span>
+          <span style="color: #ffffff; font-weight: 700;">📅 ${item.fecha} &bull; ${item.hora} hs:</span>
+          <span style="color: #c084fc; font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">G. nobles:</span> ${item.gases} DAC</span>
+          <span style="color: var(--border-card);">|</span>
+          <span style="color: var(--accent-cyan); font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Tritio:</span> ${item.tritio} DAC</span>
+          <span style="color: var(--border-card);">|</span>
+          <span style="color: var(--accent-amber); font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Dosis:</span> ${item.dosis} µSv/h</span>
+        </div>
+      `).join('');
+
+      if (trendBadge) {
+        if (history.length >= 2) {
+          const d1 = parseFloat(history[0].dosis);
+          const dLast = parseFloat(history[Math.min(history.length - 1, 2)].dosis);
+          if (dLast > 0 && d1 > dLast * 1.3) {
+            trendBadge.innerHTML = '📈 Alza de Dosis (+ ' + Math.round(((d1 - dLast)/dLast)*100) + '%)';
+            trendBadge.style.color = 'var(--accent-amber)';
+            return;
+          }
+        }
+        trendBadge.innerHTML = '🟢 Niveles estables';
+        trendBadge.style.color = 'var(--accent-green)';
+      }
+    }
+
+    async function updateRecintoHistory(recintoId, recintoName) {
       const panel = document.getElementById('recinto-history-panel');
       const label = document.getElementById('rh-recinto-label');
       const chipsList = document.getElementById('rh-chips-list');
@@ -7629,79 +7956,35 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       }
 
       label.textContent = recintoName.split(' - ')[0];
+      panel.style.display = 'block';
 
-      // 1. Extraer mediciones reales ya cargadas en la tabla viva para este recinto
-      const norm = recintoName.toLowerCase().trim();
-      const tableRows = Array.from(document.querySelectorAll('#table-body tr')).filter(tr => {
-        const r = (tr.getAttribute('data-recinto') || (tr.cells[2] ? tr.cells[2].textContent : '')).toLowerCase().trim();
-        return r && (r === norm || r.startsWith(norm) || norm.startsWith(r));
-      });
+      const liveRows = collectLiveRecintoRows(recintoName);
 
-      const history = [];
-      tableRows.forEach(tr => {
-        if (history.length >= 3) return;
-        const f = tr.getAttribute('data-fecha') || (tr.cells[0] ? tr.cells[0].textContent.trim() : '08/11/2026');
-        const h = tr.getAttribute('data-hora') || (tr.cells[1] ? tr.cells[1].textContent.trim() : '00:00');
-        const d = tr.getAttribute('data-dosis') || (tr.cells[5] ? tr.cells[5].textContent.trim() : '0.0');
-        const t = tr.getAttribute('data-tritio') || (tr.cells[4] ? tr.cells[4].textContent.trim() : '0.0');
-        const g = tr.getAttribute('data-gases') || (tr.cells[3] ? tr.cells[3].textContent.trim() : '0.0');
-        const fClean = (!f || f.toLowerCase().includes('turno')) ? '08/11/2026' : f;
-        history.push({
-          fecha: fClean,
-          hora: h,
-          dosis: parseFloat(d).toFixed(1),
-          tritio: parseFloat(t).toFixed(2),
-          gases: parseFloat(g).toFixed(2)
-        });
-      });
-
-      // 2. Si hay menos de 3 registros en la tabla viva, complementar con historial de base (estrictamente Fecha y Hora, NUNCA Turno)
-      const fallbackList = (typeof mockRecintoHistory !== 'undefined' && mockRecintoHistory[recintoId]) 
-        ? mockRecintoHistory[recintoId] 
-        : [
-            { fecha: '08/11/2026', hora: '23:30', dosis: '4.5', tritio: '0.40', gases: '0.00' },
-            { fecha: '08/11/2026', hora: '15:40', dosis: '4.0', tritio: '0.35', gases: '0.00' },
-            { fecha: '08/11/2026', hora: '08:10', dosis: '3.8', tritio: '0.30', gases: '0.00' }
-          ];
-
-      fallbackList.forEach(fb => {
-        if (history.length < 3) {
-          const fbClean = (!fb.fecha || fb.fecha.toLowerCase().includes('turno')) ? '08/11/2026' : fb.fecha;
-          history.push({
-            fecha: fbClean,
-            hora: fb.hora,
-            dosis: fb.dosis,
-            tritio: fb.tritio,
-            gases: fb.gases
-          });
-        }
-      });
-
-      // 3. Renderizar chips mostrando estrictamente Fecha y Hora (SIN Turno) y en orden: G. nobles, Tritio y Dosis
-      chipsList.innerHTML = history.map((item, idx) => `
-        <div style="background: rgba(22, 54, 48, 0.7); border: 1px solid var(--border-card); border-radius: 4px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px;">
-          <span style="font-weight: 800; color: var(--accent-cyan);">[${idx + 1}]</span>
-          <span style="color: #ffffff; font-weight: 700;">📅 ${item.fecha} &bull; ${item.hora} hs:</span>
-          <span style="color: #c084fc; font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">G. nobles:</span> ${item.gases} DAC</span>
-          <span style="color: var(--border-card);">|</span>
-          <span style="color: var(--accent-cyan); font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Tritio:</span> ${item.tritio} DAC</span>
-          <span style="color: var(--border-card);">|</span>
-          <span style="color: var(--accent-amber); font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Dosis:</span> ${item.dosis} µSv/h</span>
-        </div>
-      `).join('');
-
-      // Calcular tendencia rápida
-      const d1 = parseFloat(history[0].dosis);
-      const dLast = parseFloat(history[history.length - 1].dosis);
-      if (dLast > 0 && d1 > dLast * 1.3) {
-        trendBadge.innerHTML = '📈 Alza de Dosis (+ ' + Math.round(((d1 - dLast)/dLast)*100) + '%)';
-        trendBadge.style.color = 'var(--accent-amber)';
-      } else {
-        trendBadge.innerHTML = '🟢 Niveles estables';
-        trendBadge.style.color = 'var(--accent-green)';
+      if (typeof IS_DEMO_MODE !== 'undefined' && IS_DEMO_MODE) {
+        const history = [...liveRows];
+        const fallbackList = (typeof mockRecintoHistory !== 'undefined' && mockRecintoHistory[recintoId])
+          ? mockRecintoHistory[recintoId]
+          : [];
+        fallbackList.forEach(fb => { if (history.length < 3) history.push(fb); });
+        renderRecintoChipsIntoPanel(history, chipsList, trendBadge);
+        return;
       }
 
-      panel.style.display = 'block';
+      const cached = getCachedRecintoDbHistory(recintoId, recintoName);
+      if (cached === null) {
+        chipsList.innerHTML = '<div style="font-size: 11px; color: var(--accent-cyan);">⏳ Consultando últimos valores reales en BD...</div>';
+        if (trendBadge) trendBadge.textContent = '';
+      }
+
+      const dbItems = await fetchRealRecintoHistory(recintoId, recintoName);
+      // Combinar mediciones del turno actual + guardias anteriores de MySQL sin duplicar fecha/hora
+      const combined = [...liveRows];
+      dbItems.forEach(db => {
+        if (combined.length >= 3) return;
+        const dup = combined.some(c => c.fecha === db.fecha && c.hora === db.hora);
+        if (!dup) combined.push(db);
+      });
+      renderRecintoChipsIntoPanel(combined, chipsList, trendBadge);
     }
 
     // Escuchar cambios en selector de recinto
@@ -7848,68 +8131,25 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       // ================= MODAL INTERACTIVO DE HISTORIAL POR RECINTO GUARDADO =================
     let activeSelectedRecintoForPrefill = '';
 
-    function openRecintoHistoryModal(recintoParam) {
-      const modal = document.getElementById('modal-recinto-historial');
-      const labelNombre = document.getElementById('mrh-recinto-nombre');
-      const container = document.getElementById('mrh-chips-container');
-      const trendBadge = document.getElementById('mrh-trend-badge');
-      const prefillBtn = document.getElementById('mrh-btn-prefill');
-      if (!modal || !container) return;
-
-      activeSelectedRecintoForPrefill = recintoParam;
-      if (labelNombre) labelNombre.textContent = recintoParam;
-
-      // 1. Obtener historial: extraer mediciones reales de la tabla viva si existen
-      const norm = (recintoParam || '').toLowerCase().trim();
-      const tableRows = Array.from(document.querySelectorAll('#table-body tr')).filter(tr => {
-        const r = (tr.getAttribute('data-recinto') || (tr.cells[2] ? tr.cells[2].textContent : '')).toLowerCase().trim();
-        return r && (r === norm || r.startsWith(norm) || norm.startsWith(r));
+    function filterHistorialPlanillas(term) {
+      const q = (term || '').toLowerCase().trim();
+      document.querySelectorAll('.hist-planilla-row').forEach(tr => {
+        const txt = tr.textContent.toLowerCase();
+        tr.style.display = (!q || txt.includes(q)) ? '' : 'none';
       });
+    }
 
-      const history = [];
-      tableRows.forEach(tr => {
-        if (history.length >= 3) return;
-        const f = tr.getAttribute('data-fecha') || (tr.cells[0] ? tr.cells[0].textContent.trim() : '08/11/2026');
-        const h = tr.getAttribute('data-hora') || (tr.cells[1] ? tr.cells[1].textContent.trim() : '00:00');
-        const d = tr.getAttribute('data-dosis') || (tr.cells[5] ? tr.cells[5].textContent.trim() : '0.0');
-        const t = tr.getAttribute('data-tritio') || (tr.cells[4] ? tr.cells[4].textContent.trim() : '0.0');
-        const g = tr.getAttribute('data-gases') || (tr.cells[3] ? tr.cells[3].textContent.trim() : '0.0');
-        const fClean = (!f || f.toLowerCase().includes('turno')) ? '08/11/2026' : f;
-        history.push({
-          fecha: fClean,
-          hora: h,
-          dosis: parseFloat(d).toFixed(1),
-          tritio: parseFloat(t).toFixed(2),
-          gases: parseFloat(g).toFixed(2)
-        });
-      });
-
-      const idMatch = (typeof recintoParam === 'string') ? recintoParam.match(/R-?(\d+)/i) : null;
-      const recintoId = idMatch ? parseInt(idMatch[1], 10).toString() : '1';
-
-      const fallbackList = (typeof mockRecintoHistory !== 'undefined' && mockRecintoHistory[recintoId]) 
-        ? mockRecintoHistory[recintoId] 
-        : [
-            { fecha: '08/11/2026', hora: '23:30', dosis: '4.5', tritio: '0.40', gases: '0.00' },
-            { fecha: '08/11/2026', hora: '15:40', dosis: '4.0', tritio: '0.35', gases: '0.00' },
-            { fecha: '08/11/2026', hora: '08:10', dosis: '3.8', tritio: '0.30', gases: '0.00' }
-          ];
-
-      fallbackList.forEach(fb => {
-        if (history.length < 3) {
-          const fbClean = (!fb.fecha || fb.fecha.toLowerCase().includes('turno')) ? '08/11/2026' : fb.fecha;
-          history.push({
-            fecha: fbClean,
-            hora: fb.hora,
-            dosis: fb.dosis,
-            tritio: fb.tritio,
-            gases: fb.gases
-          });
+    function renderRecintoHistoryModalRows(history, container, trendBadge) {
+      if (!history || history.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 18px; font-style: italic;">○ No hay relevamientos históricos registrados en MySQL para este recinto.</div>';
+        if (trendBadge) {
+          trendBadge.innerHTML = '○ Sin historial previo';
+          trendBadge.style.color = 'var(--text-dim)';
         }
-      });
+        return;
+      }
 
-      // 2. Renderizar las 3 mediciones con SOLO Fecha y Hora en orden: G. nobles, Tritio y Dosis
-      container.innerHTML = history.map((item, idx) => `
+      container.innerHTML = history.slice(0, 3).map((item, idx) => `
         <div style="background: rgba(9, 28, 24, 0.85); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-cyan); border-radius: 6px; padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 11.5px;">
           <div style="display: flex; align-items: center; gap: 8px;">
             <span style="font-weight: 800; color: var(--accent-cyan); font-size: 12px;">[${idx + 1}]</span>
@@ -7925,22 +8165,61 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         </div>
       `).join('');
 
-      // 3. Evaluar tendencia
-      const d1 = parseFloat(history[0].dosis);
-      const d3 = parseFloat(history[2].dosis);
-      if (d1 > d3 * 1.3) {
-        trendBadge.innerHTML = '📈 Alza de Dosis (+ ' + Math.round(((d1 - d3)/d3)*100) + '%)';
-        trendBadge.style.color = 'var(--accent-amber)';
-      } else {
+      if (trendBadge) {
+        if (history.length >= 2) {
+          const d1 = parseFloat(history[0].dosis);
+          const dLast = parseFloat(history[Math.min(history.length - 1, 2)].dosis);
+          if (dLast > 0 && d1 > dLast * 1.3) {
+            trendBadge.innerHTML = '📈 Alza de Dosis (+ ' + Math.round(((d1 - dLast)/dLast)*100) + '%)';
+            trendBadge.style.color = 'var(--accent-amber)';
+            return;
+          }
+        }
         trendBadge.innerHTML = '🟢 Niveles estables';
         trendBadge.style.color = 'var(--accent-green)';
       }
+    }
 
+    async function openRecintoHistoryModal(recintoParam) {
+      const modal = document.getElementById('modal-recinto-historial');
+      const labelNombre = document.getElementById('mrh-recinto-nombre');
+      const container = document.getElementById('mrh-chips-container');
+      const trendBadge = document.getElementById('mrh-trend-badge');
+      const prefillBtn = document.getElementById('mrh-btn-prefill');
+      if (!modal || !container) return;
+
+      activeSelectedRecintoForPrefill = recintoParam;
+      if (labelNombre) labelNombre.textContent = recintoParam;
       if (prefillBtn && !document.getElementById('q-recinto')) {
         prefillBtn.style.display = 'none';
       }
 
+      const liveRows = collectLiveRecintoRows(recintoParam);
+      const rid = resolveRecintoIdByName(recintoParam);
+
+      if (typeof IS_DEMO_MODE !== 'undefined' && IS_DEMO_MODE) {
+        const history = [...liveRows];
+        const fallbackList = (typeof mockRecintoHistory !== 'undefined' && mockRecintoHistory[rid])
+          ? mockRecintoHistory[rid]
+          : [];
+        fallbackList.forEach(fb => { if (history.length < 3) history.push(fb); });
+        renderRecintoHistoryModalRows(history, container, trendBadge);
+        modal.style.display = 'flex';
+        return;
+      }
+
+      container.innerHTML = '<div style="text-align: center; color: var(--accent-cyan); padding: 16px;">⏳ Consultando últimos valores reales en MySQL...</div>';
+      if (trendBadge) trendBadge.textContent = '';
       modal.style.display = 'flex';
+
+      const dbItems = await fetchRealRecintoHistory(rid, recintoParam);
+      const combined = [...liveRows];
+      dbItems.forEach(db => {
+        if (combined.length >= 3) return;
+        const dup = combined.some(c => c.fecha === db.fecha && c.hora === db.hora);
+        if (!dup) combined.push(db);
+      });
+      renderRecintoHistoryModalRows(combined, container, trendBadge);
     }
 
     function closeRecintoHistoryModal() {
@@ -7951,12 +8230,15 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     function prefillRecintoForm() {
       closeRecintoHistoryModal();
       const input = document.getElementById('q-recinto');
+      const idInput = document.getElementById('q-recinto-id');
       if (input && activeSelectedRecintoForPrefill) {
         input.value = activeSelectedRecintoForPrefill;
+        const realId = resolveRecintoIdByName(activeSelectedRecintoForPrefill);
+        if (idInput) idInput.value = realId;
         const clearBtn = document.getElementById('btn-clear-recinto');
         if (clearBtn) clearBtn.style.display = 'block';
         if (typeof updateRecintoHistory === 'function') {
-          updateRecintoHistory('1', activeSelectedRecintoForPrefill);
+          updateRecintoHistory(realId, activeSelectedRecintoForPrefill);
         }
         const tabRutina = document.querySelector('.menu-btn[data-section="sec-rutina"]');
         if (tabRutina) tabRutina.click();

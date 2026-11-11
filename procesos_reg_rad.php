@@ -1530,5 +1530,57 @@ if ($accion == "eliminar_efluente_liquido") {
 	echo ($res_del) ? "ok" : "mal";
 	exit;
 }
+if ($accion == "historial_recinto") {
+	$id_recinto = isset($_GET['id_recinto']) ? intval($_GET['id_recinto']) : 0;
+	$recinto_nombre = isset($_GET['recinto_nombre']) ? trim($_GET['recinto_nombre']) : '';
+	$id_planilla_actual = isset($_GET['id_planilla_actual']) ? intval($_GET['id_planilla_actual']) : 0;
+	$limite = isset($_GET['limite']) ? max(1, min(15, intval($_GET['limite']))) : 6;
+
+	if ($id_recinto <= 0 && $recinto_nombre !== '') {
+		$esc_nom = mysql_real_escape_string($recinto_nombre, $miconex);
+		$q_rec = "SELECT id FROM graf_tritio_recintos WHERE recinto = '$esc_nom' LIMIT 1";
+		$r_rec = mysql_query($q_rec, $miconex);
+		if ($r_rec && mysql_num_rows($r_rec) > 0) {
+			$row_rec = mysql_fetch_assoc($r_rec);
+			$id_recinto = intval($row_rec['id']);
+		} else {
+			$q_rec2 = "SELECT id FROM graf_tritio_recintos WHERE recinto LIKE '$esc_nom%' LIMIT 1";
+			$r_rec2 = mysql_query($q_rec2, $miconex);
+			if ($r_rec2 && mysql_num_rows($r_rec2) > 0) {
+				$row_rec2 = mysql_fetch_assoc($r_rec2);
+				$id_recinto = intval($row_rec2['id']);
+			}
+		}
+	}
+
+	$items = array();
+	if ($id_recinto > 0) {
+		$q_hist = "SELECT r.id_relev_rutina, r.id_planilla, r.fecha, r.hora, r.gases_nobles, r.tritio, r.tasa_dosis 
+		           FROM regrad_relevamiento_rutina r 
+		           WHERE r.ubicacion = $id_recinto 
+		           ORDER BY r.fecha DESC, r.hora DESC, r.id_relev_rutina DESC 
+		           LIMIT $limite";
+		$res_hist = mysql_query($q_hist, $miconex);
+		if ($res_hist && mysql_num_rows($res_hist) > 0) {
+			while ($rw = mysql_fetch_assoc($res_hist)) {
+				$pf = explode('-', $rw['fecha']);
+				$f_lat = (count($pf) == 3) ? ($pf[2] . '/' . $pf[1] . '/' . $pf[0]) : $rw['fecha'];
+				$items[] = array(
+					'id' => intval($rw['id_relev_rutina']),
+					'id_planilla' => intval($rw['id_planilla']),
+					'misma_planilla' => ($id_planilla_actual > 0 && intval($rw['id_planilla']) === $id_planilla_actual),
+					'fecha' => $f_lat,
+					'hora' => substr($rw['hora'], 0, 5),
+					'gases' => $rw['gases_nobles'] !== null ? number_format(floatval($rw['gases_nobles']), 2, '.', '') : '0.00',
+					'tritio' => $rw['tritio'] !== null ? number_format(floatval($rw['tritio']), 2, '.', '') : '0.00',
+					'dosis' => $rw['tasa_dosis'] !== null ? number_format(floatval($rw['tasa_dosis']), 1, '.', '') : '0.0'
+				);
+			}
+		}
+	}
+	header('Content-Type: application/json; charset=utf-8');
+	echo json_encode(array('ok' => true, 'id_recinto' => $id_recinto, 'items' => $items));
+	exit;
+}
 Mysql_close();
 ?>
