@@ -14,20 +14,24 @@ $hora_actual = date('H:i');
 $current_hour = (int)date('H');
 
 // ================= INTELIGENCIA DE TURNO NOCHE =================
-// Si el operador inicia sesión o abre la planilla de madrugada (00:00 a 07:59),
-// el Turno Noche inició a las 23:00 del día anterior.
-// Por ende, la fecha operativa de guardia corresponde a AYER.
-if ($current_hour >= 0 && $current_hour < 8) {
+// El aviso de desfase aplica únicamente de madrugada (00:00 a 04:59 hs),
+// cuando el operador del turno que comenzó a las 23:00 hs inicia sesión después de medianoche.
+// A partir de las 05:00 hs ya corresponde al turno entrante (07:00 hs) con fecha de HOY.
+if ($current_hour >= 0 && $current_hour < 5) {
     $fecha_operativa_default = date('d/m/Y', strtotime('-1 day'));
-    $turno_default = 3; // Turno 3: Noche
+    $turno_default = 3; // Turno 3: Noche (23 a 07)
     $es_madrugada = true;
-} else if ($current_hour >= 14 && $current_hour < 22) {
+} else if ($current_hour >= 5 && $current_hour < 14) {
     $fecha_operativa_default = date('d/m/Y');
-    $turno_default = 2; // Turno 2: Tarde
+    $turno_default = 1; // Turno 1: Mañana (07 a 15)
+    $es_madrugada = false;
+} else if ($current_hour >= 14 && $current_hour < 23) {
+    $fecha_operativa_default = date('d/m/Y');
+    $turno_default = 2; // Turno 2: Tarde (15 a 23)
     $es_madrugada = false;
 } else {
     $fecha_operativa_default = date('d/m/Y');
-    $turno_default = 1; // Turno 1: Mañana
+    $turno_default = 3; // Turno 3: Noche (23 a 07, antes de las 00:00)
     $es_madrugada = false;
 }
 
@@ -3716,11 +3720,11 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           <input type="text" id="modal-fecha-operativa" class="field-control mono latam-datepicker-input" style="font-size: 14px; font-weight: 800; color: #ffffff;" value="<?php echo htmlspecialchars($fecha_operativa_default, ENT_QUOTES, 'UTF-8'); ?>">
         </div>
 
-        <!-- Cartel inteligente de detección automática de madrugada -->
+        <!-- Cartel inteligente de detección automática de madrugada (00:00 a 04:59 hs) -->
         <div id="night-shift-alert" style="padding: 12px; border-radius: 6px; background: rgba(6, 182, 212, 0.12); border: 1px solid var(--accent-cyan); font-size: 11.5px; color: var(--accent-cyan); margin-bottom: 14px; <?php if(!$es_madrugada) echo 'display:none;'; ?>">
-          <strong>ℹ️ Detección Inteligente de Turno Noche:</strong>
+          <strong>ℹ️ Detección Inteligente de Turno Noche (00:00 a 05:00 hs):</strong>
           <br>
-          La hora actual es de madrugada (<strong><?php echo $hora_actual; ?> hs</strong>). Dado que el Turno Noche inició a las 23:00 hs de ayer, el sistema asignó automáticamente la fecha operativa a <strong>AYER (<?php echo htmlspecialchars($fecha_operativa_default, ENT_QUOTES, 'UTF-8'); ?>)</strong> para evitar el error de desfase de día.
+          Inició sesión después de las 00:00 hs (<strong id="night-alert-hora"><?php echo $hora_actual; ?> hs</strong>). Dado que el turno que comenzó a las 23:00 hs pertenece al día anterior, verifique que la fecha operativa corresponda a <strong id="night-alert-ayer">AYER (<?php echo date('d/m/Y', strtotime('-1 day')); ?>)</strong> para evitar el desfase de día.
           <div style="margin-top: 8px; display: flex; gap: 8px;">
             <button type="button" style="background: rgba(255,255,255,0.1); border: 1px solid var(--border-card); color: #fff; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" onclick="setShiftDate('today')">Usar fecha de Hoy</button>
             <button type="button" style="background: var(--accent-cyan); border: none; color: #000; font-weight:700; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" onclick="setShiftDate('yesterday')">Usar fecha de Ayer</button>
@@ -4889,7 +4893,32 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     });
 
     // ================= INTELIGENCIA DE TURNO NOCHE & APERTURA =================
-    function openShiftModal() {
+    function openShiftModal(autoSuggestNow = false) {
+      const turnoSel = document.getElementById('modal-select-turno');
+      const fechaInp = document.getElementById('modal-fecha-operativa');
+      if (autoSuggestNow && turnoSel && fechaInp) {
+        const now = new Date();
+        const h = now.getHours();
+        let suggestedTurno = "1";
+        let targetDate = new Date(now);
+        if (h >= 0 && h < 5) {
+          suggestedTurno = "3";
+          targetDate.setDate(targetDate.getDate() - 1);
+        } else if (h >= 5 && h < 14) {
+          suggestedTurno = "1";
+        } else if (h >= 14 && h < 23) {
+          suggestedTurno = "2";
+        } else {
+          suggestedTurno = "3";
+        }
+        if (Array.from(turnoSel.options).some(o => String(o.value) === suggestedTurno)) {
+          turnoSel.value = suggestedTurno;
+        }
+        const d = String(targetDate.getDate()).padStart(2, '0');
+        const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const a = targetDate.getFullYear();
+        fechaInp.value = `${d}/${m}/${a}`;
+      }
       document.getElementById('shift-config-modal').style.display = 'flex';
       checkNightShiftLogic();
     }
@@ -4899,12 +4928,25 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     }
 
     function checkNightShiftLogic() {
-      const turno = document.getElementById('modal-select-turno').value;
+      const turnoSel = document.getElementById('modal-select-turno');
+      const turno = turnoSel ? turnoSel.value : '';
+      const turnoText = turnoSel && turnoSel.selectedOptions[0] ? turnoSel.selectedOptions[0].textContent : '';
+      const esTurnoNoche = (String(turno) === "3" || /23\s*hs|noche/i.test(turnoText));
       const alertBox = document.getElementById('night-shift-alert');
       const now = new Date();
       const currentHour = now.getHours();
 
-      if (turno === "3" && currentHour >= 0 && currentHour < 8) {
+      // El llamado de atención se muestra sólo entre las 00:00 y las 04:59 hs
+      if (esTurnoNoche && currentHour >= 0 && currentHour < 5) {
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        const y = new Date(now);
+        y.setDate(y.getDate() - 1);
+        const yStr = `${String(y.getDate()).padStart(2, '0')}/${String(y.getMonth() + 1).padStart(2, '0')}/${y.getFullYear()}`;
+        const horaEl = document.getElementById('night-alert-hora');
+        const ayerEl = document.getElementById('night-alert-ayer');
+        if (horaEl) horaEl.textContent = `${hh}:${mm} hs`;
+        if (ayerEl) ayerEl.textContent = `AYER (${yStr})`;
         alertBox.style.display = 'block';
       } else {
         alertBox.style.display = 'none';
@@ -8144,7 +8186,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       showToast('✨ Consola desbloqueada para su sesión. Configure su turno.');
       setTimeout(() => {
         if (typeof openShiftModal === 'function') {
-          openShiftModal();
+          openShiftModal(true);
         }
       }, 350);
     }
