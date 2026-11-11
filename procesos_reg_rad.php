@@ -1024,6 +1024,7 @@ if ($accion == "guardar_valores_efluentes_liquidos") {
 
 	$query_guardar_valores_efluentes_liquidos = "INSERT INTO `regrad_efluentes_liquidos_nueva`(`id_planilla`,`tanque`, `fecha`, `hora`, `volumen_litro`, `usuario`) VALUES ('$id_planilla','$tanque','$fecha','$hora','$volumen','$id_usuario')";
 	$guardar_valores_efluentes_liquidos = mysql_query($query_guardar_valores_efluentes_liquidos, $miconex) or die(mysql_error());
+	$id_efluentes_insertado = mysql_insert_id($miconex);
 
 	$query_eliminar_valores_en_tabla_archivo = "DELETE FROM `reg_rad_efluentes_liquidos_radionucleidos_calculos_archivo` WHERE id_planilla = $id_planilla";
 	$eliminar_valores_en_tabla_archivo = mysql_query($query_eliminar_valores_en_tabla_archivo, $miconex) or die(mysql_error());
@@ -1032,7 +1033,11 @@ if ($accion == "guardar_valores_efluentes_liquidos") {
 	$actualizar_valores_en_tabla_archivo = mysql_query($query_actualizar_valores_en_tabla_archivo, $miconex) or die(mysql_error());
 
 	if ($guardar_valores_efluentes_liquidos) {
-		echo "ok";
+		if (isset($_GET['retornar_id']) && $_GET['retornar_id'] == '1') {
+			echo "ok|" . $id_efluentes_insertado;
+		} else {
+			echo "ok";
+		}
 	} else {
 		echo "mal";
 	}
@@ -1458,6 +1463,71 @@ if ($accion == "recuperar_registro_minizonas_para_edicion_V2") {
 
 	header('Content-Type: application/json');
 	echo json_encode($datos);
+	exit;
+}
+if ($accion == "listar_efluentes_liquidos_json") {
+	$id_planilla = intval($_GET['id_planilla']);
+	$lista = array();
+	$q_ef = "SELECT v.*, n.observaciones 
+	         FROM reg_rad_ef_liq_final_para_tabla v 
+	         LEFT JOIN regrad_efluentes_liquidos_nueva n ON n.id_efluentes = v.id_efluentes 
+	         WHERE v.id_planilla = $id_planilla 
+	         ORDER BY v.fecha DESC, v.hora DESC, v.id_efluentes DESC";
+	$res_ef = mysql_query($q_ef, $miconex);
+	if ($res_ef && mysql_num_rows($res_ef) > 0) {
+		while ($r_ef = mysql_fetch_assoc($res_ef)) {
+			$id_ef = intval($r_ef['id_efluentes']);
+			$rads = array();
+			$q_rad = "SELECT a.id, a.id_radionucleido_efluentes_liquidos, b.radionucleido, a.conc_Bq_litro 
+			          FROM regrad_efluentes_liquidos_radionucleidos a 
+			          LEFT JOIN reg_rad_radionucleidos_con_ki_ro b ON b.id_radionucleidos = a.id_radionucleido_efluentes_liquidos 
+			          WHERE a.id_regrad_efluentes_liquidos = $id_ef 
+			          ORDER BY a.id ASC";
+			$res_rad = mysql_query($q_rad, $miconex);
+			if ($res_rad && mysql_num_rows($res_rad) > 0) {
+				while ($rr = mysql_fetch_assoc($res_rad)) {
+					$rads[] = array(
+						'id' => intval($rr['id']),
+						'id_radionucleido' => intval($rr['id_radionucleido_efluentes_liquidos']),
+						'radionucleido' => $rr['radionucleido'] ? $rr['radionucleido'] : ('ID ' . $rr['id_radionucleido_efluentes_liquidos']),
+						'conc_Bq_litro' => floatval($rr['conc_Bq_litro'])
+					);
+				}
+			}
+			$vol_l = floatval($r_ef['volumen_litro']);
+			$act_h3_bq = floatval($r_ef['actividad_tritio']);
+			$act_gam_bq = floatval($r_ef['actividad_gamma']);
+			$rodd_h3 = floatval($r_ef['LDD_Ro_tritio']);
+			$rodd_gam = floatval($r_ef['LDD_Ro_gamma']);
+			$lista[] = array(
+				'id_efluentes' => $id_ef,
+				'fecha' => $r_ef['fecha'],
+				'hora' => substr($r_ef['hora'], 0, 5),
+				'tanque' => $r_ef['tanque'],
+				'volumen_litro' => $vol_l,
+				'volumen_m3' => round($vol_l / 1000.0, 3),
+				'actividad_tritio_Bq' => $act_h3_bq,
+				'actividad_tritio_TBq' => $act_h3_bq / 1e12,
+				'actividad_gamma_Bq' => $act_gam_bq,
+				'actividad_gamma_TBq' => $act_gam_bq / 1e12,
+				'LDD_Ro_tritio' => $rodd_h3,
+				'LDD_Ro_gamma' => $rodd_gam,
+				'rodd_total' => round($rodd_h3 + $rodd_gam, 4),
+				'observaciones' => $r_ef['observaciones'] ? $r_ef['observaciones'] : '',
+				'radionucleidos' => $rads
+			);
+		}
+	}
+	header('Content-Type: application/json; charset=utf-8');
+	echo json_encode($lista);
+	exit;
+}
+if ($accion == "eliminar_efluente_liquido") {
+	$id_efluentes = intval($_GET['id_efluentes']);
+	mysql_query("DELETE FROM `regrad_efluentes_liquidos_radionucleidos` WHERE id_regrad_efluentes_liquidos = $id_efluentes", $miconex);
+	mysql_query("DELETE FROM `reg_rad_efluentes_liquidos_radionucleidos_calculos_archivo` WHERE id_efluentes = $id_efluentes", $miconex);
+	$res_del = mysql_query("DELETE FROM `regrad_efluentes_liquidos_nueva` WHERE id_efluentes = $id_efluentes", $miconex);
+	echo ($res_del) ? "ok" : "mal";
 	exit;
 }
 Mysql_close();

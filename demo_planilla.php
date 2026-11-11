@@ -77,6 +77,56 @@ $rows_espectrometria_db = array(
   )
 );
 
+$radionucleidos_liq_array = array(
+  array('id_radionucleidos' => 1, 'radionucleido' => 'H-3'),
+  array('id_radionucleidos' => 2, 'radionucleido' => 'Co-60'),
+  array('id_radionucleidos' => 3, 'radionucleido' => 'Cs-137'),
+  array('id_radionucleidos' => 4, 'radionucleido' => 'Cs-134'),
+  array('id_radionucleidos' => 5, 'radionucleido' => 'I-131'),
+  array('id_radionucleidos' => 6, 'radionucleido' => 'Mn-54'),
+  array('id_radionucleidos' => 7, 'radionucleido' => 'Cr-51'),
+  array('id_radionucleidos' => 8, 'radionucleido' => 'Fe-59'),
+  array('id_radionucleidos' => 9, 'radionucleido' => 'Zr-95'),
+  array('id_radionucleidos' => 10, 'radionucleido' => 'Nb-95'),
+  array('id_radionucleidos' => 11, 'radionucleido' => 'Ru-103'),
+  array('id_radionucleidos' => 12, 'radionucleido' => 'Sb-124')
+);
+
+$unidades_vol_liq_array = array(
+  array('id_tabla_conversion' => '2', 'unidad' => 'm3', 'factor_a_litro' => 1000.0),
+  array('id_tabla_conversion' => '1', 'unidad' => 'Litro (l)', 'factor_a_litro' => 1.0)
+);
+
+$unidades_conc_liq_array = array(
+  array('id_tabla_conversion' => '2', 'unidad' => 'Bq/l', 'factor_a_bq_litro' => 1.0),
+  array('id_tabla_conversion' => '3', 'unidad' => 'kBq/l', 'factor_a_bq_litro' => 1000.0),
+  array('id_tabla_conversion' => '4', 'unidad' => 'MBq/l', 'factor_a_bq_litro' => 1000000.0),
+  array('id_tabla_conversion' => '1', 'unidad' => 'uCi/ml', 'factor_a_bq_litro' => 37000000.0)
+);
+
+$efluentes_liquidos_db = array(
+  array(
+    'id_efluentes' => 9001,
+    'fecha' => date('Y-m-d'),
+    'hora' => '02:15',
+    'tanque' => 'TK-01 (Tanque Retención Activo A)',
+    'volumen_litro' => 45000,
+    'volumen_m3' => 45.0,
+    'actividad_tritio_Bq' => 5.4225e9,
+    'actividad_tritio_TBq' => 0.0054225,
+    'actividad_gamma_Bq' => 3.825e7,
+    'actividad_gamma_TBq' => 0.00003825,
+    'LDD_Ro_tritio' => 0.012,
+    'LDD_Ro_gamma' => 0.004,
+    'rodd_total' => 0.016,
+    'observaciones' => 'Descarga autorizada por Operaciones (Ejemplo Offline)',
+    'radionucleidos' => array(
+      array('id' => 1, 'id_radionucleido' => 1, 'radionucleido' => 'H-3', 'conc_Bq_litro' => 120500),
+      array('id' => 2, 'id_radionucleido' => 2, 'radionucleido' => 'Co-60', 'conc_Bq_litro' => 850)
+    )
+  )
+);
+
 $recintos_array = array(
   array('id' => 1, 'recinto' => 'R-001 - Edificio de Contención (+15m)'),
   array('id' => 2, 'recinto' => 'R-002 - Edificio de Contención (-5m)'),
@@ -237,6 +287,60 @@ if (file_exists($miconex_path)) {
             }
         }
 
+        // 5b. Catálogo de Radionucleidos para Efluentes Líquidos
+        $res_rad_liq = mysql_query("SELECT * FROM `reg_rad_radionucleidos_con_ki_ro` ORDER BY radionucleido ASC", $miconex);
+        if ($res_rad_liq && mysql_num_rows($res_rad_liq) > 0) {
+            $radionucleidos_liq_array = array();
+            while ($row_rl = mysql_fetch_assoc($res_rad_liq)) {
+                $radionucleidos_liq_array[] = $row_rl;
+            }
+        }
+
+        // 5c. Unidades de Volumen
+        $res_uvol = mysql_query("SELECT * FROM `regrad_tabla_conversion_unidades_volumen` ORDER BY factor_conversion_a_litro DESC", $miconex);
+        if ($res_uvol && mysql_num_rows($res_uvol) > 0) {
+            $unidades_vol_liq_array = array();
+            while ($row_uv = mysql_fetch_assoc($res_uvol)) {
+                $unidades_vol_liq_array[] = array(
+                    'id_tabla_conversion' => (string)$row_uv['id_tabla_conversion'],
+                    'unidad' => $row_uv['unidad'],
+                    'factor_a_litro' => isset($row_uv['factor_conversion_a_litro']) ? floatval($row_uv['factor_conversion_a_litro']) : 1.0
+                );
+            }
+        }
+
+        // 5d. Unidades de Concentración (normalizadas a Bq/l, baseline id = 2 según procesos_reg_rad.php)
+        $res_uconc = mysql_query("SELECT * FROM `regrad_tabla_conversion_unidades_concentracion` ORDER BY id_tabla_conversion ASC", $miconex);
+        if ($res_uconc && mysql_num_rows($res_uconc) > 0) {
+            $raw_uconc = array();
+            $base_conc_factor = 1.0;
+            while ($row_uc = mysql_fetch_assoc($res_uconc)) {
+                $f_val = 1.0;
+                foreach ($row_uc as $ck => $cv) {
+                    if (stripos($ck, 'factor_conversion') !== false && is_numeric($cv)) {
+                        $f_val = floatval($cv);
+                        break;
+                    }
+                }
+                if ((string)$row_uc['id_tabla_conversion'] === '2' && $f_val > 0) {
+                    $base_conc_factor = $f_val;
+                }
+                $raw_uconc[] = array(
+                    'id_tabla_conversion' => (string)$row_uc['id_tabla_conversion'],
+                    'unidad' => $row_uc['unidad'],
+                    '_raw_factor' => $f_val
+                );
+            }
+            $unidades_conc_liq_array = array();
+            foreach ($raw_uconc as $ruc) {
+                $unidades_conc_liq_array[] = array(
+                    'id_tabla_conversion' => $ruc['id_tabla_conversion'],
+                    'unidad' => $ruc['unidad'],
+                    'factor_a_bq_litro' => ($base_conc_factor > 0) ? ($ruc['_raw_factor'] / $base_conc_factor) : $ruc['_raw_factor']
+                );
+            }
+        }
+
         // 6. Planilla abierta
         $q_abierta = "SELECT a.*, b.horarios, c.nombre_estado, d.of_apellido, d.of_nombre, e.jefe_apellido, e.jefe_nombre 
                       FROM regrad_planilla_diaria_nueva a 
@@ -297,6 +401,7 @@ if (file_exists($miconex_path)) {
             $gn_xe135m_db = "";
             $hay_gases_nobles_db = false;
             $rows_espectrometria_db = array();
+            $efluentes_liquidos_db = array();
             $relevamientos_rutina_iniciales = array();
             $actas_tareas_iniciales = array();
 
@@ -374,6 +479,58 @@ if (file_exists($miconex_path)) {
             if ($res_esp && mysql_num_rows($res_esp) > 0) {
                 while ($row_e = mysql_fetch_assoc($res_esp)) {
                     $rows_espectrometria_db[] = $row_e;
+                }
+            }
+
+            // 13b. Efluentes Líquidos Emitidos Reales de la planilla activa
+            $q_ef_liq = "SELECT v.*, n.observaciones 
+                         FROM reg_rad_ef_liq_final_para_tabla v 
+                         LEFT JOIN regrad_efluentes_liquidos_nueva n ON n.id_efluentes = v.id_efluentes 
+                         WHERE v.id_planilla = $id_planilla_activa 
+                         ORDER BY v.fecha DESC, v.hora DESC, v.id_efluentes DESC";
+            $res_ef_liq = mysql_query($q_ef_liq, $miconex);
+            if ($res_ef_liq && mysql_num_rows($res_ef_liq) > 0) {
+                while ($r_ef = mysql_fetch_assoc($res_ef_liq)) {
+                    $id_ef = intval($r_ef['id_efluentes']);
+                    $rads_ef = array();
+                    $q_rads_ef = "SELECT a.id, a.id_radionucleido_efluentes_liquidos, b.radionucleido, a.conc_Bq_litro 
+                                  FROM regrad_efluentes_liquidos_radionucleidos a 
+                                  LEFT JOIN reg_rad_radionucleidos_con_ki_ro b ON b.id_radionucleidos = a.id_radionucleido_efluentes_liquidos 
+                                  WHERE a.id_regrad_efluentes_liquidos = $id_ef 
+                                  ORDER BY a.id ASC";
+                    $res_rads_ef = mysql_query($q_rads_ef, $miconex);
+                    if ($res_rads_ef && mysql_num_rows($res_rads_ef) > 0) {
+                        while ($rr_ef = mysql_fetch_assoc($res_rads_ef)) {
+                            $rads_ef[] = array(
+                                'id' => intval($rr_ef['id']),
+                                'id_radionucleido' => intval($rr_ef['id_radionucleido_efluentes_liquidos']),
+                                'radionucleido' => $rr_ef['radionucleido'] ? $rr_ef['radionucleido'] : ('ID ' . $rr_ef['id_radionucleido_efluentes_liquidos']),
+                                'conc_Bq_litro' => floatval($rr_ef['conc_Bq_litro'])
+                            );
+                        }
+                    }
+                    $vol_l = floatval($r_ef['volumen_litro']);
+                    $act_h3_bq = floatval($r_ef['actividad_tritio']);
+                    $act_gam_bq = floatval($r_ef['actividad_gamma']);
+                    $rodd_h3 = floatval($r_ef['LDD_Ro_tritio']);
+                    $rodd_gam = floatval($r_ef['LDD_Ro_gamma']);
+                    $efluentes_liquidos_db[] = array(
+                        'id_efluentes' => $id_ef,
+                        'fecha' => $r_ef['fecha'],
+                        'hora' => substr($r_ef['hora'], 0, 5),
+                        'tanque' => $r_ef['tanque'],
+                        'volumen_litro' => $vol_l,
+                        'volumen_m3' => round($vol_l / 1000.0, 3),
+                        'actividad_tritio_Bq' => $act_h3_bq,
+                        'actividad_tritio_TBq' => $act_h3_bq / 1e12,
+                        'actividad_gamma_Bq' => $act_gam_bq,
+                        'actividad_gamma_TBq' => $act_gam_bq / 1e12,
+                        'LDD_Ro_tritio' => $rodd_h3,
+                        'LDD_Ro_gamma' => $rodd_gam,
+                        'rodd_total' => round($rodd_h3 + $rodd_gam, 4),
+                        'observaciones' => $r_ef['observaciones'] ? $r_ef['observaciones'] : '',
+                        'radionucleidos' => $rads_ef
+                    );
                 }
             }
 
@@ -462,6 +619,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             $oficial_iniciador_nombre = $oficial_logueado;
             $turno_actual_nombre = "Sin Planilla Abierta";
             $relevamientos_rutina_iniciales = array();
+            $efluentes_liquidos_db = array();
+            $rows_espectrometria_db = array();
         }
         if (isset($_GET['nueva_guardia']) && $_GET['nueva_guardia'] == '1') {
             $sin_planilla_abierta = true;
@@ -2377,6 +2536,121 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       background: rgba(28, 10, 10, 0.97);
       color: #fef2f2;
     }
+
+    /* ================= EFLUENTES LÍQUIDOS 2 FASES ================= */
+    .liq-kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .liq-kpi-card {
+      background: rgba(8, 26, 22, 0.78);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .liq-kpi-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .liq-kpi-val {
+      font-size: 17px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      color: #fff;
+    }
+    .liq-kpi-sub {
+      font-size: 10.5px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+    .liq-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .liq-badge.precarga {
+      background: rgba(245, 158, 11, 0.16);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.45);
+    }
+    .liq-badge.emitido {
+      background: rgba(52, 211, 153, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(52, 211, 153, 0.4);
+    }
+    .liq-badge.cancelado {
+      background: rgba(148, 163, 184, 0.12);
+      color: #94a3b8;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    .liq-btn-mini {
+      padding: 4px 8px;
+      height: auto;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid var(--border-card);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+      transition: all 0.15s ease;
+    }
+    .liq-btn-mini:hover {
+      background: rgba(16, 185, 129, 0.16);
+      border-color: var(--accent-cyan);
+    }
+    .liq-btn-mini.confirm {
+      background: rgba(16, 185, 129, 0.18);
+      border-color: var(--accent-green);
+      color: #6ee7b7;
+    }
+    .liq-btn-mini.confirm:hover {
+      background: rgba(16, 185, 129, 0.34);
+    }
+    .liq-btn-mini.danger {
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+    .liq-btn-mini.danger:hover {
+      background: rgba(239, 68, 68, 0.2);
+    }
+    .liq-rad-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      color: var(--text-muted);
+      margin-right: 4px;
+      margin-top: 2px;
+    }
+    .liq-tank-chip {
+      padding: 3px 8px;
+      font-size: 10.5px;
+      font-weight: 700;
+      border-radius: 5px;
+      border: 1px solid var(--border-card);
+      background: rgba(16, 185, 129, 0.08);
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .liq-tank-chip:hover {
+      background: rgba(16, 185, 129, 0.22);
+      color: #fff;
+    }
   </style>
 </head>
 <body>
@@ -2412,7 +2686,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       </button>
       <button class="menu-btn" data-section="sec-liquidos">
         <span>💧 EMISIÓN DE EFLUENTES LÍQUIDOS</span>
-        <span class="menu-badge">Nominal</span>
+        <span class="menu-badge" id="menu-badge-liquidos"><?php echo count($efluentes_liquidos_db); ?></span>
       </button>
       <button class="menu-btn" data-section="sec-contaminacion">
         <span>🧽 CONT. SUPERFICIAL &amp; DRYERS</span>
@@ -3036,43 +3310,77 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         </div>
       </section>
 
-      <!-- ================= SECCIÓN 3: EFLUENTES LÍQUIDOS ================= -->
+      <!-- ================= SECCIÓN 3: EFLUENTES LÍQUIDOS (2 FASES) ================= -->
       <section class="section-panel" id="sec-liquidos">
         <div class="panel-box">
-          <div class="panel-header">
-            <div class="panel-title"><span>💧</span> EMISIÓN DE EFLUENTES LÍQUIDOS</div>
+          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div class="panel-title"><span>💧</span> EMISIÓN DE EFLUENTES LÍQUIDOS &nbsp;<span style="font-size: 10.5px; color: var(--accent-amber); font-weight: 700;">(PRE-CARGA + CONFIRMACIÓN DE BOMBEO)</span></div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); cursor: pointer;">
+                <input type="checkbox" id="liq-chk-show-cancelled" onchange="renderEfluentesLiquidos()">
+                <span>Ver cancelados (<span id="liq-cancelled-count">0</span>)</span>
+              </label>
+              <button type="button" class="btn-register" style="padding: 6px 14px; height: auto; font-size: 11.5px; background: rgba(245, 158, 11, 0.16); border-color: var(--accent-amber); color: #fbbf24;" onclick="openEfluenteLiquidoModal()">
+                + NUEVA PRE-CARGA / AUTORIZACIÓN
+              </button>
+            </div>
           </div>
           <div class="panel-body">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Tanque de Descarga</th>
-                  <th style="text-align: right;">Volumen (m³)</th>
-                  <th style="text-align: right;">Actividad Tritio (MBq/m³)</th>
-                  <th style="text-align: right;">Actividad Gamma (MBq/m³)</th>
-                  <th>Autorización / Estado</th>
-                  <th style="text-align: center;">Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style="font-weight: 700; color: #fff;">TK-01 (Tanque Retención Activo A)</td>
-                  <td class="num">45.0</td>
-                  <td class="num">120.5</td>
-                  <td class="num">0.85</td>
-                  <td><span style="color: var(--accent-green); font-weight: 700;">● AUTORIZADO</span></td>
-                  <td style="text-align: center;"><button class="btn-register" style="padding: 4px 10px; height: auto;" onclick="showToast('Verificación de tanque TK-01 emitida')">Verificar</button></td>
-                </tr>
-                <tr>
-                  <td style="font-weight: 700; color: #fff;">TK-02 (Tanque Retención Activo B)</td>
-                  <td class="num">12.0</td>
-                  <td class="num">85.0</td>
-                  <td class="num">0.40</td>
-                  <td><span style="color: var(--text-muted);">En llenado</span></td>
-                  <td style="text-align: center;"><button class="btn-register" style="padding: 4px 10px; height: auto;" onclick="showToast('Muestreo solicitado')">Muestrear</button></td>
-                </tr>
-              </tbody>
-            </table>
+            <!-- Banner explicativo 2 fases -->
+            <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.28); border-left: 3px solid var(--accent-amber); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 11.5px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <span>
+                🛡️ <strong style="color: #fbbf24;">Control de Emisión Real:</strong> Toda autorización nueva entra como <strong style="color: #fbbf24;">🟡 PRE-CARGA</strong> para calcular TBq, % RoDD e imprimir su ticket sin sumarse a la emisión oficial. Sólo se asienta en MySQL al pulsar <strong style="color: #34d399;">✅ Confirmar Bombeo</strong>.
+              </span>
+            </div>
+
+            <!-- KPIs de líquidos -->
+            <div class="liq-kpi-strip">
+              <div class="liq-kpi-card" style="border-left: 3px solid var(--accent-amber);">
+                <div class="liq-kpi-label">🟡 Pre-Cargas (Sin Emitir)</div>
+                <div class="liq-kpi-val" id="liq-kpi-precargas" style="color: #fbbf24;">0</div>
+                <div class="liq-kpi-sub" id="liq-kpi-precargas-sub">0.00 m³ en espera</div>
+              </div>
+              <div class="liq-kpi-card" style="border-left: 3px solid var(--accent-green);">
+                <div class="liq-kpi-label">🟢 Emitidos Reales (Guardia)</div>
+                <div class="liq-kpi-val" id="liq-kpi-emitidos" style="color: #34d399;">0</div>
+                <div class="liq-kpi-sub" id="liq-kpi-emitidos-sub">0.00 m³ bombeados</div>
+              </div>
+              <div class="liq-kpi-card">
+                <div class="liq-kpi-label">💧 Tritio Emitido Real</div>
+                <div class="liq-kpi-val" id="liq-kpi-tritio" style="color: var(--accent-cyan);">0.000 TBq</div>
+                <div class="liq-kpi-sub" id="liq-kpi-gamma-sub">Gamma: 0.000 TBq</div>
+              </div>
+              <div class="liq-kpi-card">
+                <div class="liq-kpi-label">☢️ % RoDD Emitido Real</div>
+                <div class="liq-kpi-val" id="liq-kpi-rodd" style="color: #fff;">0.000%</div>
+                <div class="liq-kpi-sub">Sólo descargas confirmadas</div>
+              </div>
+            </div>
+
+            <!-- Tabla unificada -->
+            <div style="overflow-x: auto;">
+              <table class="data-table" id="tabla-efluentes-liquidos">
+                <thead>
+                  <tr>
+                    <th>Estado</th>
+                    <th>Fecha / Hora</th>
+                    <th>Tanque &amp; Radionucleídos</th>
+                    <th style="text-align: right;">Volumen (m³)</th>
+                    <th style="text-align: right;">Act. Tritio (TBq)</th>
+                    <th style="text-align: right;">Act. Gamma (TBq)</th>
+                    <th style="text-align: right;">% del RoDD</th>
+                    <th style="text-align: center;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-efluentes-liquidos">
+                  <tr>
+                    <td colspan="8" style="text-align: center; color: var(--text-dim); padding: 18px; font-style: italic;">
+                      Cargando efluentes líquidos...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
@@ -4340,8 +4648,222 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     </div>
   </div>
 
+  <!-- ================= MODAL: NUEVA PRE-CARGA / EMISIÓN DE EFLUENTE LÍQUIDO ================= -->
+  <div class="modal-overlay" id="modal-efluente-liquido" style="display: none;">
+    <div class="modal-box" style="width: 720px; max-width: 96vw; max-height: 92vh; overflow-y: auto; border-top: 3px solid var(--accent-amber);">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <span>💧</span>
+          <span id="modal-liq-title">Nueva Pre-Carga / Autorización de Efluente Líquido</span>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeEfluenteLiquidoModal()" title="Cerrar (Esc)">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 14px 18px;">
+        <input type="hidden" id="liq-form-precarga-id" value="">
+
+        <div style="display: grid; grid-template-columns: 2fr 1.1fr 0.9fr; gap: 10px; margin-bottom: 10px;">
+          <div class="field-group">
+            <label class="field-label">Tanque de Descarga <span style="color: var(--accent-red);">*</span></label>
+            <input type="text" id="liq-in-tanque" class="field-control" placeholder="Ej: TK-01, GSPC-1..." autocomplete="off">
+            <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px;">
+              <button type="button" class="liq-tank-chip" onclick="document.getElementById('liq-in-tanque').value='TK-01'">TK-01</button>
+              <button type="button" class="liq-tank-chip" onclick="document.getElementById('liq-in-tanque').value='TK-02'">TK-02</button>
+              <button type="button" class="liq-tank-chip" onclick="document.getElementById('liq-in-tanque').value='GSPC-1'">GSPC-1</button>
+              <button type="button" class="liq-tank-chip" onclick="document.getElementById('liq-in-tanque').value='GSPC-2'">GSPC-2</button>
+              <button type="button" class="liq-tank-chip" onclick="document.getElementById('liq-in-tanque').value='3432-TK1'">3432-TK1</button>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Fecha Prevista / Descarga</label>
+            <input type="date" id="liq-in-fecha" class="field-control mono">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Hora Prevista</label>
+            <input type="time" id="liq-in-hora" class="field-control mono">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div class="field-group">
+            <label class="field-label">Volumen a Descargar <span style="color: var(--accent-red);">*</span></label>
+            <input type="number" step="any" min="0" id="liq-in-volumen" class="field-control mono" placeholder="0.00" oninput="recalcModalLiqTotals()">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Unidad de Volumen</label>
+            <select id="liq-in-vol-unidad" class="field-control" onchange="recalcModalLiqTotals()"></select>
+          </div>
+        </div>
+
+        <!-- Constructor de Radionucleidos -->
+        <div style="background: rgba(8, 26, 22, 0.75); border: 1px solid var(--border-card); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;">
+          <div style="font-size: 11px; font-weight: 800; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px;">
+            ⚛️ Composición Isotópica de Muestra (H-3 &amp; Gamma)
+          </div>
+          <div style="display: grid; grid-template-columns: 1.5fr 1fr 1fr auto; gap: 8px; align-items: end; margin-bottom: 10px;">
+            <div class="field-group">
+              <label class="field-label">Radionucleído</label>
+              <select id="liq-add-rad" class="field-control"></select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Concentración</label>
+              <input type="number" step="any" min="0" id="liq-add-conc" class="field-control mono" placeholder="Ej: 1.2e5 o 0.5">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Unidad</label>
+              <select id="liq-add-conc-unit" class="field-control"></select>
+            </div>
+            <button type="button" class="btn-register" style="height: 36px; padding: 0 12px; font-size: 11.5px; white-space: nowrap;" onclick="addDraftRadionucleido()">
+              + Agregar
+            </button>
+          </div>
+
+          <div style="max-height: 170px; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: 6px;">
+            <table class="data-table" style="font-size: 11.5px; margin: 0;">
+              <thead>
+                <tr>
+                  <th>Radionucleído</th>
+                  <th style="text-align: right;">Ingresado</th>
+                  <th style="text-align: right;">Conc. (Bq/l)</th>
+                  <th style="text-align: right;">Actividad (TBq)</th>
+                  <th style="text-align: center;">Quitar</th>
+                </tr>
+              </thead>
+              <tbody id="liq-draft-rads-tbody">
+                <tr><td colspan="5" style="text-align: center; color: var(--text-dim); padding: 10px;">Sin radionucleídos agregados aún</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Resumen de Cálculo en Tiempo Real -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px;">
+          <div>
+            <div style="font-size: 10px; color: var(--text-muted); font-weight: 700;">TRITIO CALCULADO</div>
+            <div id="liq-prev-h3" class="mono" style="font-size: 14px; font-weight: 800; color: var(--accent-cyan);">0.0000 TBq</div>
+          </div>
+          <div>
+            <div style="font-size: 10px; color: var(--text-muted); font-weight: 700;">GAMMA CALCULADO</div>
+            <div id="liq-prev-gamma" class="mono" style="font-size: 14px; font-weight: 800; color: #f472b6;">0.0000 TBq</div>
+          </div>
+          <div>
+            <div style="font-size: 10px; color: var(--text-muted); font-weight: 700;">% RoDD ESTIMADO</div>
+            <div id="liq-prev-rodd" class="mono" style="font-size: 14px; font-weight: 800; color: #fbbf24;">Por BD / Est.</div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Observaciones / Autorización / PTR</label>
+          <input type="text" id="liq-in-obs" class="field-control" placeholder="Ej: Muestreo aprobado - Aguardando bombeo de Operaciones">
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <button type="button" class="btn-modal-cancel" onclick="closeEfluenteLiquidoModal()">CANCELAR</button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn-modal-confirm" style="background: rgba(245, 158, 11, 0.2); border: 1px solid var(--accent-amber); color: #fbbf24;" onclick="saveEfluenteModal('precarga')">
+            🟡 GUARDAR COMO PRE-CARGA (SIN EMITIR)
+          </button>
+          <button type="button" class="btn-modal-confirm" onclick="saveEfluenteModal('emitido')">
+            🟢 ASENTAR COMO EMITIDO REAL
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: CONFIRMAR BOMBEO DE PRE-CARGA ================= -->
+  <div class="modal-overlay" id="modal-confirmar-bombeo" style="display: none;">
+    <div class="modal-box" style="width: 480px; max-width: 95vw; border-top: 3px solid var(--accent-green);">
+      <div class="modal-header">
+        <div class="modal-header-left" style="color: var(--accent-green);">
+          <span>✅</span>
+          <span>Confirmar Bombeo Real a Chimenea/Canal</span>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeConfirmarBombeoModal()" title="Cerrar (Esc)">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 14px 18px;">
+        <input type="hidden" id="conf-liq-precarga-id" value="">
+        <div id="conf-liq-resumen" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: 12px; line-height: 1.5;">
+          -
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+          <div class="field-group">
+            <label class="field-label">Fecha Real de Bombeo</label>
+            <input type="date" id="conf-liq-fecha" class="field-control mono">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Hora Real de Bombeo</label>
+            <input type="time" id="conf-liq-hora" class="field-control mono">
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Observación / Operador Confirmante</label>
+          <input type="text" id="conf-liq-obs" class="field-control" placeholder="Ej: Bombeo iniciado según confirmación de Operaciones">
+        </div>
+        <div style="font-size: 11px; color: #6ee7b7; margin-top: 10px;">
+          📌 Al confirmar, el tanque y sus radionucleídos se grabarán en la base de datos oficial y pasarán a computarse como emisión efectiva del turno.
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button type="button" class="btn-modal-cancel" onclick="closeConfirmarBombeoModal()">CANCELAR</button>
+        <button type="button" class="btn-modal-confirm" id="btn-ejecutar-confirmar-bombeo" onclick="ejecutarConfirmacionBombeo()">
+          ✅ CONFIRMAR Y EMITIR A BD
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: OBSERVACIONES DE EFLUENTE EMITIDO ================= -->
+  <div class="modal-overlay" id="modal-obs-liquido" style="display: none;">
+    <div class="modal-box" style="width: 520px; max-width: 95vw;">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <span>📝</span>
+          <span id="modal-obs-liq-title">Detalle y Observaciones del Tanque</span>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeObsLiquidoModal()" title="Cerrar (Esc)">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 14px 18px;">
+        <input type="hidden" id="obs-liq-id" value="">
+        <div id="obs-liq-rads-list" style="margin-bottom: 12px;"></div>
+        <div class="field-group">
+          <label class="field-label">Observaciones registradas</label>
+          <textarea id="obs-liq-texto" rows="3" class="field-control" style="height: auto; padding: 8px;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button type="button" class="btn-modal-cancel" onclick="closeObsLiquidoModal()">CERRAR</button>
+        <button type="button" class="btn-modal-confirm" onclick="guardarObsLiquido()">💾 GUARDAR OBSERVACIONES</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: TICKET / VISTA PREVIA DE AUTORIZACIÓN ================= -->
+  <div class="modal-overlay" id="modal-ticket-liquido" style="display: none;">
+    <div class="modal-box" style="width: 640px; max-width: 96vw; max-height: 92vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <span>🖨️</span>
+          <span>Ticket / Planilla Previa de Descarga Líquida</span>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeTicketLiquidoModal()" title="Cerrar (Esc)">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 14px 18px;">
+        <div id="ticket-liquido-preview" style="background: #ffffff; color: #111827; padding: 18px; border-radius: 6px; font-family: Arial, sans-serif; font-size: 12px;"></div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button type="button" class="btn-modal-cancel" onclick="closeTicketLiquidoModal()">CERRAR</button>
+        <button type="button" class="btn-modal-confirm" onclick="printTicketLiquidoWindow()">🖨️ IMPRIMIR TICKET</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let activePlanillaId = <?php echo $id_planilla_activa ? $id_planilla_activa : 'null'; ?>;
+    const ACTIVE_USUARIO_ID = <?php echo (int)($id_usuario_actual ? $id_usuario_actual : 1); ?>;
+    const RADIONUCLEIDOS_LIQ_CATALOG = <?php $j_rl = json_encode($radionucleidos_liq_array); echo $j_rl ? $j_rl : '[]'; ?>;
+    const UNIDADES_VOL_LIQ_CATALOG = <?php $j_uv = json_encode($unidades_vol_liq_array); echo $j_uv ? $j_uv : '[]'; ?>;
+    const UNIDADES_CONC_LIQ_CATALOG = <?php $j_uc = json_encode($unidades_conc_liq_array); echo $j_uc ? $j_uc : '[]'; ?>;
+    let liqEmitidos = <?php $j_el = json_encode($efluentes_liquidos_db); echo $j_el ? $j_el : '[]'; ?>;
 
     // ================= NAVEGACIÓN ENTRE SECCIONES (BOTONES LATERALES) =================
     const menuButtons = document.querySelectorAll('.menu-btn');
@@ -5768,6 +6290,28 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         badgeEsp.textContent = hasEsp ? `● ${espRows.length} Cargados` : '○ Opcional';
       }
       if (valEsp) valEsp.textContent = hasEsp ? `${espRows.length} análisis de espectrometría registrados` : 'Sin espectrometrías específicas requeridas en este turno';
+
+      // 9. Efluentes Líquidos (Pre-Cargas vs Emitidos Reales)
+      const badgeLiq = document.getElementById('chk-badge-liq');
+      const valLiq = document.getElementById('chk-val-liq');
+      const activePre = (typeof getActiveLiqPrecargas === 'function') ? getActiveLiqPrecargas() : [];
+      const realEmit = Array.isArray(liqEmitidos) ? liqEmitidos : [];
+      if (badgeLiq && valLiq) {
+        if (activePre.length > 0) {
+          badgeLiq.className = 'checklist-status-badge pending';
+          badgeLiq.textContent = `⏳ ${activePre.length} Pre-Carga${activePre.length > 1 ? 's' : ''}`;
+          valLiq.textContent = `Atención: ${activePre.length} pre-carga(s) en espera de confirmación de bombeo (${realEmit.length} emitidos reales)`;
+        } else if (realEmit.length > 0) {
+          const sumRodd = realEmit.reduce((acc, r) => acc + (parseFloat(r.rodd_total) || 0), 0);
+          badgeLiq.className = 'checklist-status-badge complete';
+          badgeLiq.textContent = `● ${realEmit.length} Emitido${realEmit.length > 1 ? 's' : ''}`;
+          valLiq.textContent = `${realEmit.length} descarga(s) real(es) asentada(s) | Suma RoDD: ${sumRodd.toFixed(3)}%`;
+        } else {
+          badgeLiq.className = 'checklist-status-badge optional';
+          badgeLiq.textContent = '○ Sin descargas';
+          valLiq.textContent = 'Sin descargas líquidas ni pre-cargas pendientes en este turno';
+        }
+      }
 
       // Calcular completitud de los 7 módulos obligatorios
       const obligatorios = [hasVent, hasGn, hasC14, hasDf, hasMet, hasRutina, hasActas];
@@ -7658,7 +8202,788 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       window.location.href = `planilla_en_curso_visualizacion.php?id_planilla=${activePlanillaId || <?php echo $id_planilla_activa ? $id_planilla_activa : 1; ?>}`;
     }
 
-    // Auto-bloqueo obligatorio al cargar si hay discrepancia de guardia
+    // ================= MOTOR DE EFLUENTES LÍQUIDOS EN 2 FASES (PRE-CARGA & BOMBEO REAL) =================
+    let liqDraftRads = [];
+    let currentTicketHtml = '';
+
+    function liqEscape(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function liqTodayIso() {
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    function liqNowHm() {
+      const d = new Date();
+      return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    }
+
+    function liqFmtLatamDate(iso) {
+      if (!iso) return '-';
+      if (iso.includes('/')) return iso;
+      const p = String(iso).split('T')[0].split('-');
+      return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso;
+    }
+
+    function liqStorageKey() {
+      return `regrad_liq_precargas_p_${activePlanillaId || 'demo'}`;
+    }
+
+    function loadLiqPrecargas() {
+      try {
+        const raw = localStorage.getItem(liqStorageKey());
+        const arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveLiqPrecargas(list) {
+      try {
+        localStorage.setItem(liqStorageKey(), JSON.stringify(list));
+      } catch (e) {}
+    }
+
+    function getActiveLiqPrecargas() {
+      return loadLiqPrecargas().filter(p => p.status !== 'cancelado');
+    }
+
+    function getVolFactorToLiter(unitId) {
+      const found = (UNIDADES_VOL_LIQ_CATALOG || []).find(u => String(u.id_tabla_conversion) === String(unitId));
+      return found ? (parseFloat(found.factor_a_litro) || 1.0) : 1000.0;
+    }
+
+    function getConcFactorToBqL(unitId) {
+      const found = (UNIDADES_CONC_LIQ_CATALOG || []).find(u => String(u.id_tabla_conversion) === String(unitId));
+      return found ? (parseFloat(found.factor_a_bq_litro) || 1.0) : 1.0;
+    }
+
+    function getRadInfo(radId) {
+      const found = (RADIONUCLEIDOS_LIQ_CATALOG || []).find(r => String(r.id_radionucleidos) === String(radId));
+      return found || { id_radionucleidos: radId, radionucleido: 'Rad-' + radId };
+    }
+
+    function isTritioName(name) {
+      const clean = String(name || '').toUpperCase().replace(/\s+/g, '');
+      return clean === 'H-3' || clean === 'H3' || clean.includes('TRITIO');
+    }
+
+    function extractRoValue(radObj) {
+      if (!radObj || typeof radObj !== 'object') return null;
+      const candidateKeys = Object.keys(radObj).filter(k => /ro/i.test(k) && !/radionucleid|numero|hierro|id_/i.test(k));
+      for (const k of candidateKeys) {
+        const num = parseFloat(radObj[k]);
+        if (!isNaN(num) && num > 0) return num;
+      }
+      return null;
+    }
+
+    function calcLiqMetrics(volVal, volUnitId, rads) {
+      const volLiters = (parseFloat(volVal) || 0) * getVolFactorToLiter(volUnitId);
+      const volM3 = volLiters / 1000.0;
+      let h3Bq = 0;
+      let gammaBq = 0;
+      let roddEst = 0;
+      let hasRoFactor = false;
+
+      const detailedRads = (rads || []).map(item => {
+        const info = getRadInfo(item.id_radionucleido);
+        const radName = item.radionucleido || info.radionucleido || ('ID ' + item.id_radionucleido);
+        const concBqL = item.conc_Bq_litro !== undefined
+          ? (parseFloat(item.conc_Bq_litro) || 0)
+          : ((parseFloat(item.conc_ingresada) || 0) * getConcFactorToBqL(item.id_unidad_conc));
+        const actBq = concBqL * volLiters;
+        const actTBq = actBq / 1e12;
+        if (isTritioName(radName)) {
+          h3Bq += actBq;
+        } else {
+          gammaBq += actBq;
+        }
+        const roVal = extractRoValue(info);
+        if (roVal) {
+          hasRoFactor = true;
+          roddEst += (actBq / roVal) * 100.0;
+        }
+        return {
+          ...item,
+          radionucleido: radName,
+          conc_Bq_litro: concBqL,
+          actividad_Bq: actBq,
+          actividad_TBq: actTBq
+        };
+      });
+
+      return {
+        volumen_litro: volLiters,
+        volumen_m3: volM3,
+        actividad_tritio_Bq: h3Bq,
+        actividad_tritio_TBq: h3Bq / 1e12,
+        actividad_gamma_Bq: gammaBq,
+        actividad_gamma_TBq: gammaBq / 1e12,
+        rodd_est: hasRoFactor ? roddEst : null,
+        rads: detailedRads
+      };
+    }
+
+    function liqFmtTBq(val) {
+      const n = parseFloat(val) || 0;
+      if (n === 0) return '0.0000';
+      if (n < 0.0001) return n.toExponential(2);
+      return n.toFixed(4);
+    }
+
+    function populateLiqModalSelects() {
+      const volSel = document.getElementById('liq-in-vol-unidad');
+      if (volSel && volSel.options.length === 0) {
+        (UNIDADES_VOL_LIQ_CATALOG || []).forEach(u => {
+          const opt = document.createElement('option');
+          opt.value = u.id_tabla_conversion;
+          opt.textContent = u.unidad;
+          volSel.appendChild(opt);
+        });
+      }
+      const radSel = document.getElementById('liq-add-rad');
+      if (radSel && radSel.options.length === 0) {
+        const sorted = [...(RADIONUCLEIDOS_LIQ_CATALOG || [])].sort((a, b) => {
+          if (isTritioName(a.radionucleido)) return -1;
+          if (isTritioName(b.radionucleido)) return 1;
+          return String(a.radionucleido).localeCompare(String(b.radionucleido));
+        });
+        sorted.forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r.id_radionucleidos;
+          opt.textContent = r.radionucleido;
+          radSel.appendChild(opt);
+        });
+      }
+      const concSel = document.getElementById('liq-add-conc-unit');
+      if (concSel && concSel.options.length === 0) {
+        (UNIDADES_CONC_LIQ_CATALOG || []).forEach(u => {
+          const opt = document.createElement('option');
+          opt.value = u.id_tabla_conversion;
+          opt.textContent = u.unidad;
+          concSel.appendChild(opt);
+        });
+      }
+    }
+
+    function openEfluenteLiquidoModal(precargaId = null) {
+      populateLiqModalSelects();
+      const modal = document.getElementById('modal-efluente-liquido');
+      const title = document.getElementById('modal-liq-title');
+      document.getElementById('liq-form-precarga-id').value = precargaId || '';
+
+      if (precargaId) {
+        const item = loadLiqPrecargas().find(p => p.id === precargaId);
+        if (!item) return;
+        title.textContent = `Editar Pre-Carga: ${item.tanque}`;
+        document.getElementById('liq-in-tanque').value = item.tanque || '';
+        document.getElementById('liq-in-fecha').value = item.fecha || liqTodayIso();
+        document.getElementById('liq-in-hora').value = item.hora || liqNowHm();
+        document.getElementById('liq-in-volumen').value = item.volumen_ingresado !== undefined ? item.volumen_ingresado : item.volumen_m3;
+        if (item.id_unidad_vol) document.getElementById('liq-in-vol-unidad').value = String(item.id_unidad_vol);
+        document.getElementById('liq-in-obs').value = item.observaciones || '';
+        liqDraftRads = (item.radionucleidos || []).map(r => ({ ...r }));
+      } else {
+        title.textContent = 'Nueva Pre-Carga / Autorización de Efluente Líquido';
+        document.getElementById('liq-in-tanque').value = '';
+        document.getElementById('liq-in-fecha').value = liqTodayIso();
+        document.getElementById('liq-in-hora').value = liqNowHm();
+        document.getElementById('liq-in-volumen').value = '';
+        document.getElementById('liq-in-obs').value = '';
+        liqDraftRads = [];
+      }
+      document.getElementById('liq-add-conc').value = '';
+      renderDraftRadsTable();
+      recalcModalLiqTotals();
+      modal.style.display = 'flex';
+    }
+
+    function closeEfluenteLiquidoModal() {
+      const m = document.getElementById('modal-efluente-liquido');
+      if (m) m.style.display = 'none';
+    }
+
+    function addDraftRadionucleido() {
+      const radSel = document.getElementById('liq-add-rad');
+      const concInp = document.getElementById('liq-add-conc');
+      const unitSel = document.getElementById('liq-add-conc-unit');
+      const concVal = parseFloat(concInp.value);
+      if (!radSel.value || isNaN(concVal) || concVal <= 0) {
+        showToast('⚠️ Ingrese un radionucleído y concentración válida (> 0)', 'warning');
+        return;
+      }
+      const radName = radSel.options[radSel.selectedIndex]?.textContent || '';
+      const unitName = unitSel.options[unitSel.selectedIndex]?.textContent || 'Bq/l';
+      const concBqL = concVal * getConcFactorToBqL(unitSel.value);
+
+      liqDraftRads.push({
+        id_radionucleido: radSel.value,
+        radionucleido: radName,
+        conc_ingresada: concVal,
+        id_unidad_conc: unitSel.value,
+        unidad_conc_nombre: unitName,
+        conc_Bq_litro: concBqL
+      });
+      concInp.value = '';
+      concInp.focus();
+      renderDraftRadsTable();
+      recalcModalLiqTotals();
+    }
+
+    function removeDraftRadionucleido(idx) {
+      liqDraftRads.splice(idx, 1);
+      renderDraftRadsTable();
+      recalcModalLiqTotals();
+    }
+
+    function renderDraftRadsTable() {
+      const tbody = document.getElementById('liq-draft-rads-tbody');
+      if (!tbody) return;
+      const volVal = document.getElementById('liq-in-volumen')?.value || 0;
+      const volUnit = document.getElementById('liq-in-vol-unidad')?.value || '2';
+      const calc = calcLiqMetrics(volVal, volUnit, liqDraftRads);
+
+      if (calc.rads.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-dim); padding: 10px;">Sin radionucleídos agregados aún</td></tr>';
+        return;
+      }
+      tbody.innerHTML = calc.rads.map((r, idx) => `
+        <tr>
+          <td style="font-weight: 700; color: #fff;">${liqEscape(r.radionucleido)}</td>
+          <td class="mono" style="text-align: right;">${liqEscape(r.conc_ingresada)} ${liqEscape(r.unidad_conc_nombre || 'Bq/l')}</td>
+          <td class="mono" style="text-align: right; color: var(--text-muted);">${r.conc_Bq_litro.toExponential(2)}</td>
+          <td class="mono" style="text-align: right; color: var(--accent-cyan); font-weight: 700;">${liqFmtTBq(r.actividad_TBq)}</td>
+          <td style="text-align: center;">
+            <button type="button" class="liq-btn-mini danger" onclick="removeDraftRadionucleido(${idx})">✕</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function recalcModalLiqTotals() {
+      const volVal = document.getElementById('liq-in-volumen')?.value || 0;
+      const volUnit = document.getElementById('liq-in-vol-unidad')?.value || '2';
+      const calc = calcLiqMetrics(volVal, volUnit, liqDraftRads);
+      const h3El = document.getElementById('liq-prev-h3');
+      const gamEl = document.getElementById('liq-prev-gamma');
+      const roddEl = document.getElementById('liq-prev-rodd');
+      if (h3El) h3El.textContent = `${liqFmtTBq(calc.actividad_tritio_TBq)} TBq`;
+      if (gamEl) gamEl.textContent = `${liqFmtTBq(calc.actividad_gamma_TBq)} TBq`;
+      if (roddEl) roddEl.textContent = calc.rodd_est !== null ? `~${calc.rodd_est.toFixed(3)}%` : 'Al confirmar (BD)';
+      renderDraftRadsTable();
+    }
+
+    async function saveEfluenteModal(mode) {
+      const precargaId = document.getElementById('liq-form-precarga-id').value;
+      const tanque = document.getElementById('liq-in-tanque').value.trim();
+      const fecha = document.getElementById('liq-in-fecha').value || liqTodayIso();
+      const hora = document.getElementById('liq-in-hora').value || liqNowHm();
+      const volRaw = parseFloat(document.getElementById('liq-in-volumen').value);
+      const volUnit = document.getElementById('liq-in-vol-unidad').value;
+      const obs = document.getElementById('liq-in-obs').value.trim();
+
+      if (!tanque) {
+        showToast('⚠️ Ingrese el identificador del tanque', 'warning');
+        return;
+      }
+      if (isNaN(volRaw) || volRaw <= 0) {
+        showToast('⚠️ Ingrese un volumen mayor a 0', 'warning');
+        return;
+      }
+      if (liqDraftRads.length === 0 && !confirm('No agregó radionucleídos todavía. ¿Continuar guardando el tanque igualmente?')) {
+        return;
+      }
+
+      const calc = calcLiqMetrics(volRaw, volUnit, liqDraftRads);
+      const payload = {
+        id: precargaId || ('pre_' + Date.now()),
+        status: 'precarga',
+        tanque,
+        fecha,
+        hora,
+        volumen_ingresado: volRaw,
+        id_unidad_vol: volUnit,
+        volumen_litro: calc.volumen_litro,
+        volumen_m3: Math.round(calc.volumen_m3 * 1000) / 1000,
+        actividad_tritio_TBq: calc.actividad_tritio_TBq,
+        actividad_gamma_TBq: calc.actividad_gamma_TBq,
+        rodd_est: calc.rodd_est,
+        observaciones: obs,
+        radionucleidos: liqDraftRads.map(r => ({ ...r })),
+        created_at: new Date().toISOString()
+      };
+
+      if (mode === 'precarga') {
+        const list = loadLiqPrecargas();
+        const idx = list.findIndex(p => p.id === payload.id);
+        if (idx >= 0) list[idx] = payload;
+        else list.unshift(payload);
+        saveLiqPrecargas(list);
+        closeEfluenteLiquidoModal();
+        renderEfluentesLiquidos();
+        showToast(`🟡 Pre-Carga de ${tanque} guardada (NO emitida todavía)`);
+      } else {
+        const okCommit = await commitEfluenteReal(payload, precargaId ? precargaId : null);
+        if (okCommit) closeEfluenteLiquidoModal();
+      }
+    }
+
+    function openConfirmarBombeoModal(precargaId) {
+      const item = loadLiqPrecargas().find(p => p.id === precargaId);
+      if (!item) return;
+      document.getElementById('conf-liq-precarga-id').value = precargaId;
+      document.getElementById('conf-liq-fecha').value = liqTodayIso();
+      document.getElementById('conf-liq-hora').value = liqNowHm();
+      document.getElementById('conf-liq-obs').value = item.observaciones || '';
+      const radsTxt = (item.radionucleidos || []).map(r => r.radionucleido).join(', ') || 'Sin isótopos';
+      document.getElementById('conf-liq-resumen').innerHTML = `
+        <div><strong>Tanque:</strong> <span style="color:#fff;">${liqEscape(item.tanque)}</span> &nbsp;|&nbsp; <strong>Volumen:</strong> <span class="mono">${item.volumen_m3} m³</span></div>
+        <div><strong>Tritio (est.):</strong> <span class="mono" style="color:var(--accent-cyan);">${liqFmtTBq(item.actividad_tritio_TBq)} TBq</span> &nbsp;|&nbsp; <strong>Gamma (est.):</strong> <span class="mono" style="color:#f472b6;">${liqFmtTBq(item.actividad_gamma_TBq)} TBq</span></div>
+        <div><strong>Radionucleídos:</strong> ${liqEscape(radsTxt)}</div>
+      `;
+      document.getElementById('modal-confirmar-bombeo').style.display = 'flex';
+    }
+
+    function closeConfirmarBombeoModal() {
+      const m = document.getElementById('modal-confirmar-bombeo');
+      if (m) m.style.display = 'none';
+    }
+
+    async function ejecutarConfirmacionBombeo() {
+      const precargaId = document.getElementById('conf-liq-precarga-id').value;
+      const item = loadLiqPrecargas().find(p => p.id === precargaId);
+      if (!item) return;
+      const fechaReal = document.getElementById('conf-liq-fecha').value || item.fecha;
+      const horaReal = document.getElementById('conf-liq-hora').value || item.hora;
+      const obsReal = document.getElementById('conf-liq-obs').value.trim();
+
+      const updated = { ...item, fecha: fechaReal, hora: horaReal, observaciones: obsReal };
+      const ok = await commitEfluenteReal(updated, precargaId);
+      if (ok) {
+        closeConfirmarBombeoModal();
+      }
+    }
+
+    async function commitEfluenteReal(payload, precargaIdToRemove) {
+      if (typeof IS_DEMO_MODE !== 'undefined' && IS_DEMO_MODE) {
+        const calc = calcLiqMetrics(payload.volumen_ingresado || payload.volumen_m3, payload.id_unidad_vol || '2', payload.radionucleidos);
+        liqEmitidos.unshift({
+          id_efluentes: Date.now(),
+          fecha: payload.fecha,
+          hora: payload.hora,
+          tanque: payload.tanque,
+          volumen_litro: calc.volumen_litro,
+          volumen_m3: Math.round(calc.volumen_m3 * 1000) / 1000,
+          actividad_tritio_TBq: calc.actividad_tritio_TBq,
+          actividad_gamma_TBq: calc.actividad_gamma_TBq,
+          rodd_total: calc.rodd_est !== null ? calc.rodd_est : 0,
+          observaciones: payload.observaciones || '',
+          radionucleidos: calc.rads
+        });
+        if (precargaIdToRemove) {
+          saveLiqPrecargas(loadLiqPrecargas().filter(p => p.id !== precargaIdToRemove));
+        }
+        renderEfluentesLiquidos();
+        showToast(`🟢 Bombeo de ${payload.tanque} confirmado (Modo Demo Offline)`);
+        return true;
+      }
+
+      if (!activePlanillaId) {
+        showToast('⚠️ No hay una planilla abierta activa en BD', 'warning');
+        return false;
+      }
+
+      try {
+        const volNum = payload.volumen_ingresado !== undefined ? payload.volumen_ingresado : payload.volumen_m3;
+        const unitVolId = payload.id_unidad_vol || '2';
+        const urlHead = `procesos_reg_rad.php?accion=guardar_valores_efluentes_liquidos&retornar_id=1&id_planilla=${encodeURIComponent(activePlanillaId)}&id_usuario=${encodeURIComponent(ACTIVE_USUARIO_ID)}&fecha=${encodeURIComponent(payload.fecha)}&hora=${encodeURIComponent(payload.hora)}&tanque=${encodeURIComponent(payload.tanque)}&volumen=${encodeURIComponent(volNum)}&unidad_ingresada=${encodeURIComponent(unitVolId)}`;
+        const respHead = await fetch(urlHead);
+        const txtHead = (await respHead.text()).trim();
+        if (!txtHead.startsWith('ok|')) {
+          throw new Error('Error al grabar cabecera: ' + txtHead);
+        }
+        const nuevoId = parseInt(txtHead.split('|')[1], 10);
+        if (!nuevoId) throw new Error('ID de efluente inválido');
+
+        for (const rad of (payload.radionucleidos || [])) {
+          const concVal = rad.conc_ingresada !== undefined ? rad.conc_ingresada : rad.conc_Bq_litro;
+          const unitConcId = rad.id_unidad_conc || '2';
+          const urlRad = `procesos_reg_rad.php?accion=guardar_valores_radionucleidos_efluentes_liquidos&id_efluentes=${encodeURIComponent(nuevoId)}&radionucleido=${encodeURIComponent(rad.id_radionucleido)}&concentracion=${encodeURIComponent(concVal)}&unidad_concentracion_ingresada=${encodeURIComponent(unitConcId)}`;
+          await fetch(urlRad);
+        }
+
+        if (payload.observaciones) {
+          const urlObs = `procesos_reg_rad.php?accion=actualizar_observaciones_efluentes&id_efluentes=${encodeURIComponent(nuevoId)}&observaciones=${encodeURIComponent(payload.observaciones)}`;
+          await fetch(urlObs);
+        }
+
+        if (precargaIdToRemove) {
+          saveLiqPrecargas(loadLiqPrecargas().filter(p => p.id !== precargaIdToRemove));
+        }
+
+        await refreshEfluentesLiquidosFromDB();
+        showToast(`🟢 Bombeo de ${payload.tanque} confirmado y asentado en MySQL (#${nuevoId})`);
+        return true;
+      } catch (err) {
+        console.error(err);
+        showToast('❌ No se pudo grabar en MySQL: ' + err.message, 'error');
+        return false;
+      }
+    }
+
+    async function refreshEfluentesLiquidosFromDB() {
+      if ((typeof IS_DEMO_MODE !== 'undefined' && IS_DEMO_MODE) || !activePlanillaId) {
+        renderEfluentesLiquidos();
+        return;
+      }
+      try {
+        const res = await fetch(`procesos_reg_rad.php?accion=listar_efluentes_liquidos_json&id_planilla=${encodeURIComponent(activePlanillaId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            liqEmitidos = data;
+          }
+        }
+      } catch (e) {
+        console.warn('Error refrescando efluentes líquidos:', e);
+      }
+      renderEfluentesLiquidos();
+    }
+
+    function cancelLiqPrecarga(precargaId) {
+      if (!confirm('¿Marcar esta Pre-Carga como CANCELADA / NO EMITIDA? No se computará en la emisión.')) return;
+      const list = loadLiqPrecargas().map(p => p.id === precargaId ? { ...p, status: 'cancelado' } : p);
+      saveLiqPrecargas(list);
+      renderEfluentesLiquidos();
+      showToast('❌ Maniobra cancelada (0 emisión)');
+    }
+
+    function restoreLiqPrecarga(precargaId) {
+      const list = loadLiqPrecargas().map(p => p.id === precargaId ? { ...p, status: 'precarga' } : p);
+      saveLiqPrecargas(list);
+      renderEfluentesLiquidos();
+      showToast('♻️ Pre-Carga restaurada');
+    }
+
+    function deleteLiqPrecargaPermanent(precargaId) {
+      saveLiqPrecargas(loadLiqPrecargas().filter(p => p.id !== precargaId));
+      renderEfluentesLiquidos();
+    }
+
+    async function deleteEmitidoLiquido(idEf) {
+      if (!confirm('¿Eliminar definitivamente esta emisión asentada en la planilla?')) return;
+      if (typeof IS_DEMO_MODE !== 'undefined' && IS_DEMO_MODE) {
+        liqEmitidos = liqEmitidos.filter(e => String(e.id_efluentes) !== String(idEf));
+        renderEfluentesLiquidos();
+        showToast('🗑️ Registro eliminado (Modo Demo)');
+        return;
+      }
+      try {
+        const res = await fetch(`procesos_reg_rad.php?accion=eliminar_efluente_liquido&id_efluentes=${encodeURIComponent(idEf)}`);
+        const txt = (await res.text()).trim();
+        if (txt === 'ok') {
+          await refreshEfluentesLiquidosFromDB();
+          showToast('🗑️ Emisión eliminada de MySQL');
+        } else {
+          showToast('❌ Error eliminando registro', 'error');
+        }
+      } catch (e) {
+        showToast('❌ Error de red al eliminar', 'error');
+      }
+    }
+
+    function openObsLiquidoModal(idEf) {
+      const row = liqEmitidos.find(e => String(e.id_efluentes) === String(idEf));
+      if (!row) return;
+      document.getElementById('obs-liq-id').value = idEf;
+      document.getElementById('modal-obs-liq-title').textContent = `Detalle: ${row.tanque} (${liqFmtLatamDate(row.fecha)} ${row.hora})`;
+      document.getElementById('obs-liq-texto').value = row.observaciones || '';
+      const rads = row.radionucleidos || [];
+      document.getElementById('obs-liq-rads-list').innerHTML = rads.length > 0
+        ? `<div style="font-size:11px; color:var(--text-muted); margin-bottom:4px; font-weight:700;">Radionucleídos asentados:</div>` +
+          rads.map(r => `<span class="liq-rad-tag">${liqEscape(r.radionucleido)}: ${(parseFloat(r.conc_Bq_litro)||0).toExponential(2)} Bq/l</span>`).join('')
+        : '<div style="font-size:11px; color:var(--text-dim);">Sin detalle de radionucleídos</div>';
+      document.getElementById('modal-obs-liquido').style.display = 'flex';
+    }
+
+    function closeObsLiquidoModal() {
+      const m = document.getElementById('modal-obs-liquido');
+      if (m) m.style.display = 'none';
+    }
+
+    async function guardarObsLiquido() {
+      const idEf = document.getElementById('obs-liq-id').value;
+      const obs = document.getElementById('obs-liq-texto').value.trim();
+      if (typeof IS_DEMO_MODE !== 'undefined' && IS_DEMO_MODE) {
+        const row = liqEmitidos.find(e => String(e.id_efluentes) === String(idEf));
+        if (row) row.observaciones = obs;
+        closeObsLiquidoModal();
+        renderEfluentesLiquidos();
+        showToast('📝 Observaciones actualizadas');
+        return;
+      }
+      try {
+        await fetch(`procesos_reg_rad.php?accion=actualizar_observaciones_efluentes&id_efluentes=${encodeURIComponent(idEf)}&observaciones=${encodeURIComponent(obs)}`);
+        await refreshEfluentesLiquidosFromDB();
+        closeObsLiquidoModal();
+        showToast('📝 Observaciones guardadas en MySQL');
+      } catch (e) {
+        showToast('❌ Error al actualizar observaciones', 'error');
+      }
+    }
+
+    function openTicketLiquido(type, id) {
+      let item = null;
+      let isPre = false;
+      if (type === 'precarga') {
+        item = loadLiqPrecargas().find(p => p.id === id);
+        isPre = true;
+      } else {
+        item = liqEmitidos.find(e => String(e.id_efluentes) === String(id));
+      }
+      if (!item) return;
+
+      const rads = item.radionucleidos || [];
+      const volL = item.volumen_litro || ((item.volumen_m3 || 0) * 1000);
+      const rowsHtml = rads.length > 0
+        ? rads.map(r => {
+            const conc = parseFloat(r.conc_Bq_litro) || 0;
+            const actTBq = (conc * volL) / 1e12;
+            return `<tr>
+              <td style="padding:5px 8px; border:1px solid #cbd5e1; font-weight:bold;">${liqEscape(r.radionucleido)}</td>
+              <td style="padding:5px 8px; border:1px solid #cbd5e1; text-align:right; font-family:monospace;">${conc.toExponential(3)} Bq/l</td>
+              <td style="padding:5px 8px; border:1px solid #cbd5e1; text-align:right; font-family:monospace;">${liqFmtTBq(actTBq)} TBq</td>
+            </tr>`;
+          }).join('')
+        : '<tr><td colspan="3" style="padding:6px; border:1px solid #cbd5e1; text-align:center; color:#64748b;">Sin radionucleídos detallados</td></tr>';
+
+      const statusBanner = isPre
+        ? '<div style="background:#fef3c7; border:1px solid #f59e0b; color:#92400e; padding:6px 10px; font-weight:bold; margin-bottom:10px; text-align:center;">PRE-CARGA DE AUTORIZACIÓN — SUJETO A CONFIRMACIÓN DE BOMBEO</div>'
+        : '<div style="background:#dcfce7; border:1px solid #16a34a; color:#166534; padding:6px 10px; font-weight:bold; margin-bottom:10px; text-align:center;">EMISIÓN LÍQUIDA CONFIRMADA Y ASENTADA</div>';
+
+      const html = `
+        <div style="border-bottom:2px solid #0f172a; padding-bottom:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-weight:bold; font-size:14px;">CENTRAL NUCLEAR EMBALSE (NA-SA)</div>
+            <div style="font-size:11px; color:#475569;">División Radioprotección — Autorización de Descarga de Efluentes Líquidos</div>
+          </div>
+          <div style="text-align:right; font-size:11px;">
+            <div><strong>Planilla N°:</strong> ${liqEscape(activePlanillaId || '-')}</div>
+            <div><strong>Fecha/Hora:</strong> ${liqEscape(liqFmtLatamDate(item.fecha))} ${liqEscape(item.hora)}</div>
+          </div>
+        </div>
+        ${statusBanner}
+        <table style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+          <tr>
+            <td style="padding:5px 8px; border:1px solid #cbd5e1; background:#f8fafc;"><strong>Tanque:</strong> ${liqEscape(item.tanque)}</td>
+            <td style="padding:5px 8px; border:1px solid #cbd5e1; background:#f8fafc;"><strong>Volumen:</strong> ${item.volumen_m3} m³ (${Math.round(volL)} L)</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 8px; border:1px solid #cbd5e1;"><strong>Act. Tritio:</strong> ${liqFmtTBq(item.actividad_tritio_TBq)} TBq</td>
+            <td style="padding:5px 8px; border:1px solid #cbd5e1;"><strong>Act. Gamma:</strong> ${liqFmtTBq(item.actividad_gamma_TBq)} TBq</td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding:5px 8px; border:1px solid #cbd5e1;"><strong>% del RoDD:</strong> ${isPre ? (item.rodd_est !== null && item.rodd_est !== undefined ? '~' + Number(item.rodd_est).toFixed(3) + '% (Est.)' : 'Calculado en BD al confirmar') : (Number(item.rodd_total || 0).toFixed(3) + '%')}</td>
+          </tr>
+        </table>
+        <div style="font-weight:bold; margin-bottom:4px;">Detalle Isotópico:</div>
+        <table style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+          <thead>
+            <tr style="background:#e2e8f0;">
+              <th style="padding:5px 8px; border:1px solid #cbd5e1; text-align:left;">Radionucleído</th>
+              <th style="padding:5px 8px; border:1px solid #cbd5e1; text-align:right;">Concentración</th>
+              <th style="padding:5px 8px; border:1px solid #cbd5e1; text-align:right;">Actividad</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        <div style="padding:6px 8px; border:1px solid #cbd5e1; background:#f8fafc; margin-bottom:18px;">
+          <strong>Observaciones:</strong> ${liqEscape(item.observaciones || 'Sin observaciones adicionales.')}
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:26px; text-align:center; font-size:11px;">
+          <div style="border-top:1px solid #334155; padding-top:4px;">Oficial de Radioprotección<br><span style="color:#475569;"><?php echo htmlspecialchars($oficial_actual, ENT_QUOTES, 'UTF-8'); ?></span></div>
+          <div style="border-top:1px solid #334155; padding-top:4px;">Jefe de Turno Operaciones<br><span style="color:#475569;">Confirmación de Bombeo</span></div>
+        </div>
+      `;
+      currentTicketHtml = html;
+      document.getElementById('ticket-liquido-preview').innerHTML = html;
+      document.getElementById('modal-ticket-liquido').style.display = 'flex';
+    }
+
+    function closeTicketLiquidoModal() {
+      const m = document.getElementById('modal-ticket-liquido');
+      if (m) m.style.display = 'none';
+    }
+
+    function printTicketLiquidoWindow() {
+      const w = window.open('', '_blank', 'width=800,height=700');
+      if (!w) {
+        window.print();
+        return;
+      }
+      w.document.write(`<!DOCTYPE html><html><head><title>Ticket Efluente Líquido CNE</title></head><body style="font-family:Arial,sans-serif; padding:24px; color:#111;">${currentTicketHtml}<script>window.onload=function(){window.print();};<\/script></body></html>`);
+      w.document.close();
+    }
+
+    function openPdfOficialLiquido(idEf) {
+      if (typeof IS_DEMO_MODE !== 'undefined' && IS_DEMO_MODE) {
+        openTicketLiquido('emitido', idEf);
+        return;
+      }
+      window.open(`../TCPDF-master/examples/pdf_impresion_efluentes_liquidos_tcpdf.php?id_efluentes=${encodeURIComponent(idEf)}`, '_blank');
+    }
+
+    function renderEfluentesLiquidos() {
+      const tbody = document.getElementById('tbody-efluentes-liquidos');
+      if (!tbody) return;
+
+      const allPrecargas = loadLiqPrecargas();
+      const activePre = allPrecargas.filter(p => p.status !== 'cancelado');
+      const cancelledPre = allPrecargas.filter(p => p.status === 'cancelado');
+      const showCancelled = document.getElementById('liq-chk-show-cancelled')?.checked || false;
+
+      const cancCountEl = document.getElementById('liq-cancelled-count');
+      if (cancCountEl) cancCountEl.textContent = cancelledPre.length;
+
+      // KPIs
+      const preVol = activePre.reduce((acc, p) => acc + (parseFloat(p.volumen_m3) || 0), 0);
+      const realList = Array.isArray(liqEmitidos) ? liqEmitidos : [];
+      const realVol = realList.reduce((acc, e) => acc + (parseFloat(e.volumen_m3) || 0), 0);
+      const realH3 = realList.reduce((acc, e) => acc + (parseFloat(e.actividad_tritio_TBq) || 0), 0);
+      const realGam = realList.reduce((acc, e) => acc + (parseFloat(e.actividad_gamma_TBq) || 0), 0);
+      const realRodd = realList.reduce((acc, e) => acc + (parseFloat(e.rodd_total) || 0), 0);
+
+      document.getElementById('liq-kpi-precargas').textContent = activePre.length;
+      document.getElementById('liq-kpi-precargas-sub').textContent = `${preVol.toFixed(2)} m³ en espera`;
+      document.getElementById('liq-kpi-emitidos').textContent = realList.length;
+      document.getElementById('liq-kpi-emitidos-sub').textContent = `${realVol.toFixed(2)} m³ bombeados`;
+      document.getElementById('liq-kpi-tritio').textContent = `${liqFmtTBq(realH3)} TBq`;
+      document.getElementById('liq-kpi-gamma-sub').textContent = `Gamma: ${liqFmtTBq(realGam)} TBq`;
+      document.getElementById('liq-kpi-rodd').textContent = `${realRodd.toFixed(3)}%`;
+
+      // Badge sidebar
+      const menuBadge = document.getElementById('menu-badge-liquidos');
+      if (menuBadge) {
+        if (activePre.length > 0 && realList.length > 0) {
+          menuBadge.textContent = `⏳${activePre.length} / ●${realList.length}`;
+          menuBadge.style.background = 'rgba(245, 158, 11, 0.22)';
+          menuBadge.style.color = '#fbbf24';
+        } else if (activePre.length > 0) {
+          menuBadge.textContent = `⏳ ${activePre.length}`;
+          menuBadge.style.background = 'rgba(245, 158, 11, 0.22)';
+          menuBadge.style.color = '#fbbf24';
+        } else if (realList.length > 0) {
+          menuBadge.textContent = `${realList.length}`;
+          menuBadge.style.background = '';
+          menuBadge.style.color = '';
+        } else {
+          menuBadge.textContent = '0';
+          menuBadge.style.background = '';
+          menuBadge.style.color = '';
+        }
+      }
+
+      const rows = [];
+
+      // 1) Pre-Cargas en espera
+      activePre.forEach(p => {
+        const radTags = (p.radionucleidos || []).map(r => `<span class="liq-rad-tag">${liqEscape(r.radionucleido)}</span>`).join('');
+        rows.push(`
+          <tr style="background: rgba(245, 158, 11, 0.05);">
+            <td><span class="liq-badge precarga">🟡 PRE-CARGA</span></td>
+            <td class="mono">${liqEscape(liqFmtLatamDate(p.fecha))}<br><span style="color:var(--text-dim); font-size:10.5px;">Prev: ${liqEscape(p.hora)}</span></td>
+            <td>
+              <div style="font-weight: 700; color: #fbbf24;">${liqEscape(p.tanque)}</div>
+              <div>${radTags || '<span style="font-size:10px; color:var(--text-dim);">Sin radionucleídos</span>'}</div>
+            </td>
+            <td class="num mono">${Number(p.volumen_m3 || 0).toFixed(2)}</td>
+            <td class="num mono" style="color: #fbbf24; font-style: italic;" title="Estimado sin emitir">${liqFmtTBq(p.actividad_tritio_TBq)}</td>
+            <td class="num mono" style="color: #fbbf24; font-style: italic;">${liqFmtTBq(p.actividad_gamma_TBq)}</td>
+            <td class="num mono" style="color: var(--text-muted);">${p.rodd_est !== null && p.rodd_est !== undefined ? '~' + Number(p.rodd_est).toFixed(3) + '%' : 'En espera'}</td>
+            <td style="text-align: center; white-space: nowrap;">
+              <button type="button" class="liq-btn-mini confirm" onclick="openConfirmarBombeoModal('${liqEscape(p.id)}')" title="Confirmar bombeo real">✅ Confirmar</button>
+              <button type="button" class="liq-btn-mini" onclick="openTicketLiquido('precarga', '${liqEscape(p.id)}')" title="Imprimir ticket de autorización">🖨️</button>
+              <button type="button" class="liq-btn-mini" onclick="openEfluenteLiquidoModal('${liqEscape(p.id)}')" title="Editar pre-carga">✏️</button>
+              <button type="button" class="liq-btn-mini danger" onclick="cancelLiqPrecarga('${liqEscape(p.id)}')" title="Cancelar maniobra">✕</button>
+            </td>
+          </tr>
+        `);
+      });
+
+      // 2) Emitidos Reales
+      realList.forEach(e => {
+        const radTags = (e.radionucleidos || []).map(r => `<span class="liq-rad-tag">${liqEscape(r.radionucleido)}</span>`).join('');
+        rows.push(`
+          <tr>
+            <td><span class="liq-badge emitido">🟢 EMITIDO REAL</span></td>
+            <td class="mono">${liqEscape(liqFmtLatamDate(e.fecha))}<br><span style="color:var(--accent-green); font-size:10.5px;">${liqEscape(e.hora)} hs</span></td>
+            <td>
+              <div style="font-weight: 700; color: #fff;">${liqEscape(e.tanque)}</div>
+              <div>${radTags || '<span style="font-size:10px; color:var(--text-dim);">Sin radionucleídos</span>'}</div>
+            </td>
+            <td class="num mono">${Number(e.volumen_m3 || 0).toFixed(2)}</td>
+            <td class="num mono" style="color: var(--accent-cyan); font-weight: 700;">${liqFmtTBq(e.actividad_tritio_TBq)}</td>
+            <td class="num mono" style="color: #f472b6; font-weight: 700;">${liqFmtTBq(e.actividad_gamma_TBq)}</td>
+            <td class="num mono" style="color: #fff; font-weight: 800;">${Number(e.rodd_total || 0).toFixed(3)}%</td>
+            <td style="text-align: center; white-space: nowrap;">
+              <button type="button" class="liq-btn-mini" onclick="openPdfOficialLiquido(${e.id_efluentes})" title="Imprimir PDF oficial">🖨️ PDF</button>
+              <button type="button" class="liq-btn-mini" onclick="openObsLiquidoModal(${e.id_efluentes})" title="Detalle y observaciones">📝</button>
+              <button type="button" class="liq-btn-mini danger" onclick="deleteEmitidoLiquido(${e.id_efluentes})" title="Eliminar registro">🗑️</button>
+            </td>
+          </tr>
+        `);
+      });
+
+      // 3) Cancelados (opcional)
+      if (showCancelled) {
+        cancelledPre.forEach(c => {
+          rows.push(`
+            <tr style="opacity: 0.55;">
+              <td><span class="liq-badge cancelado">❌ CANCELADO</span></td>
+              <td class="mono" style="text-decoration: line-through;">${liqEscape(liqFmtLatamDate(c.fecha))} ${liqEscape(c.hora)}</td>
+              <td style="text-decoration: line-through;">${liqEscape(c.tanque)}</td>
+              <td class="num mono" style="text-decoration: line-through;">${Number(c.volumen_m3 || 0).toFixed(2)}</td>
+              <td class="num mono">0.0000</td>
+              <td class="num mono">0.0000</td>
+              <td class="num mono">0.000%</td>
+              <td style="text-align: center; white-space: nowrap;">
+                <button type="button" class="liq-btn-mini" onclick="restoreLiqPrecarga('${liqEscape(c.id)}')" title="Restaurar a Pre-Carga">♻️ Restaurar</button>
+                <button type="button" class="liq-btn-mini danger" onclick="deleteLiqPrecargaPermanent('${liqEscape(c.id)}')" title="Borrar historial">🗑️</button>
+              </td>
+            </tr>
+          `);
+        });
+      }
+
+      if (rows.length === 0) {
+        tbody.innerHTML = `
+          <tr id="row-liq-empty">
+            <td colspan="8" style="text-align: center; padding: 26px 14px; color: var(--text-dim);">
+              <div style="font-size: 13px; margin-bottom: 4px; color: var(--text-muted); font-weight: 700;">○ Pendiente / Sin descargas ni pre-cargas en este turno</div>
+              <div style="font-size: 11px;">Utilice <strong>"+ NUEVA PRE-CARGA / AUTORIZACIÓN"</strong> para preparar un tanque sin sumarlo aún a la emisión oficial.</div>
+            </td>
+          </tr>
+        `;
+      } else {
+        tbody.innerHTML = rows.join('');
+      }
+
+      if (typeof updateChecklistStatus === 'function') updateChecklistStatus();
+    }
+
+    renderEfluentesLiquidos();
+
+        // Auto-bloqueo obligatorio al cargar si hay discrepancia de guardia
     document.addEventListener('DOMContentLoaded', () => {
       if (hayDiscrepanciaGuardia) {
         const modal = document.getElementById('modal-traspaso-guardia');
