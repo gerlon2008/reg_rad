@@ -841,6 +841,85 @@ if (!$db_connected) {
       border-color: var(--accent-amber);
     }
 
+    /* ================= PAGINACIÓN PROFESIONAL ================= */
+    .pagination-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 10px 16px;
+      border-top: 1px solid var(--border-card);
+      background: var(--bg-sidebar);
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+    .pagination-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .pagination-size-select {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      color: var(--text-main);
+      padding: 3px 8px;
+      font-size: 11px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      outline: none;
+    }
+    .pagination-size-select:focus {
+      border-color: var(--accent-cyan);
+    }
+    .pagination-controls {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .page-nav-btn {
+      min-width: 28px;
+      height: 28px;
+      padding: 0 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      color: var(--text-main);
+      border-radius: 5px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .page-nav-btn:hover:not(:disabled) {
+      background: rgba(6, 182, 212, 0.15);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+    .page-nav-btn.active {
+      background: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+      color: #04100e;
+      font-weight: 800;
+    }
+    .page-nav-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      border-color: var(--border-card);
+    }
+    .page-nav-ellipsis {
+      padding: 0 4px;
+      color: var(--text-dim);
+      font-size: 11px;
+    }
+
     /* Empty state */
     .empty-row td {
       text-align: center;
@@ -1193,14 +1272,14 @@ if (!$db_connected) {
     <div class="filters-card">
       <!-- Fecha Desde -->
       <div class="filter-item">
-        <label>Desde Fecha</label>
-        <input type="text" id="filter-desde" class="filter-ctrl mono latam-datepicker-input" placeholder="DD/MM/AAAA">
+        <label for="filter-desde">Desde Fecha</label>
+        <input type="text" id="filter-desde" name="filtro_hist_fecha_desde" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" class="filter-ctrl mono latam-datepicker-input" placeholder="DD/MM/AAAA">
       </div>
 
       <!-- Fecha Hasta -->
       <div class="filter-item">
-        <label>Hasta Fecha</label>
-        <input type="text" id="filter-hasta" class="filter-ctrl mono latam-datepicker-input" placeholder="DD/MM/AAAA">
+        <label for="filter-hasta">Hasta Fecha</label>
+        <input type="text" id="filter-hasta" name="filtro_hist_fecha_hasta" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" class="filter-ctrl mono latam-datepicker-input" placeholder="DD/MM/AAAA">
       </div>
 
       <!-- Turno -->
@@ -1233,7 +1312,7 @@ if (!$db_connected) {
       <div class="filter-item filter-search">
         <label>Búsqueda rápida</label>
         <div style="position: relative;">
-          <input type="text" id="filter-search-input" class="filter-ctrl" placeholder="Buscar por número, oficial, jefe, fecha..." style="padding-right: 28px;">
+          <input type="text" id="filter-search-input" name="filtro_hist_busqueda" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" class="filter-ctrl" placeholder="Buscar por número, oficial, jefe, fecha..." style="padding-right: 28px;">
           <button type="button" class="btn-clear-ctrl" id="btn-clear-search" title="Limpiar búsqueda" onclick="clearFilterSearch()">&times;</button>
         </div>
       </div>
@@ -1261,11 +1340,21 @@ if (!$db_connected) {
         </thead>
         <tbody id="tbody-historico"></tbody>
       </table>
-      <div id="hist-pagination-bar" style="display: none; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--border-card); background: var(--bg-sidebar); font-size: 11px; color: var(--text-muted);">
-        <span id="hist-pagination-info">Mostrando 0 de 0 planillas</span>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <button type="button" class="btn-action" id="btn-load-more-hist" onclick="cargarMasPlanillas()">+ Cargar 150 más</button>
-          <button type="button" class="btn-action btn-secondary" id="btn-show-all-hist" onclick="mostrarTodasPlanillas()">Mostrar todas</button>
+      <div id="hist-pagination-bar" class="pagination-bar" style="display: none;">
+        <div class="pagination-left">
+          <span id="hist-pagination-info">Mostrando 0 de 0 planillas</span>
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted);">
+            Filas por página:
+            <select id="hist-page-size" class="pagination-size-select" onchange="changeHistPageSize(this.value)">
+              <option value="15">15</option>
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+        </div>
+        <div class="pagination-controls" id="hist-pagination-controls">
+          <!-- Controles de paginación dinámicos -->
         </div>
       </div>
     </div>
@@ -1348,9 +1437,9 @@ if (!$db_connected) {
       if ($json_hist === false) $json_hist = '[]';
       echo str_replace('</', '<\/', $json_hist);
     ?>;
-    const HIST_PAGE_STEP = 150;
+    let histCurrentPage = 1;
+    let histPageSize = 25;
     let histFilteredList = HISTORICO_PLANILLAS;
-    let histRenderLimit = HIST_PAGE_STEP;
 
     const filterDesde = document.getElementById('filter-desde');
     const filterHasta = document.getElementById('filter-hasta');
@@ -1362,6 +1451,7 @@ if (!$db_connected) {
     const chipFiltradas = document.getElementById('chip-filtradas-planillas');
     const pagBar = document.getElementById('hist-pagination-bar');
     const pagInfo = document.getElementById('hist-pagination-info');
+    const pagControls = document.getElementById('hist-pagination-controls');
 
     function escHtml(str) {
       return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -1416,6 +1506,79 @@ if (!$db_connected) {
       </tr>`;
     }
 
+    function changeHistPageSize(size) {
+      histPageSize = parseInt(size, 10) || 25;
+      histCurrentPage = 1;
+      renderHistoricoTable();
+    }
+
+    function goToHistPage(page) {
+      const total = histFilteredList.length;
+      const totalPages = Math.max(1, Math.ceil(total / histPageSize));
+      if (page < 1) page = 1;
+      if (page > totalPages) page = totalPages;
+      histCurrentPage = page;
+      renderHistoricoTable();
+      const tbl = document.getElementById('tabla-historica');
+      if (tbl) {
+        tbl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    function renderPaginationControls(total, totalPages) {
+      if (!pagControls) return;
+      if (total <= 0) {
+        pagControls.innerHTML = '';
+        return;
+      }
+
+      let html = '';
+      // Botón Primera «
+      html += `<button type="button" class="page-nav-btn" ${histCurrentPage === 1 ? 'disabled' : ''} onclick="goToHistPage(1)" title="Primera página">«</button>`;
+      // Botón Anterior ‹
+      html += `<button type="button" class="page-nav-btn" ${histCurrentPage === 1 ? 'disabled' : ''} onclick="goToHistPage(${histCurrentPage - 1})" title="Página anterior">‹ Ant</button>`;
+
+      // Ventana de páginas inteligente
+      const delta = 2;
+      const range = [];
+      const rangeWithDots = [];
+      let l;
+
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= histCurrentPage - delta && i <= histCurrentPage + delta)) {
+          range.push(i);
+        }
+      }
+
+      for (let i of range) {
+        if (l) {
+          if (i - l === 2) {
+            rangeWithDots.push(l + 1);
+          } else if (i - l !== 1) {
+            rangeWithDots.push('...');
+          }
+        }
+        rangeWithDots.push(i);
+        l = i;
+      }
+
+      rangeWithDots.forEach(p => {
+        if (p === '...') {
+          html += `<span class="page-nav-ellipsis">…</span>`;
+        } else {
+          const isActive = (p === histCurrentPage);
+          html += `<button type="button" class="page-nav-btn ${isActive ? 'active' : ''}" onclick="goToHistPage(${p})">${p}</button>`;
+        }
+      });
+
+      // Botón Siguiente ›
+      html += `<button type="button" class="page-nav-btn" ${histCurrentPage === totalPages ? 'disabled' : ''} onclick="goToHistPage(${histCurrentPage + 1})" title="Página siguiente">Sig ›</button>`;
+      // Botón Última »
+      html += `<button type="button" class="page-nav-btn" ${histCurrentPage === totalPages ? 'disabled' : ''} onclick="goToHistPage(${totalPages})" title="Última página">»</button>`;
+
+      pagControls.innerHTML = html;
+    }
+
     function renderHistoricoTable() {
       const total = histFilteredList.length;
       chipFiltradas.textContent = total;
@@ -1426,27 +1589,21 @@ if (!$db_connected) {
         return;
       }
 
-      const slice = histFilteredList.slice(0, histRenderLimit);
+      const totalPages = Math.max(1, Math.ceil(total / histPageSize));
+      if (histCurrentPage > totalPages) histCurrentPage = totalPages;
+      if (histCurrentPage < 1) histCurrentPage = 1;
+
+      const startIdx = (histCurrentPage - 1) * histPageSize;
+      const endIdx = Math.min(startIdx + histPageSize, total);
+      const slice = histFilteredList.slice(startIdx, endIdx);
+
       tbody.innerHTML = slice.map(buildRowHtml).join('');
 
       if (pagBar && pagInfo) {
-        if (total > slice.length) {
-          pagBar.style.display = 'flex';
-          pagInfo.textContent = `Mostrando ${slice.length} de ${total} planillas (ordenadas desde la última cargada)`;
-        } else {
-          pagBar.style.display = 'none';
-        }
+        pagBar.style.display = 'flex';
+        pagInfo.innerHTML = `Mostrando <strong>${startIdx + 1}</strong> a <strong>${endIdx}</strong> de <strong>${total.toLocaleString('es-AR')}</strong> planillas &bull; Pág. <strong>${histCurrentPage}</strong> de <strong>${totalPages}</strong>`;
+        renderPaginationControls(total, totalPages);
       }
-    }
-
-    function cargarMasPlanillas() {
-      histRenderLimit += HIST_PAGE_STEP;
-      renderHistoricoTable();
-    }
-
-    function mostrarTodasPlanillas() {
-      histRenderLimit = histFilteredList.length;
-      renderHistoricoTable();
     }
 
     function applyFilters() {
@@ -1475,7 +1632,7 @@ if (!$db_connected) {
         return true;
       });
 
-      histRenderLimit = HIST_PAGE_STEP;
+      histCurrentPage = 1;
       renderHistoricoTable();
     }
 

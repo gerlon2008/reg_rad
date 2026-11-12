@@ -4067,11 +4067,21 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                 <tbody id="tbody-historial-planillas"></tbody>
               </table>
             </div>
-            <div id="demo-hist-pagination-bar" style="display: none; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 8px 12px; background: var(--bg-card-subtle); border: 1px solid var(--border-card); border-radius: 6px; font-size: 11px; color: var(--text-muted);">
-              <span id="demo-hist-pagination-info">Mostrando 0 de 0 planillas</span>
-              <div style="display: flex; gap: 8px;">
-                <button type="button" class="btn-del" style="color: var(--accent-cyan); border-color: var(--accent-cyan);" onclick="cargarMasHistDemo()">+ Cargar 100 más</button>
-                <button type="button" class="btn-del" onclick="mostrarTodasHistDemo()">Mostrar todas</button>
+            <div id="demo-hist-pagination-bar" class="pagination-bar" style="display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 10px; padding: 10px 14px; background: var(--bg-card-subtle); border: 1px solid var(--border-card); border-radius: 6px; font-size: 11px; color: var(--text-muted);">
+              <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <span id="demo-hist-pagination-info">Mostrando 0 de 0 planillas</span>
+                <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted);">
+                  Por página:
+                  <select id="demo-hist-page-size" class="pagination-size-select" style="background: var(--bg-card); border: 1px solid var(--border-card); color: var(--text-main); padding: 2px 6px; font-size: 11px; border-radius: 4px; font-family: var(--font-mono); cursor: pointer;" onchange="changeDemoHistPageSize(this.value)">
+                    <option value="15">15</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                </label>
+              </div>
+              <div class="pagination-controls" id="demo-hist-pagination-controls" style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                <!-- Controles dinámicos -->
               </div>
             </div>
           </div>
@@ -8470,16 +8480,67 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       // ================= MODAL INTERACTIVO DE HISTORIAL POR RECINTO GUARDADO =================
     let activeSelectedRecintoForPrefill = '';
 
-    const HIST_PLANILLAS_ALL = <?php
-      $json_d_hist = json_encode($hist_planillas_db);
-      if ($json_d_hist === false) $json_d_hist = '[]';
-      echo str_replace('</', '<\/', $json_d_hist);
-    ?>;
+    const HIST_PLANILLAS_ALL = <?php echo json_encode($hist_planillas_db); ?>;
+    let demoHistCurrentPage = 1;
+    let demoHistPageSize = 25;
     let histDemoFiltered = HIST_PLANILLAS_ALL;
-    let histDemoLimit = 100;
 
     function escHistHtml(v) {
       return String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function changeDemoHistPageSize(size) {
+      demoHistPageSize = parseInt(size, 10) || 25;
+      demoHistCurrentPage = 1;
+      renderHistorialPlanillasDemo();
+    }
+
+    function goToDemoHistPage(page) {
+      const total = histDemoFiltered.length;
+      const totalPages = Math.max(1, Math.ceil(total / demoHistPageSize));
+      if (page < 1) page = 1;
+      if (page > totalPages) page = totalPages;
+      demoHistCurrentPage = page;
+      renderHistorialPlanillasDemo();
+    }
+
+    function renderDemoHistPaginationControls(total, totalPages) {
+      const controls = document.getElementById('demo-hist-pagination-controls');
+      if (!controls) return;
+      if (total <= 0) { controls.innerHTML = ''; return; }
+
+      let html = '';
+      html += `<button type="button" class="page-nav-btn" ${demoHistCurrentPage === 1 ? 'disabled' : ''} onclick="goToDemoHistPage(1)" title="Primera página">«</button>`;
+      html += `<button type="button" class="page-nav-btn" ${demoHistCurrentPage === 1 ? 'disabled' : ''} onclick="goToDemoHistPage(${demoHistCurrentPage - 1})" title="Página anterior">‹ Ant</button>`;
+
+      const delta = 2;
+      const range = [];
+      const rangeWithDots = [];
+      let l;
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= demoHistCurrentPage - delta && i <= demoHistCurrentPage + delta)) {
+          range.push(i);
+        }
+      }
+      for (let i of range) {
+        if (l) {
+          if (i - l === 2) { rangeWithDots.push(l + 1); }
+          else if (i - l !== 1) { rangeWithDots.push('...'); }
+        }
+        rangeWithDots.push(i);
+        l = i;
+      }
+      rangeWithDots.forEach(p => {
+        if (p === '...') {
+          html += `<span class="page-nav-ellipsis">…</span>`;
+        } else {
+          const isActive = (p === demoHistCurrentPage);
+          html += `<button type="button" class="page-nav-btn ${isActive ? 'active' : ''}" onclick="goToDemoHistPage(${p})">${p}</button>`;
+        }
+      });
+      html += `<button type="button" class="page-nav-btn" ${demoHistCurrentPage === totalPages ? 'disabled' : ''} onclick="goToDemoHistPage(${demoHistCurrentPage + 1})" title="Página siguiente">Sig ›</button>`;
+      html += `<button type="button" class="page-nav-btn" ${demoHistCurrentPage === totalPages ? 'disabled' : ''} onclick="goToDemoHistPage(${totalPages})" title="Última página">»</button>`;
+      controls.innerHTML = html;
     }
 
     function renderHistorialPlanillasDemo() {
@@ -8496,7 +8557,15 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         return;
       }
 
-      const slice = histDemoFiltered.slice(0, histDemoLimit);
+      const total = histDemoFiltered.length;
+      const totalPages = Math.max(1, Math.ceil(total / demoHistPageSize));
+      if (demoHistCurrentPage > totalPages) demoHistCurrentPage = totalPages;
+      if (demoHistCurrentPage < 1) demoHistCurrentPage = 1;
+
+      const startIdx = (demoHistCurrentPage - 1) * demoHistPageSize;
+      const endIdx = Math.min(startIdx + demoHistPageSize, total);
+      const slice = histDemoFiltered.slice(startIdx, endIdx);
+
       tbody.innerHTML = slice.map(hp => {
         const badgeColor = (hp.cerrada === false) ? 'var(--accent-amber)' : 'var(--accent-green)';
         const extraTag = (hp.cerrada === false) ? ' (Sin cerrar)' : '';
@@ -8514,23 +8583,10 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       }).join('');
 
       if (bar && info) {
-        if (histDemoFiltered.length > slice.length) {
-          bar.style.display = 'flex';
-          info.textContent = `Mostrando ${slice.length} de ${histDemoFiltered.length} planillas (última cargada arriba)`;
-        } else {
-          bar.style.display = 'none';
-        }
+        bar.style.display = 'flex';
+        info.innerHTML = `Mostrando <strong>${startIdx + 1}</strong> a <strong>${endIdx}</strong> de <strong>${total.toLocaleString('es-AR')}</strong> planillas &bull; Pág. <strong>${demoHistCurrentPage}</strong> de <strong>${totalPages}</strong>`;
+        renderDemoHistPaginationControls(total, totalPages);
       }
-    }
-
-    function cargarMasHistDemo() {
-      histDemoLimit += 100;
-      renderHistorialPlanillasDemo();
-    }
-
-    function mostrarTodasHistDemo() {
-      histDemoLimit = histDemoFiltered.length;
-      renderHistorialPlanillasDemo();
     }
 
     function filterHistorialPlanillas(term) {
@@ -8538,7 +8594,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       histDemoFiltered = !q
         ? HIST_PLANILLAS_ALL
         : HIST_PLANILLAS_ALL.filter(hp => `#${hp.id} ${hp.id} ${hp.fecha} ${hp.turno} ${hp.oficial} ${hp.jefe} ${hp.estado}`.toLowerCase().includes(q));
-      histDemoLimit = 100;
+      demoHistCurrentPage = 1;
       renderHistorialPlanillasDemo();
     }
 
