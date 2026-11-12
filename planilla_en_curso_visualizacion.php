@@ -50,6 +50,88 @@ if (!function_exists('decimales_limpio')) {
         return number_format((float)$val, $n, '.', '');
     }
 }
+if (!function_exists('conversion_actividad')) {
+    function conversion_actividad($de, $a, $val) {
+        $v = (float)$val;
+        if ($v == 0.0) return 0.0;
+        $bq = $v;
+        if ($de == '2') $bq = $v * 1000000000000.0;
+        elseif ($de == '3') $bq = $v * 1000000.0;
+        elseif ($de == '4') $bq = $v * 1000.0;
+        elseif ($de == '5') $bq = $v * 1000000000.0;
+        if ($a == '1') return $bq;
+        if ($a == '2') return $bq / 1000000000000.0;
+        if ($a == '3') return $bq / 1000000.0;
+        if ($a == '4') return $bq / 1000.0;
+        if ($a == '5') return $bq / 1000000000.0;
+        return $bq;
+    }
+}
+if (!function_exists('conversion_volumen')) {
+    function conversion_volumen($de, $a, $val) {
+        $v = (float)$val;
+        if ($v == 0.0) return 0.0;
+        $litros = $v;
+        if ($de == '2') $litros = $v * 1000.0;
+        if ($a == '1') return $litros;
+        if ($a == '2') return $litros / 1000.0;
+        return $litros;
+    }
+}
+if (!function_exists('notacion_cientifica2')) {
+    function notacion_cientifica2($val) {
+        if ($val === null || $val === '' || (float)$val == 0.0) return '0,000';
+        $v = (float)$val;
+        $sign = $v < 0 ? '-' : '';
+        $v = abs($v);
+        $exp = (int)floor(log10($v));
+        $mant = $v / pow(10, $exp);
+        if (round($mant, 3) >= 10.0) {
+            $mant /= 10.0;
+            $exp += 1;
+        }
+        $mant_str = number_format($mant, 3, ',', '');
+        return $sign . $mant_str . 'E' . $exp;
+    }
+}
+if (!function_exists('formato_volumen_m3')) {
+    function formato_volumen_m3($litros) {
+        if ($litros === null || $litros === '') return '0,00';
+        $v = (float)$litros;
+        if ($v > 100.0) {
+            $v = $v / 1000.0;
+        }
+        return number_format($v, 2, ',', '');
+    }
+}
+if (!function_exists('formato_actividad_tbq_notacion')) {
+    function formato_actividad_tbq_notacion($bq) {
+        if ($bq === null || $bq === '' || (float)$bq == 0.0) return '0,000';
+        $v = (float)$bq;
+        $tbq = $v / 1000000000000.0;
+        return notacion_cientifica2($tbq);
+    }
+}
+if (!function_exists('formato_actividad_tbq_decimal')) {
+    function formato_actividad_tbq_decimal($bq, $dec = 3) {
+        if ($bq === null || $bq === '') return '0.000';
+        $v = (float)$bq;
+        if ($v > 10000.0) {
+            $v = $v / 1000000000000.0;
+        }
+        return number_format($v, $dec, '.', '');
+    }
+}
+if (!function_exists('formato_valor_mbq')) {
+    function formato_valor_mbq($val) {
+        if ($val === null || $val === '') return '0.0';
+        $v = (float)$val;
+        if ($v > 10000.0) {
+            $v = $v / 1000000.0;
+        }
+        return decimales_limpio($v, 1);
+    }
+}
 
 // Datos predeterminados (Fallback realista CNE)
 $row_planilla = array(
@@ -258,10 +340,10 @@ foreach ($rows_rutina as $r) {
 }
 
 function formato_valor_gbq($val) {
-    if (empty($val)) return '';
+    if ($val === null || $val === '') return '0.00';
     $num = floatval($val);
-    if ($num > 10000000) {
-        $num = $num / 1000000000.0; // Conversión de Bq a GBq para registros históricos
+    if ($num > 10000.0) {
+        $num = $num / 1000000000.0; // Conversión de Bq a GBq
     }
     return decimales_limpio($num, 2);
 }
@@ -277,7 +359,7 @@ if (!$db_connected && empty($hist_dedofrio_vis)) {
 
 $kpi_vent_gral = !empty($rows_tritio[0]['vent_gral']) ? formato_valor_gbq($rows_tritio[0]['vent_gral']) : ($db_connected ? '--' : '1.45');
 $kpi_vent_reactor = !empty($rows_tritio[0]['vent_reactor']) ? formato_valor_gbq($rows_tritio[0]['vent_reactor']) : ($db_connected ? '--' : '0.88');
-$kpi_c14 = isset($row_carbono14['medicion']) && $row_carbono14['medicion'] !== '' ? decimales_limpio($row_carbono14['medicion'], 1) : ($db_connected ? '--' : '3.1');
+$kpi_c14 = isset($row_carbono14['medicion']) && $row_carbono14['medicion'] !== '' ? formato_valor_mbq($row_carbono14['medicion']) : ($db_connected ? '--' : '3.1');
 $kpi_dedo_frio = isset($row_dedo_frio['ppm']) && $row_dedo_frio['ppm'] !== '' ? decimales_limpio($row_dedo_frio['ppm'], 0) : ($db_connected ? '--' : '12');
 $kpi_dedo_frio_signo = (!empty($row_dedo_frio['menor_que']) && $row_dedo_frio['menor_que'] == 1) ? '< ' : '';
 $kpi_ro = isset($row_concentrador['ldd%']) && $row_concentrador['ldd%'] !== '' ? decimales_limpio($row_concentrador['ldd%'], 2) : ($db_connected ? '--' : '8.42');
@@ -1871,7 +1953,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                   <span class="metric-lbl">Emisión C-14:</span>
                   <span class="metric-val">
                     <?php if (isset($row_carbono14['medicion']) && $row_carbono14['medicion'] !== ''): ?>
-                      <?php echo decimales_limpio($row_carbono14['medicion'], 1); ?> MBq (<?php echo formato_hora_limpio($row_carbono14['hora']); ?> hs)
+                      <?php echo formato_valor_mbq($row_carbono14['medicion']); ?> MBq (<?php echo formato_hora_limpio($row_carbono14['hora']); ?> hs)
                     <?php else: ?>
                       <span style="color: var(--accent-amber); font-weight: 700;">Sin carga</span>
                     <?php endif; ?>
@@ -1927,27 +2009,27 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                 <?php else: ?>
                   <div class="metric-row">
                     <span class="metric-lbl">Ar-41:</span>
-                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['ar41']) ? $row_gases_nobles['ar41'] : 0, 2); ?> GBq</span>
+                    <span class="metric-val"><?php echo formato_valor_gbq(isset($row_gases_nobles['ar41']) ? $row_gases_nobles['ar41'] : 0); ?> GBq</span>
                   </div>
                   <div class="metric-row">
                     <span class="metric-lbl">Kr-85:</span>
-                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['kr85']) ? $row_gases_nobles['kr85'] : 0, 2); ?> GBq</span>
+                    <span class="metric-val"><?php echo formato_valor_gbq(isset($row_gases_nobles['kr85']) ? $row_gases_nobles['kr85'] : 0); ?> GBq</span>
                   </div>
                   <div class="metric-row">
                     <span class="metric-lbl">Kr-85m:</span>
-                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['kr85m']) ? $row_gases_nobles['kr85m'] : 0, 2); ?> GBq</span>
+                    <span class="metric-val"><?php echo formato_valor_gbq(isset($row_gases_nobles['kr85m']) ? $row_gases_nobles['kr85m'] : 0); ?> GBq</span>
                   </div>
                   <div class="metric-row">
                     <span class="metric-lbl">Xe-133:</span>
-                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['xe133']) ? $row_gases_nobles['xe133'] : 0, 2); ?> GBq</span>
+                    <span class="metric-val"><?php echo formato_valor_gbq(isset($row_gases_nobles['xe133']) ? $row_gases_nobles['xe133'] : 0); ?> GBq</span>
                   </div>
                   <div class="metric-row">
                     <span class="metric-lbl">Xe-135:</span>
-                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['xe135']) ? $row_gases_nobles['xe135'] : 0, 2); ?> GBq</span>
+                    <span class="metric-val"><?php echo formato_valor_gbq(isset($row_gases_nobles['xe135']) ? $row_gases_nobles['xe135'] : 0); ?> GBq</span>
                   </div>
                   <div class="metric-row">
                     <span class="metric-lbl">Xe-135m:</span>
-                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['xe135m']) ? $row_gases_nobles['xe135m'] : 0, 2); ?> GBq</span>
+                    <span class="metric-val"><?php echo formato_valor_gbq(isset($row_gases_nobles['xe135m']) ? $row_gases_nobles['xe135m'] : 0); ?> GBq</span>
                   </div>
                 <?php endif; ?>
               </div>
@@ -1968,12 +2050,12 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                     <span class="metric-val"><?php echo htmlspecialchars(isset($row_concentrador['procedencia']) ? $row_concentrador['procedencia'] : '-', ENT_QUOTES, 'UTF-8'); ?></span>
                   </div>
                   <div class="metric-row">
-                    <span class="metric-lbl">Actividad Bq:</span>
-                    <span class="metric-val"><?php echo decimales_limpio(isset($row_concentrador['actividad_Bq']) ? $row_concentrador['actividad_Bq'] : 0, 3); ?> TBq</span>
+                    <span class="metric-lbl">Actividad Tritio:</span>
+                    <span class="metric-val"><?php echo formato_actividad_tbq_decimal(isset($row_concentrador['actividad_Bq']) ? $row_concentrador['actividad_Bq'] : 0, 3); ?> TBq</span>
                   </div>
                   <div class="metric-row">
-                    <span class="metric-lbl">Volumen / % RoDD:</span>
-                    <span class="metric-val"><?php echo decimales_limpio(isset($row_concentrador['volumen_litro']) ? $row_concentrador['volumen_litro'] : 0, 2); ?> m³ | <?php echo decimales_limpio(isset($row_concentrador['ldd%']) ? $row_concentrador['ldd%'] : 0, 2); ?>%</span>
+                    <span class="metric-lbl">Volumen / % LDD:</span>
+                    <span class="metric-val"><?php echo formato_volumen_m3(isset($row_concentrador['volumen_litro']) ? $row_concentrador['volumen_litro'] : 0); ?> m³ | <?php echo decimales_limpio(isset($row_concentrador['ldd%']) ? $row_concentrador['ldd%'] : 0, 2); ?>%</span>
                   </div>
                 <?php endif; ?>
               </div>
@@ -2159,10 +2241,10 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                       <td class="mono"><?php echo formafecha_latam($ef['fecha']); ?></td>
                       <td class="mono"><?php echo formato_hora_limpio($ef['hora']); ?></td>
                       <td style="font-weight: 700;"><?php echo htmlspecialchars($ef['tanque'], ENT_QUOTES, 'UTF-8'); ?></td>
-                      <td class="mono"><?php echo decimales_limpio($ef['volumen_litro'], 2); ?></td>
-                      <td class="mono"><?php echo htmlspecialchars($ef['actividad_tritio'], ENT_QUOTES, 'UTF-8'); ?></td>
-                      <td class="mono"><?php echo htmlspecialchars($ef['actividad_gamma'], ENT_QUOTES, 'UTF-8'); ?></td>
-                      <td class="mono" style="font-weight: 700; color: var(--accent-cyan);"><?php echo decimales_limpio($roddTot, 3); ?>%</td>
+                      <td class="mono"><?php echo formato_volumen_m3($ef['volumen_litro']); ?></td>
+                      <td class="mono"><?php echo formato_actividad_tbq_notacion($ef['actividad_tritio']); ?></td>
+                      <td class="mono"><?php echo formato_actividad_tbq_notacion($ef['actividad_gamma']); ?></td>
+                      <td class="mono" style="font-weight: 700; color: var(--accent-cyan);"><?php echo number_format($roddTot, 3, ',', ''); ?>%</td>
                     </tr>
                   <?php endforeach; ?>
                 </tbody>

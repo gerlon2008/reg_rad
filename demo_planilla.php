@@ -9160,9 +9160,14 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
     function liqFmtTBq(val) {
       const n = parseFloat(val) || 0;
-      if (n === 0) return '0.0000';
-      if (n < 0.0001) return n.toExponential(2);
-      return n.toFixed(4);
+      if (n === 0) return '0,000';
+      if (Math.abs(n) < 0.001) {
+        const parts = n.toExponential(3).toUpperCase().split('E');
+        const mant = parseFloat(parts[0]).toFixed(3).replace('.', ',');
+        const exp = parseInt(parts[1], 10);
+        return `${mant}E${exp >= 0 ? '+' : ''}${exp}`;
+      }
+      return n.toFixed(4).replace('.', ',');
     }
 
     function populateLiqModalSelects() {
