@@ -1841,20 +1841,25 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                   <span>Emisión Tritio</span>
                   <span style="font-family: var(--font-mono); font-size: 10px;">GBq</span>
                 </div>
-                <?php foreach ($rows_tritio as $tr): ?>
+                <?php if (empty($rows_tritio)): ?>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Estado:</span>
+                    <span class="metric-val" style="color: var(--accent-amber); font-weight: 700;">Sin carga</span>
+                  </div>
+                <?php else: foreach ($rows_tritio as $tr): ?>
                   <div class="metric-row">
                     <span class="metric-lbl">Ventilación Gral:</span>
-                    <span class="metric-val"><?php echo formato_valor_gbq($tr['vent_gral']); ?> GBq</span>
+                    <span class="metric-val"><?php echo formato_valor_gbq(isset($tr['vent_gral']) ? $tr['vent_gral'] : ''); ?> GBq</span>
                   </div>
                   <div class="metric-row">
                     <span class="metric-lbl">Ventilación Reactor (ER):</span>
-                    <span class="metric-val"><?php echo formato_valor_gbq($tr['vent_reactor']); ?> GBq</span>
+                    <span class="metric-val"><?php echo formato_valor_gbq(isset($tr['vent_reactor']) ? $tr['vent_reactor'] : ''); ?> GBq</span>
                   </div>
                   <div class="metric-row">
                     <span class="metric-lbl">Período de Muestreo:</span>
-                    <span class="metric-val"><?php echo formato_hora_limpio($tr['hora_desde']) . ' a ' . formato_hora_limpio($tr['hora_hasta']); ?></span>
+                    <span class="metric-val"><?php echo formato_hora_limpio(isset($tr['hora_desde']) ? $tr['hora_desde'] : '') . ' a ' . formato_hora_limpio(isset($tr['hora_hasta']) ? $tr['hora_hasta'] : ''); ?></span>
                   </div>
-                <?php endforeach; ?>
+                <?php endforeach; endif; ?>
               </div>
 
               <!-- C-14 & Dedo Frío con Últimos 5 Datos -->
@@ -1914,18 +1919,25 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                   <span>Gases Nobles Chimenea</span>
                   <span style="font-family: var(--font-mono); font-size: 10px;">GBq</span>
                 </div>
-                <div class="metric-row">
-                  <span class="metric-lbl">Ar-41:</span>
-                  <span class="metric-val"><?php echo decimales_limpio($row_gases_nobles['ar41'], 2); ?> GBq</span>
-                </div>
-                <div class="metric-row">
-                  <span class="metric-lbl">Kr-85 / Kr-85m:</span>
-                  <span class="metric-val"><?php echo decimales_limpio($row_gases_nobles['kr85'], 2) . ' / ' . decimales_limpio($row_gases_nobles['kr85m'], 2); ?></span>
-                </div>
-                <div class="metric-row">
-                  <span class="metric-lbl">Xe-133 / Xe-135:</span>
-                  <span class="metric-val"><?php echo decimales_limpio($row_gases_nobles['xe133'], 2) . ' / ' . decimales_limpio($row_gases_nobles['xe135'], 2); ?></span>
-                </div>
+                <?php if (empty($row_gases_nobles)): ?>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Estado:</span>
+                    <span class="metric-val" style="color: var(--accent-amber); font-weight: 700;">Sin carga</span>
+                  </div>
+                <?php else: ?>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Ar-41:</span>
+                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['ar41']) ? $row_gases_nobles['ar41'] : 0, 2); ?> GBq</span>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Kr-85 / Kr-85m:</span>
+                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['kr85']) ? $row_gases_nobles['kr85'] : 0, 2) . ' / ' . decimales_limpio(isset($row_gases_nobles['kr85m']) ? $row_gases_nobles['kr85m'] : 0, 2); ?></span>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Xe-133 / Xe-135:</span>
+                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['xe133']) ? $row_gases_nobles['xe133'] : 0, 2) . ' / ' . decimales_limpio(isset($row_gases_nobles['xe135']) ? $row_gases_nobles['xe135'] : 0, 2); ?></span>
+                  </div>
+                <?php endif; ?>
               </div>
 
               <!-- Concentrador 7923 -->
@@ -1933,58 +1945,79 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                 <div class="gas-sub-title">
                   <span>Concentrador 7923</span>
                 </div>
-                <div class="metric-row">
-                  <span class="metric-lbl">Procedencia:</span>
-                  <span class="metric-val"><?php echo htmlspecialchars($row_concentrador['procedencia'], ENT_QUOTES, 'UTF-8'); ?></span>
-                </div>
-                <div class="metric-row">
-                  <span class="metric-lbl">Actividad Bq:</span>
-                  <span class="metric-val"><?php echo decimales_limpio($row_concentrador['actividad_Bq'], 3); ?> TBq</span>
-                </div>
-                <div class="metric-row">
-                  <span class="metric-lbl">Volumen / % RoDD:</span>
-                  <span class="metric-val"><?php echo decimales_limpio($row_concentrador['volumen_litro'], 2); ?> m³ | <?php echo decimales_limpio($row_concentrador['ldd%'], 2); ?>%</span>
-                </div>
+                <?php if (empty($row_concentrador)): ?>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Estado:</span>
+                    <span class="metric-val" style="color: var(--accent-amber); font-weight: 700;">Sin carga</span>
+                  </div>
+                <?php else: ?>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Procedencia:</span>
+                    <span class="metric-val"><?php echo htmlspecialchars(isset($row_concentrador['procedencia']) ? $row_concentrador['procedencia'] : '-', ENT_QUOTES, 'UTF-8'); ?></span>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Actividad Bq:</span>
+                    <span class="metric-val"><?php echo decimales_limpio(isset($row_concentrador['actividad_Bq']) ? $row_concentrador['actividad_Bq'] : 0, 3); ?> TBq</span>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Volumen / % RoDD:</span>
+                    <span class="metric-val"><?php echo decimales_limpio(isset($row_concentrador['volumen_litro']) ? $row_concentrador['volumen_litro'] : 0, 2); ?> m³ | <?php echo decimales_limpio(isset($row_concentrador['ldd%']) ? $row_concentrador['ldd%'] : 0, 2); ?>%</span>
+                  </div>
+                <?php endif; ?>
               </div>
 
               <!-- Control Precintos -->
               <div class="gas-sub-card">
                 <div class="gas-sub-title">
                   <span>Control de Precintos</span>
-                  <span style="font-family: var(--font-mono); font-size: 10px;"><?php echo formato_hora_limpio($row_precintos['hora']); ?></span>
+                  <span style="font-family: var(--font-mono); font-size: 10px;"><?php echo !empty($row_precintos['hora']) ? formato_hora_limpio($row_precintos['hora']) : '--:--'; ?></span>
                 </div>
-                <div class="metric-row">
-                  <span class="metric-lbl">Puerta S-123B:</span>
-                  <span class="metric-val"><?php echo htmlspecialchars($row_precintos['puerta_s123B'], ENT_QUOTES, 'UTF-8'); ?></span>
-                </div>
-                <div class="metric-row">
-                  <span class="metric-lbl">Puerta S-008:</span>
-                  <span class="metric-val"><?php echo htmlspecialchars($row_precintos['puerta_s008'], ENT_QUOTES, 'UTF-8'); ?></span>
-                </div>
-                <div class="metric-row">
-                  <span class="metric-lbl">Puerta S-144:</span>
-                  <span class="metric-val"><?php echo htmlspecialchars($row_precintos['puerta_s144'], ENT_QUOTES, 'UTF-8'); ?></span>
-                </div>
+                <?php if (empty($row_precintos)): ?>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Estado:</span>
+                    <span class="metric-val" style="color: var(--accent-amber); font-weight: 700;">Sin carga</span>
+                  </div>
+                <?php else: ?>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Puerta S-123B:</span>
+                    <span class="metric-val"><?php echo htmlspecialchars(isset($row_precintos['puerta_s123B']) ? $row_precintos['puerta_s123B'] : '-', ENT_QUOTES, 'UTF-8'); ?></span>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Puerta S-008:</span>
+                    <span class="metric-val"><?php echo htmlspecialchars(isset($row_precintos['puerta_s008']) ? $row_precintos['puerta_s008'] : '-', ENT_QUOTES, 'UTF-8'); ?></span>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Puerta S-144:</span>
+                    <span class="metric-val"><?php echo htmlspecialchars(isset($row_precintos['puerta_s144']) ? $row_precintos['puerta_s144'] : '-', ENT_QUOTES, 'UTF-8'); ?></span>
+                  </div>
+                <?php endif; ?>
               </div>
 
               <!-- Meteorología Pasquill -->
               <div class="gas-sub-card">
                 <div class="gas-sub-title">
                   <span>Condición Meteorológica</span>
-                  <span style="font-family: var(--font-mono); font-size: 10px;"><?php echo formato_hora_limpio($row_meteorologia['hora']); ?></span>
+                  <span style="font-family: var(--font-mono); font-size: 10px;"><?php echo !empty($row_meteorologia['hora']) ? formato_hora_limpio($row_meteorologia['hora']) : '--:--'; ?></span>
                 </div>
-                <div class="metric-row">
-                  <span class="metric-lbl">Velocidad del Viento:</span>
-                  <span class="metric-val"><?php echo htmlspecialchars($row_meteorologia['velocidad_mseg'], ENT_QUOTES, 'UTF-8'); ?> m/s</span>
-                </div>
-                <div class="metric-row">
-                  <span class="metric-lbl">Dirección:</span>
-                  <span class="metric-val"><?php echo htmlspecialchars($row_meteorologia['direc_viento'], ENT_QUOTES, 'UTF-8'); ?></span>
-                </div>
-                <div class="metric-row">
-                  <span class="metric-lbl">Categoría Pasquill:</span>
-                  <span class="metric-val" style="color: var(--accent-cyan); font-weight: 800;"><?php echo htmlspecialchars($row_meteorologia['cond_pasquill'], ENT_QUOTES, 'UTF-8'); ?></span>
-                </div>
+                <?php if (empty($row_meteorologia)): ?>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Estado:</span>
+                    <span class="metric-val" style="color: var(--accent-amber); font-weight: 700;">Sin carga</span>
+                  </div>
+                <?php else: ?>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Velocidad del Viento:</span>
+                    <span class="metric-val"><?php echo htmlspecialchars(isset($row_meteorologia['velocidad_mseg']) ? $row_meteorologia['velocidad_mseg'] : '-', ENT_QUOTES, 'UTF-8'); ?> m/s</span>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Dirección:</span>
+                    <span class="metric-val"><?php echo htmlspecialchars(isset($row_meteorologia['direc_viento']) ? $row_meteorologia['direc_viento'] : '-', ENT_QUOTES, 'UTF-8'); ?></span>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Categoría Pasquill:</span>
+                    <span class="metric-val" style="color: var(--accent-cyan); font-weight: 800;"><?php echo htmlspecialchars(isset($row_meteorologia['cond_pasquill']) ? $row_meteorologia['cond_pasquill'] : '-', ENT_QUOTES, 'UTF-8'); ?></span>
+                  </div>
+                <?php endif; ?>
               </div>
 
             </div>
