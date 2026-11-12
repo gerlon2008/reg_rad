@@ -66,6 +66,12 @@ $gn_xe133_db = "0.0";
 $gn_xe135_db = "0.0";
 $gn_xe135m_db = "0.0";
 $hay_gases_nobles_db = false;
+$hay_discrepancia_guardia = false;
+$precintos_id_db = 0;
+$precintos_hora_db = '';
+$precintos_s123b_db = 'B';
+$precintos_s008_db = 'B';
+$precintos_s144_db = 'B';
 
 $rows_espectrometria_db = array(
   array(
@@ -385,7 +391,7 @@ if (file_exists($miconex_path)) {
         }
 
         // 5e. Unidades de Actividad (normalizadas a Bq, baseline id = 1)
-        $res_uact = mysql_query("SELECT * FROM `regrad_tabla_conversion_unidades_actividad` ORDER BY factor_conversion_a_Bq ASC", $miconex);
+        $res_uact = @mysql_query("SELECT * FROM `regrad_tabla_conversion_unidades_actividad`", $miconex);
         if ($res_uact && mysql_num_rows($res_uact) > 0) {
             $raw_uact = array();
             $base_act_factor = 1.0;
@@ -3047,7 +3053,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 <body>
 
   <!-- ================= SIDEBAR FIJO (HMI SYR) ================= -->
-  <aside class="sidebar" <?php if ($hay_discrepancia_guardia) echo 'style="pointer-events: none; opacity: 0.35;"'; ?>>
+  <aside class="sidebar" <?php if (!empty($hay_discrepancia_guardia)) echo 'style="pointer-events: none; opacity: 0.35;"'; ?>>
     <div class="sidebar-header">
       <div>
         <div class="sidebar-brand-title">REGISTRO RADIOLÓGICO</div>
@@ -3185,7 +3191,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     </header>
 
     <!-- BANNER DE ADVERTENCIA: PLANILLA ANTERIOR SIN CERRAR -->
-    <div id="banner-relevo-guardia" class="banner-relevo-guardia" style="display: <?php echo $hay_discrepancia_guardia ? 'flex' : 'none'; ?>;">
+    <div id="banner-relevo-guardia" class="banner-relevo-guardia" style="display: <?php echo !empty($hay_discrepancia_guardia) ? 'flex' : 'none'; ?>;">
       <div class="banner-relevo-content">
         <span class="banner-relevo-icon">⚠️</span>
         <span class="banner-relevo-text">
@@ -3203,7 +3209,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     </div>
 
     <!-- WORKSPACE SCROLLABLE -->
-    <div class="workspace" <?php if ($hay_discrepancia_guardia) echo 'style="filter: blur(5px); pointer-events: none; user-select: none; opacity: 0.25;"'; ?>>
+    <div class="workspace" <?php if (!empty($hay_discrepancia_guardia)) echo 'style="filter: blur(5px); pointer-events: none; user-select: none; opacity: 0.25;"'; ?>>
 
       <!-- ================= BARRA SUPERIOR & 6 KPIS SUPERIORES ================= -->
       <div class="kpis-toolbar">
@@ -4976,7 +4982,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
   </div>
 
   <!-- MODAL DE BLOQUEO DE SEGURIDAD: PLANILLA DE OTRO OFICIAL -->
-  <div class="modal-overlay modal-gatekeeper" id="modal-traspaso-guardia" style="display: <?php echo $hay_discrepancia_guardia ? 'flex' : 'none'; ?>; z-index: 999999; background: rgba(3, 15, 12, 0.94); backdrop-filter: blur(12px);">
+  <div class="modal-overlay modal-gatekeeper" id="modal-traspaso-guardia" style="display: <?php echo !empty($hay_discrepancia_guardia) ? 'flex' : 'none'; ?>; z-index: 999999; background: rgba(3, 15, 12, 0.94); backdrop-filter: blur(12px);">
     <div class="modal-box" style="max-width: 590px; border-left: 4px solid var(--accent-amber); box-shadow: 0 10px 40px rgba(0,0,0,0.85); animation: cyber-hologram-assemble 0.28s ease-out;">
       
       <!-- VISTA 1: AVISO Y BLOQUEO DE ACCESO -->
@@ -7246,7 +7252,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       showToast('🗑️ Condiciones meteorológicas eliminadas (pendientes)');
     }
 
-    let controlPrecintosSaved = <?php echo ($precintos_id_db > 0) ? 'true' : 'false'; ?>;
+    let controlPrecintosSaved = <?php echo (!empty($precintos_id_db) && $precintos_id_db > 0) ? 'true' : 'false'; ?>;
     function fillNormalPrecintos() {
       const now = new Date();
       const hh = String(now.getHours()).padStart(2, '0');
@@ -8942,7 +8948,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     // ====================================================
     // GESTIÓN DE RELEVO DE GUARDIA Y ADVERTENCIA DE PLANILLA ABIERTA
     // ====================================================
-    const hayDiscrepanciaGuardia = <?php echo $hay_discrepancia_guardia ? 'true' : 'false'; ?>;
+    const hayDiscrepanciaGuardia = <?php echo !empty($hay_discrepancia_guardia) ? 'true' : 'false'; ?>;
     const oficialIniciador = <?php echo json_encode($oficial_iniciador_nombre); ?>;
     const oficialLogueado = <?php echo json_encode($oficial_logueado); ?>;
 
