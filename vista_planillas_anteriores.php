@@ -265,6 +265,82 @@ if (!$db_connected) {
       --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
 
+    /* 🌊 TEMA ALTERNATIVO: AZUL ABISAL (Deep Navy) */
+    [data-theme="navy"] {
+      --bg-page: #07111e;
+      --bg-sidebar: #0b1a2e;
+      --bg-card: #10223b;
+      --bg-card-subtle: #172f50;
+      --bg-input: #091626;
+      --border-card: #20416b;
+      --border-subtle: #142a46;
+      --text-main: #f0f6fc;
+      --text-muted: #93b0d4;
+      --text-dim: #5b7b9e;
+      --accent-blue: #3b82f6;
+      --accent-cyan: #38bdf8;
+      --accent-green: #22c55e;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+    }
+
+    /* 🍇 TEMA ALTERNATIVO: CIRUELA OBSIDIANA (Deep Plum) */
+    [data-theme="plum"] {
+      --bg-page: #110b17;
+      --bg-sidebar: #181021;
+      --bg-card: #21162d;
+      --bg-card-subtle: #2d1f3d;
+      --bg-input: #150e1e;
+      --border-card: #433157;
+      --border-subtle: #271c33;
+      --text-main: #f5f3ff;
+      --text-muted: #c4b5fd;
+      --text-dim: #8572a8;
+      --accent-blue: #8b5cf6;
+      --accent-cyan: #38bdf8;
+      --accent-green: #34d399;
+      --accent-amber: #fbbf24;
+      --accent-red: #ef4444;
+    }
+
+    /* ⚙️ TEMA ALTERNATIVO: TITANIO PIZARRA (Steel Slate) */
+    [data-theme="titanio"] {
+      --bg-page: #0f1319;
+      --bg-sidebar: #151a23;
+      --bg-card: #1b212c;
+      --bg-card-subtle: #242c3a;
+      --bg-input: #12161f;
+      --border-card: #2e3849;
+      --border-subtle: #202733;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-blue: #4f86f7;
+      --accent-cyan: #38bdf8;
+      --accent-green: #22c55e;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+    }
+
+    /* ⚡ TEMA ALTERNATIVO: ÁMBAR SCADA (Warm Amber) */
+    [data-theme="ambar"] {
+      --bg-page: #0a0b0d;
+      --bg-sidebar: #111216;
+      --bg-card: #16181f;
+      --bg-card-subtle: #22252e;
+      --bg-input: #0e1014;
+      --border-card: #343744;
+      --border-subtle: #20222a;
+      --text-main: #f8fafc;
+      --text-muted: #a1a1aa;
+      --text-dim: #71717a;
+      --accent-blue: #d97706;
+      --accent-cyan: #f59e0b;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+    }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
     html {
       overflow-x: hidden;
@@ -328,6 +404,95 @@ if (!$db_connected) {
       display: flex;
       align-items: center;
       gap: 10px;
+    }
+
+    /* Selector compacto de tema / fondo */
+    .theme-dropdown {
+      position: relative;
+      flex-shrink: 0;
+    }
+    .btn-theme-toggle {
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border-card);
+      color: var(--text-main);
+      padding: 0 9px;
+      border-radius: 6px;
+      font-family: var(--font-ui);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .btn-theme-toggle:hover,
+    .theme-dropdown.open .btn-theme-toggle {
+      border-color: var(--accent-cyan);
+      background: var(--bg-card);
+    }
+    .theme-swatch-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+    }
+    .theme-dropdown-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      min-width: 215px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      padding: 5px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 1200;
+    }
+    .theme-dropdown.open .theme-dropdown-menu {
+      display: flex;
+    }
+    .theme-menu-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 7px 9px;
+      border-radius: 6px;
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+    .theme-menu-item:hover {
+      background: var(--bg-card-subtle);
+      color: var(--text-main);
+    }
+    .theme-menu-item.active {
+      background: rgba(16, 185, 129, 0.14);
+      color: var(--accent-cyan);
+      font-weight: 700;
+    }
+    .theme-menu-item .theme-check {
+      opacity: 0;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .theme-menu-item.active .theme-check {
+      opacity: 1;
     }
 
     .btn-nav {
@@ -959,6 +1124,36 @@ if (!$db_connected) {
       </div>
     </div>
     <div class="topbar-right">
+        <div class="theme-dropdown" id="theme-dropdown">
+          <button type="button" class="btn-theme-toggle" id="btn-theme-toggle" onclick="toggleThemeDropdown(event)" aria-haspopup="true" aria-expanded="false" title="Cambiar paleta de color / fondo">
+            <span class="theme-swatch-dot" id="theme-current-dot" style="background: #10b981;"></span>
+            <span id="theme-current-label">Verde</span>
+            <span style="font-size: 9px; color: var(--text-muted);">▾</span>
+          </button>
+          <div class="theme-dropdown-menu" id="theme-dropdown-menu" role="menu">
+            <div style="font-size: 9.5px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.6px; padding: 4px 8px 3px;">Paleta de fondo</div>
+            <button type="button" class="theme-menu-item active" data-theme="petrol" data-label="Verde" data-color="#10b981" onclick="setAppTheme('petrol')">
+              <span style="display:flex; align-items:center; gap:8px;"><span class="theme-swatch-dot" style="background:#10b981;"></span> Verde Radiológico</span>
+              <span class="theme-check">✓</span>
+            </button>
+            <button type="button" class="theme-menu-item" data-theme="navy" data-label="Azul" data-color="#06b6d4" onclick="setAppTheme('navy')">
+              <span style="display:flex; align-items:center; gap:8px;"><span class="theme-swatch-dot" style="background:#06b6d4;"></span> Azul Abisal</span>
+              <span class="theme-check">✓</span>
+            </button>
+            <button type="button" class="theme-menu-item" data-theme="plum" data-label="Ciruela" data-color="#e879f9" onclick="setAppTheme('plum')">
+              <span style="display:flex; align-items:center; gap:8px;"><span class="theme-swatch-dot" style="background:#e879f9;"></span> Ciruela</span>
+              <span class="theme-check">✓</span>
+            </button>
+            <button type="button" class="theme-menu-item" data-theme="titanio" data-label="Titanio" data-color="#38bdf8" onclick="setAppTheme('titanio')">
+              <span style="display:flex; align-items:center; gap:8px;"><span class="theme-swatch-dot" style="background:#38bdf8;"></span> Titanio</span>
+              <span class="theme-check">✓</span>
+            </button>
+            <button type="button" class="theme-menu-item" data-theme="ambar" data-label="Ámbar" data-color="#f59e0b" onclick="setAppTheme('ambar')">
+              <span style="display:flex; align-items:center; gap:8px;"><span class="theme-swatch-dot" style="background:#f59e0b;"></span> Ámbar</span>
+              <span class="theme-check">✓</span>
+            </button>
+          </div>
+        </div>
       <span style="font-size: 11px; color: var(--text-muted);">
         Sesión: <strong style="color: #ffffff;"><?php echo htmlspecialchars($usuario_nombre, ENT_QUOTES, 'UTF-8'); ?></strong>
       </span>
@@ -1501,6 +1696,69 @@ if (!$db_connected) {
       }
     });
 
+
+    // ================= SELECTOR DE FONDO Y TEMAS EN VIVO =================
+    function closeThemeDropdown() {
+      const dd = document.getElementById('theme-dropdown');
+      const btn = document.getElementById('btn-theme-toggle');
+      if (dd) dd.classList.remove('open');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleThemeDropdown(e) {
+      if (e) e.stopPropagation();
+      const dd = document.getElementById('theme-dropdown');
+      const btn = document.getElementById('btn-theme-toggle');
+      if (!dd) return;
+      const willOpen = !dd.classList.contains('open');
+      dd.classList.toggle('open', willOpen);
+      if (btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    }
+
+    document.addEventListener('click', function(e) {
+      const dd = document.getElementById('theme-dropdown');
+      if (dd && dd.classList.contains('open') && !dd.contains(e.target)) {
+        closeThemeDropdown();
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeThemeDropdown();
+      }
+    });
+
+    function setAppTheme(themeName) {
+      document.documentElement.setAttribute('data-theme', themeName);
+      try {
+        localStorage.setItem('regrad_active_theme', themeName);
+      } catch(e) {}
+
+      let activeLabel = themeName;
+      let activeColor = '#10b981';
+      document.querySelectorAll('#theme-dropdown-menu .theme-menu-item').forEach(btn => {
+        const isMatch = btn.getAttribute('data-theme') === themeName;
+        btn.classList.toggle('active', isMatch);
+        if (isMatch) {
+          activeLabel = btn.getAttribute('data-label') || themeName;
+          activeColor = btn.getAttribute('data-color') || activeColor;
+        }
+      });
+
+      const currentLabelEl = document.getElementById('theme-current-label');
+      const currentDotEl = document.getElementById('theme-current-dot');
+      if (currentLabelEl) currentLabelEl.textContent = activeLabel;
+      if (currentDotEl) currentDotEl.style.background = activeColor;
+
+      closeThemeDropdown();
+    }
+
+    try {
+      const savedTheme = localStorage.getItem('regrad_active_theme') || 'petrol';
+      if (savedTheme) {
+        setAppTheme(savedTheme);
+      }
+    } catch(e) {}
   </script>
 </body>
 </html>
