@@ -1930,12 +1930,24 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                     <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['ar41']) ? $row_gases_nobles['ar41'] : 0, 2); ?> GBq</span>
                   </div>
                   <div class="metric-row">
-                    <span class="metric-lbl">Kr-85 / Kr-85m:</span>
-                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['kr85']) ? $row_gases_nobles['kr85'] : 0, 2) . ' / ' . decimales_limpio(isset($row_gases_nobles['kr85m']) ? $row_gases_nobles['kr85m'] : 0, 2); ?></span>
+                    <span class="metric-lbl">Kr-85:</span>
+                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['kr85']) ? $row_gases_nobles['kr85'] : 0, 2); ?> GBq</span>
                   </div>
                   <div class="metric-row">
-                    <span class="metric-lbl">Xe-133 / Xe-135:</span>
-                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['xe133']) ? $row_gases_nobles['xe133'] : 0, 2) . ' / ' . decimales_limpio(isset($row_gases_nobles['xe135']) ? $row_gases_nobles['xe135'] : 0, 2); ?></span>
+                    <span class="metric-lbl">Kr-85m:</span>
+                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['kr85m']) ? $row_gases_nobles['kr85m'] : 0, 2); ?> GBq</span>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Xe-133:</span>
+                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['xe133']) ? $row_gases_nobles['xe133'] : 0, 2); ?> GBq</span>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Xe-135:</span>
+                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['xe135']) ? $row_gases_nobles['xe135'] : 0, 2); ?> GBq</span>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-lbl">Xe-135m:</span>
+                    <span class="metric-val"><?php echo decimales_limpio(isset($row_gases_nobles['xe135m']) ? $row_gases_nobles['xe135m'] : 0, 2); ?> GBq</span>
                   </div>
                 <?php endif; ?>
               </div>
