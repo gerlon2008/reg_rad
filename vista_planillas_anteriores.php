@@ -1268,18 +1268,18 @@ if (!$db_connected) {
       </div>
     </div>
 
-    <!-- Filter Card -->
-    <div class="filters-card">
+    <!-- Filter Card (role=search y campos protegidos contra autocompletado de pagos) -->
+    <form class="filters-card" role="search" aria-label="Búsqueda y filtrado de planillas históricas" autocomplete="off" onsubmit="return false;">
       <!-- Fecha Desde -->
       <div class="filter-item">
         <label for="filter-desde">Desde Fecha</label>
-        <input type="text" id="filter-desde" name="filtro_hist_fecha_desde" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" class="filter-ctrl mono latam-datepicker-input" placeholder="DD/MM/AAAA">
+        <input type="text" id="filter-desde" name="filtro_hist_fecha_inicio" readonly autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" class="filter-ctrl mono latam-datepicker-input" placeholder="DD/MM/AAAA" style="cursor: pointer;">
       </div>
 
       <!-- Fecha Hasta -->
       <div class="filter-item">
         <label for="filter-hasta">Hasta Fecha</label>
-        <input type="text" id="filter-hasta" name="filtro_hist_fecha_hasta" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" class="filter-ctrl mono latam-datepicker-input" placeholder="DD/MM/AAAA">
+        <input type="text" id="filter-hasta" name="filtro_hist_fecha_fin" readonly autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" class="filter-ctrl mono latam-datepicker-input" placeholder="DD/MM/AAAA" style="cursor: pointer;">
       </div>
 
       <!-- Turno -->
@@ -1310,9 +1310,9 @@ if (!$db_connected) {
 
       <!-- Búsqueda en vivo con botón X -->
       <div class="filter-item filter-search">
-        <label>Búsqueda rápida</label>
+        <label for="filter-search-input">Búsqueda rápida</label>
         <div style="position: relative;">
-          <input type="text" id="filter-search-input" name="filtro_hist_busqueda" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" class="filter-ctrl" placeholder="Buscar por número, oficial, jefe, fecha..." style="padding-right: 28px;">
+          <input type="search" id="filter-search-input" name="filtro_termino_busqueda" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" class="filter-ctrl" placeholder="Buscar por planilla, oficial, jefe, fecha..." style="padding-right: 28px;">
           <button type="button" class="btn-clear-ctrl" id="btn-clear-search" title="Limpiar búsqueda" onclick="clearFilterSearch()">&times;</button>
         </div>
       </div>
@@ -1321,7 +1321,7 @@ if (!$db_connected) {
       <button type="button" class="btn-filter-reset" id="btn-reset-filters">
         <span>↺ Limpiar Filtros</span>
       </button>
-    </div>
+    </form>
 
     <!-- Table Container -->
     <div class="table-container">
@@ -1643,6 +1643,14 @@ if (!$db_connected) {
       ctrl.addEventListener('input', applyFilters);
       ctrl.addEventListener('change', applyFilters);
     });
+
+    function clearFilterSearch() {
+      if (filterSearch) {
+        filterSearch.value = '';
+        applyFilters();
+        filterSearch.focus();
+      }
+    }
 
     btnReset.addEventListener('click', () => {
       filterDesde.value = '';
