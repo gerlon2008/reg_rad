@@ -4977,10 +4977,12 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
               <div class="opt-desc">Inspecciona los registros cargados por el oficial anterior sin poder modificar datos ni ingresar nuevas mediciones.</div>
             </button>
 
+            <?php if (isset($_SESSION['id_user']) && (string)$_SESSION['id_user'] === '0'): ?>
             <button type="button" class="btn-handover-opt tertiary" onclick="desbloquearParaNuevoTurno()" style="border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.08);">
               <div class="opt-title" style="color: var(--accent-cyan);">⚡ Desbloquear Consola para Mi Guardia (Modo Pruebas)</div>
               <div class="opt-desc">Habilita la consola y el formulario inmediatamente para su sesión (<?php echo htmlspecialchars($oficial_logueado, ENT_QUOTES, 'UTF-8'); ?>) sin modificar la base de datos.</div>
             </button>
+            <?php endif; ?>
           </div>
         </div>
       </div>
