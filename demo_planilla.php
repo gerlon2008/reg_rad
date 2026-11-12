@@ -9202,6 +9202,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           opt.textContent = u.unidad;
           concSel.appendChild(opt);
         });
+        const bqlOpt = (UNIDADES_CONC_LIQ_CATALOG || []).find(u => String(u.id_tabla_conversion) === '2' || /^bq\s*\/\s*l/i.test(String(u.unidad || '')));
+        if (bqlOpt) concSel.value = String(bqlOpt.id_tabla_conversion);
       }
     }
 
@@ -9232,6 +9234,11 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         liqDraftRads = [];
       }
       document.getElementById('liq-add-conc').value = '';
+      const concUnitSel = document.getElementById('liq-add-conc-unit');
+      if (concUnitSel) {
+        const bqlOpt = (UNIDADES_CONC_LIQ_CATALOG || []).find(u => String(u.id_tabla_conversion) === '2' || /^bq\s*\/\s*l/i.test(String(u.unidad || '')));
+        if (bqlOpt) concUnitSel.value = String(bqlOpt.id_tabla_conversion);
+      }
       renderDraftRadsTable();
       recalcModalLiqTotals();
       modal.style.display = 'flex';
