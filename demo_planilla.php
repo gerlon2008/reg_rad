@@ -3265,15 +3265,22 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             <span class="kpi-value" id="kpi-dedo-frio"><?php echo (isset($dedo_frio_ppm_db) && $dedo_frio_ppm_db !== "") ? htmlspecialchars(($dedo_frio_menor_que_db ? "< " : "") . $dedo_frio_ppm_db, ENT_QUOTES, 'UTF-8') : '<span style="font-size:13px;color:var(--accent-amber);font-weight:700;">○ Pendiente</span>'; ?></span>
             <span class="kpi-unit" style="<?php echo (empty($dedo_frio_ppm_db)) ? 'display:none;' : ''; ?>">ppm</span>
           </div>
-          <!-- Micro-barra visual de los últimos 5 registros criogénicos -->
-          <div class="kpi-mini-history" style="display: flex; gap: 3px; margin: 2px 0 3px;">
-            <span title="Hoy 04:15 (ALTUNA): < 12 ppm" style="background: rgba(236,72,153,0.3); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px; font-weight: 800; border: 1px solid rgba(236,72,153,0.5);">&lt;12</span>
-            <span title="Ayer 20:30 (ROLHAUSER): < 10 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">&lt;10</span>
-            <span title="Ayer 12:45 (GATICA): 15 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">15</span>
-            <span title="Ayer 05:00 (CISTERNA): < 11 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">&lt;11</span>
-            <span title="07/11 21:10 (PASCUAL): 14 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">14</span>
+          <!-- Micro-barra visual de los últimos 5 registros criogénicos reales -->
+          <div class="kpi-mini-history" id="kpi-dedo-frio-history-chips" style="display: flex; gap: 3px; margin: 2px 0 3px;">
+            <?php if (empty($hist_dedofrio_db)): ?>
+              <span style="font-size: 9px; color: var(--text-dim);">Sin registros previos</span>
+            <?php else: foreach ($hist_dedofrio_db as $idx_df => $hdf): 
+              $df_pref_txt = !empty($hdf['menor_que']) ? '< ' : '';
+              $df_pref_chip = !empty($hdf['menor_que']) ? '&lt;' : '';
+              $df_title = htmlspecialchars($hdf['fecha'] . ' ' . $hdf['hora'] . ' (' . $hdf['oficial'] . '): ' . $df_pref_txt . $hdf['ppm'] . ' ppm', ENT_QUOTES, 'UTF-8');
+              $df_chip_style = ($idx_df === 0)
+                ? 'background: rgba(236,72,153,0.3); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px; font-weight: 800; border: 1px solid rgba(236,72,153,0.5);'
+                : 'background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;';
+            ?>
+              <span title="<?php echo $df_title; ?>" style="<?php echo $df_chip_style; ?>"><?php echo $df_pref_chip . htmlspecialchars($hdf['ppm'], ENT_QUOTES, 'UTF-8'); ?></span>
+            <?php endforeach; endif; ?>
           </div>
-          <div class="kpi-footer" id="kpi-dedo-frio-footer">Histórico 5 guardias nominal</div>
+          <div class="kpi-footer" id="kpi-dedo-frio-footer">Últimos 5 registros</div>
         </div>
 
       </section>
@@ -4284,7 +4291,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
               <span style="font-size: 10.5px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase;">
                 📊 Últimos 5 Registros Criogénicos (Dedo Frío 73120)
               </span>
-              <span style="font-size: 9.5px; color: var(--text-dim); font-family: var(--font-mono);">Límite Op: &lt; 50 ppm</span>
+              <span style="font-size: 9.5px; color: var(--text-dim); font-family: var(--font-mono);">Historial real MySQL</span>
             </div>
             <table class="data-table" style="font-size: 11px;">
               <thead>
@@ -4299,13 +4306,13 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
               <tbody id="tbody-dedofrio-modal-5">
                 <?php if (empty($hist_dedofrio_db)) { ?>
                   <tr><td colspan="5" style="text-align:center; color:var(--text-dim); padding:10px;">Sin registros criogénicos históricos en BD</td></tr>
-                <?php } else { foreach ($hist_dedofrio_db as $hdf) { $overDf = (floatval($hdf['ppm']) > 50.0); ?>
+                <?php } else { foreach ($hist_dedofrio_db as $hdf) { ?>
                   <tr>
                     <td class="mono"><?php echo htmlspecialchars($hdf['fecha'], ENT_QUOTES, 'UTF-8'); ?></td>
                     <td class="mono"><?php echo htmlspecialchars($hdf['hora'], ENT_QUOTES, 'UTF-8'); ?></td>
                     <td style="font-weight: 700;"><?php echo htmlspecialchars($hdf['oficial'], ENT_QUOTES, 'UTF-8'); ?></td>
                     <td class="mono" style="text-align: right; color: #f472b6; font-weight: 700;"><?php echo (!empty($hdf['menor_que']) ? '&lt; ' : '') . htmlspecialchars($hdf['ppm'], ENT_QUOTES, 'UTF-8'); ?></td>
-                    <td style="text-align: center;"><span class="sync-badge" style="<?php if($overDf) echo 'color:var(--accent-red);'; ?>"><?php echo $overDf ? '▲ >50 ppm' : (!empty($hdf['es_actual']) ? '● Turno Actual' : '● Nominal'); ?></span></td>
+                    <td style="text-align: center;"><span class="sync-badge" style="<?php echo !empty($hdf['es_actual']) ? 'color:var(--accent-cyan);' : 'color:var(--text-muted);'; ?>"><?php echo !empty($hdf['es_actual']) ? '● Turno Actual' : '✓ Registrado'; ?></span></td>
                   </tr>
                 <?php } } ?>
               </tbody>
