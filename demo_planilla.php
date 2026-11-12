@@ -109,6 +109,17 @@ $unidades_conc_liq_array = array(
   array('id_tabla_conversion' => '1', 'unidad' => 'uCi/ml', 'factor_a_bq_litro' => 37000000.0)
 );
 
+$unidades_act_liq_array = array(
+  array('id_tabla_conversion' => '1', 'unidad' => 'Bq', 'factor_a_bq' => 1.0),
+  array('id_tabla_conversion' => '8', 'unidad' => 'µCi', 'factor_a_bq' => 37000.0),
+  array('id_tabla_conversion' => '4', 'unidad' => 'kBq', 'factor_a_bq' => 1000.0),
+  array('id_tabla_conversion' => '3', 'unidad' => 'MBq', 'factor_a_bq' => 1000000.0),
+  array('id_tabla_conversion' => '5', 'unidad' => 'GBq', 'factor_a_bq' => 1000000000.0),
+  array('id_tabla_conversion' => '2', 'unidad' => 'TBq', 'factor_a_bq' => 1000000000000.0),
+  array('id_tabla_conversion' => '7', 'unidad' => 'mCi', 'factor_a_bq' => 37000000.0),
+  array('id_tabla_conversion' => '6', 'unidad' => 'Ci', 'factor_a_bq' => 37000000000.0)
+);
+
 $efluentes_liquidos_db = array(
   array(
     'id_efluentes' => 9001,
@@ -369,6 +380,38 @@ if (file_exists($miconex_path)) {
                     'id_tabla_conversion' => $ruc['id_tabla_conversion'],
                     'unidad' => $ruc['unidad'],
                     'factor_a_bq_litro' => ($base_conc_factor > 0) ? ($ruc['_raw_factor'] / $base_conc_factor) : $ruc['_raw_factor']
+                );
+            }
+        }
+
+        // 5e. Unidades de Actividad (normalizadas a Bq, baseline id = 1)
+        $res_uact = mysql_query("SELECT * FROM `regrad_tabla_conversion_unidades_actividad` ORDER BY factor_conversion_a_Bq ASC", $miconex);
+        if ($res_uact && mysql_num_rows($res_uact) > 0) {
+            $raw_uact = array();
+            $base_act_factor = 1.0;
+            while ($row_ua = mysql_fetch_assoc($res_uact)) {
+                $f_val = 1.0;
+                foreach ($row_ua as $ak => $av) {
+                    if (stripos($ak, 'factor_conversion') !== false && is_numeric($av)) {
+                        $f_val = floatval($av);
+                        break;
+                    }
+                }
+                if ((string)$row_ua['id_tabla_conversion'] === '1' && $f_val > 0) {
+                    $base_act_factor = $f_val;
+                }
+                $raw_uact[] = array(
+                    'id_tabla_conversion' => (string)$row_ua['id_tabla_conversion'],
+                    'unidad' => $row_ua['unidad'],
+                    '_raw_factor' => $f_val
+                );
+            }
+            $unidades_act_liq_array = array();
+            foreach ($raw_uact as $rua) {
+                $unidades_act_liq_array[] = array(
+                    'id_tabla_conversion' => $rua['id_tabla_conversion'],
+                    'unidad' => $rua['unidad'],
+                    'factor_a_bq' => ($base_act_factor > 0) ? ($rua['_raw_factor'] / $base_act_factor) : $rua['_raw_factor']
                 );
             }
         }
@@ -5152,8 +5195,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
               <select id="liq-add-rad" class="field-control"></select>
             </div>
             <div class="field-group">
-              <label class="field-label">Concentración</label>
-              <input type="number" step="any" min="0" id="liq-add-conc" class="field-control mono" placeholder="Ej: 1.2e5 o 0.5">
+              <label class="field-label">Actividad</label>
+              <input type="number" step="any" min="0" id="liq-add-conc" class="field-control mono" placeholder="Ej: 216920 o 1.5e5">
             </div>
             <div class="field-group">
               <label class="field-label">Unidad</label>
@@ -5169,8 +5212,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
               <thead>
                 <tr>
                   <th>Radionucleído</th>
-                  <th style="text-align: right;">Ingresado</th>
-                  <th style="text-align: right;">Conc. (Bq/l)</th>
+                  <th style="text-align: right;">Actividad Ingresada</th>
+                  <th style="text-align: right;">Conc. Calc. (Bq/l)</th>
                   <th style="text-align: right;">Actividad (TBq)</th>
                   <th style="text-align: center;">Quitar</th>
                 </tr>
@@ -5310,6 +5353,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     const RADIONUCLEIDOS_LIQ_CATALOG = <?php $j_rl = json_encode($radionucleidos_liq_array); echo $j_rl ? $j_rl : '[]'; ?>;
     const UNIDADES_VOL_LIQ_CATALOG = <?php $j_uv = json_encode($unidades_vol_liq_array); echo $j_uv ? $j_uv : '[]'; ?>;
     const UNIDADES_CONC_LIQ_CATALOG = <?php $j_uc = json_encode($unidades_conc_liq_array); echo $j_uc ? $j_uc : '[]'; ?>;
+    const UNIDADES_ACT_LIQ_CATALOG = <?php $j_ua = json_encode($unidades_act_liq_array); echo $j_ua ? $j_ua : '[]'; ?>;
     let liqEmitidos = <?php $j_el = json_encode($efluentes_liquidos_db); echo $j_el ? $j_el : '[]'; ?>;
     const HIST_KPI_BASELINES = <?php
       $b_df = null;
@@ -9091,6 +9135,11 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       return found ? (parseFloat(found.factor_a_bq_litro) || 1.0) : 1.0;
     }
 
+    function getActFactorToBq(unitId) {
+      const found = (UNIDADES_ACT_LIQ_CATALOG || []).find(u => String(u.id_tabla_conversion) === String(unitId));
+      return found ? (parseFloat(found.factor_a_bq) || 1.0) : 1.0;
+    }
+
     function getRadInfo(radId) {
       const found = (RADIONUCLEIDOS_LIQ_CATALOG || []).find(r => String(r.id_radionucleidos) === String(radId));
       return found || { id_radionucleidos: radId, radionucleido: 'Rad-' + radId };
@@ -9122,10 +9171,20 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       const detailedRads = (rads || []).map(item => {
         const info = getRadInfo(item.id_radionucleido);
         const radName = item.radionucleido || info.radionucleido || ('ID ' + item.id_radionucleido);
-        const concBqL = item.conc_Bq_litro !== undefined
-          ? (parseFloat(item.conc_Bq_litro) || 0)
-          : ((parseFloat(item.conc_ingresada) || 0) * getConcFactorToBqL(item.id_unidad_conc));
-        const actBq = concBqL * volLiters;
+        let actBq = 0;
+        let concBqL = 0;
+        if (item.actividad_Bq !== undefined) {
+          actBq = parseFloat(item.actividad_Bq) || 0;
+          concBqL = volLiters > 0 ? (actBq / volLiters) : 0;
+        } else if (item.act_ingresada !== undefined) {
+          actBq = (parseFloat(item.act_ingresada) || 0) * getActFactorToBq(item.id_unidad_act);
+          concBqL = volLiters > 0 ? (actBq / volLiters) : 0;
+        } else {
+          concBqL = item.conc_Bq_litro !== undefined
+            ? (parseFloat(item.conc_Bq_litro) || 0)
+            : ((parseFloat(item.conc_ingresada) || 0) * getConcFactorToBqL(item.id_unidad_conc));
+          actBq = concBqL * volLiters;
+        }
         const actTBq = actBq / 1e12;
         if (isTritioName(radName)) {
           h3Bq += actBq;
@@ -9196,14 +9255,14 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       }
       const concSel = document.getElementById('liq-add-conc-unit');
       if (concSel && concSel.options.length === 0) {
-        (UNIDADES_CONC_LIQ_CATALOG || []).forEach(u => {
+        (UNIDADES_ACT_LIQ_CATALOG || []).forEach(u => {
           const opt = document.createElement('option');
           opt.value = u.id_tabla_conversion;
           opt.textContent = u.unidad;
           concSel.appendChild(opt);
         });
-        const bqlOpt = (UNIDADES_CONC_LIQ_CATALOG || []).find(u => String(u.id_tabla_conversion) === '2' || /^bq\s*\/\s*l/i.test(String(u.unidad || '')));
-        if (bqlOpt) concSel.value = String(bqlOpt.id_tabla_conversion);
+        const bqOpt = (UNIDADES_ACT_LIQ_CATALOG || []).find(u => String(u.id_tabla_conversion) === '1' || /^bq$/i.test(String(u.unidad || '').trim()));
+        if (bqOpt) concSel.value = String(bqOpt.id_tabla_conversion);
       }
     }
 
@@ -9236,8 +9295,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       document.getElementById('liq-add-conc').value = '';
       const concUnitSel = document.getElementById('liq-add-conc-unit');
       if (concUnitSel) {
-        const bqlOpt = (UNIDADES_CONC_LIQ_CATALOG || []).find(u => String(u.id_tabla_conversion) === '2' || /^bq\s*\/\s*l/i.test(String(u.unidad || '')));
-        if (bqlOpt) concUnitSel.value = String(bqlOpt.id_tabla_conversion);
+        const bqOpt = (UNIDADES_ACT_LIQ_CATALOG || []).find(u => String(u.id_tabla_conversion) === '1' || /^bq$/i.test(String(u.unidad || '').trim()));
+        if (bqOpt) concUnitSel.value = String(bqOpt.id_tabla_conversion);
       }
       renderDraftRadsTable();
       recalcModalLiqTotals();
@@ -9251,27 +9310,27 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
     function addDraftRadionucleido() {
       const radSel = document.getElementById('liq-add-rad');
-      const concInp = document.getElementById('liq-add-conc');
+      const actInp = document.getElementById('liq-add-conc');
       const unitSel = document.getElementById('liq-add-conc-unit');
-      const concVal = parseFloat(concInp.value);
-      if (!radSel.value || isNaN(concVal) || concVal <= 0) {
-        showToast('⚠️ Ingrese un radionucleído y concentración válida (> 0)', 'warning');
+      const actVal = parseFloat(actInp.value);
+      if (!radSel.value || isNaN(actVal) || actVal <= 0) {
+        showToast('⚠️ Ingrese un radionucleído y una actividad válida (> 0)', 'warning');
         return;
       }
       const radName = radSel.options[radSel.selectedIndex]?.textContent || '';
-      const unitName = unitSel.options[unitSel.selectedIndex]?.textContent || 'Bq/l';
-      const concBqL = concVal * getConcFactorToBqL(unitSel.value);
+      const unitName = unitSel.options[unitSel.selectedIndex]?.textContent || 'Bq';
+      const actBq = actVal * getActFactorToBq(unitSel.value);
 
       liqDraftRads.push({
         id_radionucleido: radSel.value,
         radionucleido: radName,
-        conc_ingresada: concVal,
-        id_unidad_conc: unitSel.value,
-        unidad_conc_nombre: unitName,
-        conc_Bq_litro: concBqL
+        act_ingresada: actVal,
+        id_unidad_act: unitSel.value,
+        unidad_act_nombre: unitName,
+        actividad_Bq: actBq
       });
-      concInp.value = '';
-      concInp.focus();
+      actInp.value = '';
+      actInp.focus();
       renderDraftRadsTable();
       recalcModalLiqTotals();
     }
@@ -9296,8 +9355,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       tbody.innerHTML = calc.rads.map((r, idx) => `
         <tr>
           <td style="font-weight: 700; color: #fff;">${liqEscape(r.radionucleido)}</td>
-          <td class="mono" style="text-align: right;">${liqEscape(r.conc_ingresada)} ${liqEscape(r.unidad_conc_nombre || 'Bq/l')}</td>
-          <td class="mono" style="text-align: right; color: var(--text-muted);">${r.conc_Bq_litro.toExponential(2)}</td>
+          <td class="mono" style="text-align: right;">${liqEscape(r.act_ingresada !== undefined ? r.act_ingresada : r.conc_ingresada)} ${liqEscape(r.unidad_act_nombre || r.unidad_conc_nombre || 'Bq')}</td>
+          <td class="mono" style="text-align: right; color: var(--text-muted);">${r.conc_Bq_litro > 0 ? r.conc_Bq_litro.toExponential(2) : '-'}</td>
           <td class="mono" style="text-align: right; color: var(--accent-cyan); font-weight: 700;">${liqFmtTBq(r.actividad_TBq)}</td>
           <td style="text-align: center;">
             <button type="button" class="liq-btn-mini danger" onclick="removeDraftRadionucleido(${idx})">✕</button>
@@ -9307,6 +9366,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     }
 
     function recalcModalLiqTotals() {
+      renderDraftRadsTable();
       const volVal = document.getElementById('liq-in-volumen')?.value || 0;
       const volUnit = document.getElementById('liq-in-vol-unidad')?.value || '2';
       const calc = calcLiqMetrics(volVal, volUnit, liqDraftRads);
@@ -9451,10 +9511,10 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         const nuevoId = parseInt(txtHead.split('|')[1], 10);
         if (!nuevoId) throw new Error('ID de efluente inválido');
 
-        for (const rad of (payload.radionucleidos || [])) {
-          const concVal = rad.conc_ingresada !== undefined ? rad.conc_ingresada : rad.conc_Bq_litro;
-          const unitConcId = rad.id_unidad_conc || '2';
-          const urlRad = `procesos_reg_rad.php?accion=guardar_valores_radionucleidos_efluentes_liquidos&id_efluentes=${encodeURIComponent(nuevoId)}&radionucleido=${encodeURIComponent(rad.id_radionucleido)}&concentracion=${encodeURIComponent(concVal)}&unidad_concentracion_ingresada=${encodeURIComponent(unitConcId)}`;
+        const calcForCommit = calcLiqMetrics(volNum, unitVolId, payload.radionucleidos || []);
+        for (const rad of (calcForCommit.rads || [])) {
+          const concBqL = rad.conc_Bq_litro || 0;
+          const urlRad = `procesos_reg_rad.php?accion=guardar_valores_radionucleidos_efluentes_liquidos&id_efluentes=${encodeURIComponent(nuevoId)}&radionucleido=${encodeURIComponent(rad.id_radionucleido)}&concentracion=${encodeURIComponent(concBqL)}&unidad_concentracion_ingresada=2`;
           await fetch(urlRad);
         }
 
