@@ -4638,10 +4638,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           </div>
         </div>
 
-        <!-- SECCIÓN A: PARÁMETROS CRÍTICOS DE PLANTA Y CHIMENEA -->
-        <div style="font-size: 10.5px; font-weight: 800; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
-          ⚡ Parámetros Principales de Chimenea &amp; Planta
-        </div>
+
 
         <!-- 1. Ventilación Chimenea -->
         <div class="checklist-row-item" id="chk-item-vent">
@@ -4718,6 +4715,21 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           </div>
         </div>
 
+        <!-- 6. Control de Precintos -->
+        <div class="checklist-row-item" id="chk-item-prec">
+          <div class="checklist-item-left">
+            <span class="checklist-item-icon">🔒</span>
+            <div>
+              <div class="checklist-item-title">Control de Precintos (Puertas S-123B, S-008, S-144)</div>
+              <div class="checklist-item-desc" id="chk-val-prec">Estado de precintos en puertas de planta</div>
+            </div>
+          </div>
+          <div class="checklist-item-right">
+            <span class="checklist-status-badge pending" id="chk-badge-prec">○ Pendiente</span>
+            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('sec-gaseosos')">Cargar ↗</button>
+          </div>
+        </div>
+
         <!-- 6. Relevamientos de Rutina -->
         <div class="checklist-row-item" id="chk-item-rutina">
           <div class="checklist-item-left">
@@ -4748,10 +4760,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           </div>
         </div>
 
-        <!-- SECCIÓN B: CONTROLES SECUNDARIOS (SEGÚN ACTIVIDAD) -->
-        <div style="font-size: 10.5px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px;">
-          🔬 Controles Específicos &amp; Eventuales
-        </div>
+
 
         <!-- 8. Espectrometría del Aire (ZC) -->
         <div class="checklist-row-item" id="chk-item-esp">
@@ -4763,8 +4772,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             </div>
           </div>
           <div class="checklist-item-right">
-            <span class="checklist-status-badge optional" id="chk-badge-esp">○ Opcional</span>
-            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('sec-espectrometria')">Ver ↗</button>
+            <span class="checklist-status-badge pending" id="chk-badge-esp">○ Pendiente</span>
+            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('sec-espectrometria')">Cargar ↗</button>
           </div>
         </div>
 
@@ -4778,8 +4787,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             </div>
           </div>
           <div class="checklist-item-right">
-            <span class="checklist-status-badge optional" id="chk-badge-liq">○ Sin descargas</span>
-            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('sec-liquidos')">Ver ↗</button>
+            <span class="checklist-status-badge pending" id="chk-badge-liq">○ Pendiente</span>
+            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('sec-liquidos')">Cargar ↗</button>
           </div>
         </div>
 
@@ -4793,8 +4802,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             </div>
           </div>
           <div class="checklist-item-right">
-            <span class="checklist-status-badge optional" id="chk-badge-contam">○ Opcional</span>
-            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('sec-contaminacion')">Ver ↗</button>
+            <span class="checklist-status-badge pending" id="chk-badge-contam">○ Pendiente</span>
+            <button type="button" class="btn-checklist-action" onclick="goToChecklistTarget('sec-contaminacion')">Cargar ↗</button>
           </div>
         </div>
 
@@ -4802,7 +4811,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
       <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
         <span style="font-size: 11px; color: var(--text-dim);">
-          💡 Los parámetros opcionales sólo se requieren ante tareas específicas o descargas de tanques.
+          💡 Indicador de estado de carga de los parámetros de la guardia en curso.
         </span>
         <button type="button" class="btn-modal-cancel" onclick="closeChecklistModal()">CERRAR CHECKLIST</button>
       </div>
@@ -6825,44 +6834,69 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       }
       if (valActas) valActas.textContent = hasActas ? `${actasRows.length} novedades / actas asentadas en el turno` : 'Sin novedades asentadas en el libro de actas';
 
+      // 6. Control de Precintos
+      const precBadgeEl = document.getElementById('badge-precintos-status');
+      const s123bVal = (document.getElementById('input-precintos-s123b')?.value || '').trim();
+      const hasPrec = (Boolean(precBadgeEl && precBadgeEl.textContent.includes('Cargado')) || s123bVal !== '');
+      const badgePrec = document.getElementById('chk-badge-prec');
+      const valPrec = document.getElementById('chk-val-prec');
+      if (badgePrec) {
+        badgePrec.className = hasPrec ? 'checklist-status-badge complete' : 'checklist-status-badge pending';
+        badgePrec.textContent = hasPrec ? '● Cargado' : '○ Pendiente';
+      }
+      if (valPrec) valPrec.textContent = hasPrec ? 'Control de precintos verificado en puertas' : 'Control de precintos pendiente de verificar';
+
       // 8. Espectrometría ZC
       const espRows = document.querySelectorAll('#tbody-espectrometria tr:not(#row-esp-empty)');
       const hasEsp = (espRows.length > 0);
       const badgeEsp = document.getElementById('chk-badge-esp');
       const valEsp = document.getElementById('chk-val-esp');
       if (badgeEsp) {
-        badgeEsp.className = hasEsp ? 'checklist-status-badge complete' : 'checklist-status-badge optional';
-        badgeEsp.textContent = hasEsp ? `● ${espRows.length} Cargados` : '○ Opcional';
+        badgeEsp.className = hasEsp ? 'checklist-status-badge complete' : 'checklist-status-badge pending';
+        badgeEsp.textContent = hasEsp ? `● ${espRows.length} Cargados` : '○ Pendiente';
       }
-      if (valEsp) valEsp.textContent = hasEsp ? `${espRows.length} análisis de espectrometría registrados` : 'Sin espectrometrías específicas requeridas en este turno';
+      if (valEsp) valEsp.textContent = hasEsp ? `${espRows.length} análisis de espectrometría registrados` : 'Espectrometría del aire pendiente de carga';
 
-      // 9. Efluentes Líquidos (Pre-Cargas vs Emitidos Reales)
+      // 9. Efluentes Líquidos
       const badgeLiq = document.getElementById('chk-badge-liq');
       const valLiq = document.getElementById('chk-val-liq');
       const activePre = (typeof getActiveLiqPrecargas === 'function') ? getActiveLiqPrecargas() : [];
       const realEmit = Array.isArray(liqEmitidos) ? liqEmitidos : [];
+      const hasLiq = (realEmit.length > 0 || activePre.length > 0);
       if (badgeLiq && valLiq) {
         if (activePre.length > 0) {
           badgeLiq.className = 'checklist-status-badge pending';
           badgeLiq.textContent = `⏳ ${activePre.length} Pre-Carga${activePre.length > 1 ? 's' : ''}`;
-          valLiq.textContent = `Atención: ${activePre.length} pre-carga(s) en espera de confirmación de bombeo (${realEmit.length} emitidos reales)`;
+          valLiq.textContent = `${activePre.length} pre-carga(s) en espera de confirmación de bombeo`;
         } else if (realEmit.length > 0) {
           const sumRodd = realEmit.reduce((acc, r) => acc + (parseFloat(r.rodd_total) || 0), 0);
           badgeLiq.className = 'checklist-status-badge complete';
           badgeLiq.textContent = `● ${realEmit.length} Emitido${realEmit.length > 1 ? 's' : ''}`;
-          valLiq.textContent = `${realEmit.length} descarga(s) real(es) asentada(s) | Suma RoDD: ${sumRodd.toFixed(3)}%`;
+          valLiq.textContent = `${realEmit.length} descarga(s) asentada(s) | RoDD: ${sumRodd.toFixed(3)}%`;
         } else {
-          badgeLiq.className = 'checklist-status-badge optional';
-          badgeLiq.textContent = '○ Sin descargas';
-          valLiq.textContent = 'Sin descargas líquidas ni pre-cargas pendientes en este turno';
+          badgeLiq.className = 'checklist-status-badge pending';
+          badgeLiq.textContent = '○ Pendiente';
+          valLiq.textContent = 'Sin descargas de efluentes líquidos registradas';
         }
       }
 
-      // Calcular completitud de los 7 módulos obligatorios
-      const obligatorios = [hasVent, hasGn, hasC14, hasDf, hasMet, hasRutina, hasActas];
-      const completedCount = obligatorios.filter(Boolean).length;
-      const pendingCount = obligatorios.length - completedCount;
-      const pct = Math.round((completedCount / obligatorios.length) * 100);
+      // 10. Contaminación Superficial & Dryers
+      const frotisRec = (document.getElementById('frotis-recinto')?.value || '').trim();
+      const hasContam = (frotisRec !== '');
+      const badgeContam = document.getElementById('chk-badge-contam');
+      const valContam = document.getElementById('chk-val-contam');
+      if (badgeContam) {
+        badgeContam.className = hasContam ? 'checklist-status-badge complete' : 'checklist-status-badge pending';
+        badgeContam.textContent = hasContam ? '● Cargado' : '○ Pendiente';
+      }
+      if (valContam) valContam.textContent = hasContam ? 'Medición de frotis / secadores registrada' : 'Frotis o secadores pendientes de registro';
+
+      // Evaluar todos los parámetros por igual (sin principales ni eventuales)
+      const todosParametros = [hasVent, hasGn, hasC14, hasDf, hasMet, hasPrec, hasRutina, hasActas, hasEsp, hasLiq, hasContam];
+      const completedCount = todosParametros.filter(Boolean).length;
+      const totalCount = todosParametros.length;
+      const pendingCount = totalCount - completedCount;
+      const pct = Math.round((completedCount / totalCount) * 100);
 
       const progBar = document.getElementById('chk-progress-bar');
       const progPct = document.getElementById('chk-progress-pct');
@@ -6871,7 +6905,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
       if (progBar) progBar.style.width = `${pct}%`;
       if (progPct) progPct.textContent = `${pct}%`;
-      if (progText) progText.textContent = `${completedCount} de ${obligatorios.length} parámetros obligatorios completos`;
+      if (progText) progText.textContent = `${completedCount} de ${totalCount} parámetros cargados`;
       if (pendText) {
         pendText.textContent = pendingCount === 0 ? '¡Todo completo ✓!' : `${pendingCount} pendiente${pendingCount > 1 ? 's' : ''}`;
         pendText.style.color = pendingCount === 0 ? 'var(--accent-green)' : 'var(--accent-amber)';
