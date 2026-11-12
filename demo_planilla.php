@@ -422,6 +422,11 @@ if (file_exists($miconex_path)) {
             $met_vel_db = "";
             $met_dir_db = "";
             $met_pasquill_db = "";
+            $precintos_id_db = 0;
+            $precintos_hora_db = "";
+            $precintos_s123b_db = "";
+            $precintos_s008_db = "";
+            $precintos_s144_db = "";
             $gn_id_db = "";
             $gn_desde_db = "";
             $gn_hasta_db = "";
@@ -482,6 +487,17 @@ if (file_exists($miconex_path)) {
                 $met_vel_db = $row_met['velocidad_mseg'];
                 $met_dir_db = $row_met['direc_viento'];
                 $met_pasquill_db = $row_met['cond_pasquill'];
+            }
+
+            // 11b. Control de Precintos
+            $res_prec = mysql_query("SELECT id_control_precintos, hora, puerta_s123B, puerta_s008, puerta_s144 FROM `regrad_control_precintos` WHERE id_planilla = $id_planilla_activa ORDER BY id_control_precintos DESC LIMIT 1", $miconex);
+            if ($res_prec && mysql_num_rows($res_prec) > 0) {
+                $row_prec = mysql_fetch_assoc($res_prec);
+                $precintos_id_db = (int)$row_prec['id_control_precintos'];
+                $precintos_hora_db = !empty($row_prec['hora']) ? substr($row_prec['hora'], 0, 5) : "";
+                $precintos_s123b_db = ucwords($row_prec['puerta_s123B']);
+                $precintos_s008_db = ucwords($row_prec['puerta_s008']);
+                $precintos_s144_db = ucwords($row_prec['puerta_s144']);
             }
 
             // 12. Gases Nobles Chimenea (Ar-41, Kr, Xe)
@@ -3541,6 +3557,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             </div>
           </div>
 
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
           <div class="panel-box">
             <div class="panel-header">
               <div class="panel-title"><span>🌤️</span> CONDICIÓN METEOROLÓGICA</div>
@@ -3583,6 +3600,44 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                 </button>
               </div>
             </div>
+          </div>
+
+          <div class="panel-box" id="panel-control-precintos">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div class="panel-title"><span>🔒</span> CONTROL DE PRECINTOS</div>
+              <span id="badge-precintos-status" style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid <?php echo ($precintos_id_db > 0) ? "rgba(16,185,129,0.4)" : "rgba(245,158,11,0.4)"; ?>; color: <?php echo ($precintos_id_db > 0) ? "var(--accent-emerald)" : "var(--accent-amber)"; ?>; background: <?php echo ($precintos_id_db > 0) ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)"; ?>;">
+                <?php echo ($precintos_id_db > 0) ? "✓ Cargado" : "○ Pendiente"; ?>
+              </span>
+            </div>
+            <div class="panel-body">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div class="field-group">
+                  <label class="field-label">Hora de Control</label>
+                  <input type="text" id="input-precintos-hora" class="field-control mono" placeholder="HH:MM" value="<?php echo htmlspecialchars($precintos_hora_db, ENT_QUOTES, 'UTF-8'); ?>">
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Puerta S-123B</label>
+                  <input type="text" id="input-precintos-s123b" class="field-control mono" placeholder="B" value="<?php echo htmlspecialchars($precintos_s123b_db, ENT_QUOTES, 'UTF-8'); ?>">
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Puerta S-008</label>
+                  <input type="text" id="input-precintos-s008" class="field-control mono" placeholder="B" value="<?php echo htmlspecialchars($precintos_s008_db, ENT_QUOTES, 'UTF-8'); ?>">
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Puerta S-144</label>
+                  <input type="text" id="input-precintos-s144" class="field-control mono" placeholder="B" value="<?php echo htmlspecialchars($precintos_s144_db, ENT_QUOTES, 'UTF-8'); ?>">
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn-register" style="flex: 1;" onclick="saveControlPrecintos()">
+                  💾 GUARDAR PRECINTOS
+                </button>
+                <button type="button" class="btn-ghost" onclick="fillNormalPrecintos()" style="color: var(--accent-cyan); border-color: rgba(6, 182, 212, 0.4); padding: 0 12px;" title="Completar todas las puertas con B y hora actual">
+                  ⚡ Normal (B)
+                </button>
+              </div>
+            </div>
+          </div>
           </div>
         </div>
       </section>
@@ -7099,6 +7154,61 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       if (document.getElementById('kpi-in-met-vel')) document.getElementById('kpi-in-met-vel').value = '';
       saveKpiMetrics();
       showToast('🗑️ Condiciones meteorológicas eliminadas (pendientes)');
+    }
+
+    let controlPrecintosSaved = <?php echo ($precintos_id_db > 0) ? 'true' : 'false'; ?>;
+    function fillNormalPrecintos() {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const hEl = document.getElementById('input-precintos-hora');
+      if (hEl && !hEl.value.trim()) hEl.value = hh + ':' + mm;
+      ['input-precintos-s123b', 'input-precintos-s008', 'input-precintos-s144'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = 'B';
+      });
+    }
+    function saveControlPrecintos() {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const yyyy = now.getFullYear();
+      const mo = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const fecha = yyyy + '-' + mo + '-' + dd;
+      const hEl = document.getElementById('input-precintos-hora');
+      const hora = (hEl && hEl.value.trim()) ? hEl.value.trim() : (hh + ':' + mm);
+      if (hEl && !hEl.value.trim()) hEl.value = hora;
+      const s123b = (document.getElementById('input-precintos-s123b')?.value || '').trim();
+      const s008 = (document.getElementById('input-precintos-s008')?.value || '').trim();
+      const s144 = (document.getElementById('input-precintos-s144')?.value || '').trim();
+      if (!s123b || !s008 || !s144) {
+        showToast('⚠️ Complete el estado de las tres puertas (o use Normal B)');
+        return;
+      }
+      const idPlanilla = (typeof activePlanillaId !== 'undefined' && activePlanillaId) ? activePlanillaId : 1;
+      const idUsuario = <?php echo isset($_SESSION['id_usuario']) ? (int)$_SESSION['id_usuario'] : 1; ?>;
+      const accion = controlPrecintosSaved ? 'editar_valores_control_precintos' : 'guardar_valores_control_precintos';
+      const url = 'procesos_reg_rad.php?accion=' + accion
+        + '&id_planilla=' + encodeURIComponent(idPlanilla)
+        + '&id_usuario=' + encodeURIComponent(idUsuario)
+        + '&fecha=' + encodeURIComponent(fecha)
+        + '&hora=' + encodeURIComponent(hora)
+        + '&puerta_s_123b=' + encodeURIComponent(s123b)
+        + '&puerta_s_008=' + encodeURIComponent(s008)
+        + '&puerta_s_144=' + encodeURIComponent(s144);
+      if (typeof SyncEngine !== 'undefined') {
+        SyncEngine.enqueue('precintos', url);
+      }
+      controlPrecintosSaved = true;
+      const badge = document.getElementById('badge-precintos-status');
+      if (badge) {
+        badge.textContent = '✓ Cargado';
+        badge.style.color = 'var(--accent-emerald)';
+        badge.style.borderColor = 'rgba(16,185,129,0.4)';
+        badge.style.background = 'rgba(16,185,129,0.1)';
+      }
+      showToast('🔒 Control de Precintos guardado');
     }
     // ================= TAREAS DE CAMPO & PTR =================
     function registerDailyTask() {
