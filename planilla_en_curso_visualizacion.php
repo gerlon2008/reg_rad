@@ -2310,7 +2310,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
 
       // 2. Activar sección de contenido
       sections.forEach(sec => {
-        if (sec.id === secId) {
+        if (sec.id === secId || (secId === 'sec-actas' && sec.id === 'sec-tareas')) {
           sec.classList.add('active');
         } else {
           sec.classList.remove('active');
