@@ -80,8 +80,17 @@ $rows_espectrometria = array();
 $rows_efluentes_liq = array();
 $rows_contaminacion = array();
 $rows_dryers = array();
+$hist_dedofrio_vis = array();
 
 if ($db_connected && $id_planilla > 0) {
+    // Limpiar fallbacks de demo cuando hay conexión real a MySQL
+    $row_gases_nobles = array();
+    $rows_tritio = array();
+    $row_carbono14 = array();
+    $row_dedo_frio = array();
+    $row_concentrador = array();
+    $row_precintos = array();
+    $row_meteorologia = array();
     // 1. Cabecera Planilla
     $q_pl = @mysql_query("SELECT a.*, b.horarios, c.nombre_estado, d.of_apellido, d.of_nombre, e.jefe_apellido, e.jefe_nombre
         FROM regrad_planilla_diaria_nueva a
@@ -180,10 +189,41 @@ if ($db_connected && $id_planilla > 0) {
     if ($q_dr) {
         while ($r = mysql_fetch_assoc($q_dr)) $rows_dryers[] = $r;
     }
+
+    // 15. Últimos 5 Registros Criogénicos (Dedo Frío 73120) reales hasta esta planilla
+    $q_hdf = @mysql_query("SELECT a.id_planilla, a.ppm, a.menor_que, a.hora_medicion,
+            COALESCE(NULLIF(a.fecha, ''), p.fecha) AS fecha_reg,
+            o.of_apellido, o.of_nombre
+        FROM regrad_dedo_frio a
+        LEFT JOIN regrad_planilla_diaria_nueva p ON p.id_planilla_diaria = a.id_planilla
+        LEFT JOIN regrad_of_rad o ON o.id_of_rad = p.of_rad
+        WHERE a.id_planilla <= $id_planilla
+        ORDER BY a.id_planilla DESC, a.id_dedo_frio DESC LIMIT 5", $miconex);
+    if ($q_hdf) {
+        while ($rw = mysql_fetch_assoc($q_hdf)) {
+            $f_raw = !empty($rw['fecha_reg']) ? $rw['fecha_reg'] : '';
+            $pf = $f_raw ? explode('-', $f_raw) : array();
+            $f_corta = (count($pf) == 3) ? ($pf[2] . '/' . $pf[1]) : ($f_raw ? $f_raw : '--/--');
+            $f_latam = (count($pf) == 3) ? ($pf[2] . '/' . $pf[1] . '/' . $pf[0]) : $f_corta;
+            $h_str = !empty($rw['hora_medicion']) ? substr($rw['hora_medicion'], 0, 5) : '--:--';
+            $ap_str = !empty($rw['of_apellido']) ? mb_strtoupper(trim($rw['of_apellido']), 'UTF-8') : 'S/D';
+            $ppm_str = ($rw['ppm'] !== null && $rw['ppm'] !== '') ? decimales_limpio($rw['ppm'], 0) : '0';
+            $hist_dedofrio_vis[] = array(
+                'id_planilla' => (int)$rw['id_planilla'],
+                'fecha_corta' => $f_corta,
+                'fecha_latam' => $f_latam,
+                'hora' => $h_str,
+                'apellido' => $ap_str,
+                'ppm' => $ppm_str,
+                'menor_que' => !empty($rw['menor_que']) ? 1 : 0,
+                'es_actual' => ((int)$rw['id_planilla'] === (int)$id_planilla)
+            );
+        }
+    }
 }
 
-// Fallbacks de muestra si está offline
-if (empty($rows_rutina)) {
+// Fallbacks de muestra si está offline (sin conexión MySQL)
+if (!$db_connected && empty($rows_rutina)) {
     $rows_rutina = array(
         array('fecha' => $row_planilla['fecha'], 'hora' => '23:30', 'recinto_nombre' => 'R-001 (HALL ACCESO ZONA CONTROLADA)', 'gases_nobles' => 0.05, 'tritio' => 0.20, 'tasa_dosis' => 1.5, 'observaciones' => 'Ronda de inicio de guardia', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO'),
         array('fecha' => $row_planilla['fecha'], 'hora' => '01:15', 'recinto_nombre' => 'R-005 (SISTEMA D2O Y PURIFICACIÓN)', 'gases_nobles' => 0.40, 'tritio' => 1.80, 'tasa_dosis' => 18.5, 'observaciones' => 'Verificación de sellos y estanqueidad', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO'),
@@ -192,7 +232,7 @@ if (empty($rows_rutina)) {
     );
 }
 
-if (empty($rows_tareas)) {
+if (!$db_connected && empty($rows_tareas)) {
     $rows_tareas = array(
         array('id_ptr' => 1042, 'recinto_nombre' => 'R-005 (SISTEMA D2O)', 'tasa_dosis' => 18.5, 'derrame_agua' => 0, 'texto_tarea' => 'MANTENIMIENTO PREVENTIVO DE BOMBA DE PURIFICACIÓN DE AGUA PESADA', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO', 'nombre_ayudante' => 'GOMEZ, FACUNDO'),
         array('id_ptr' => 1045, 'recinto_nombre' => 'R-012 (EDIFICIO REACTOR)', 'tasa_dosis' => 45.0, 'derrame_agua' => 0, 'texto_tarea' => 'RELEVAMIENTO RADIOLÓGICO PARA INSPECCIÓN TÉRMICA DE CAÑERÍAS', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO', 'nombre_ayudante' => 'VAZQUEZ, DANIEL')
@@ -225,16 +265,26 @@ function formato_valor_gbq($val) {
     }
     return decimales_limpio($num, 2);
 }
-$kpi_vent_gral = !empty($rows_tritio[0]['vent_gral']) ? formato_valor_gbq($rows_tritio[0]['vent_gral']) : '1.45';
-$kpi_vent_reactor = !empty($rows_tritio[0]['vent_reactor']) ? formato_valor_gbq($rows_tritio[0]['vent_reactor']) : '0.88';
-$kpi_c14 = !empty($row_carbono14['medicion']) ? decimales_limpio($row_carbono14['medicion'], 1) : '3.1';
-$kpi_dedo_frio = !empty($row_dedo_frio['ppm']) ? decimales_limpio($row_dedo_frio['ppm'], 0) : '12';
+if (!$db_connected && empty($hist_dedofrio_vis)) {
+    $hist_dedofrio_vis = array(
+        array('id_planilla' => $id_planilla, 'fecha_corta' => 'Hoy', 'fecha_latam' => 'Hoy', 'hora' => '04:15', 'apellido' => 'ALTUNA', 'ppm' => '12', 'menor_que' => 1, 'es_actual' => true),
+        array('id_planilla' => $id_planilla - 1, 'fecha_corta' => 'Ayer', 'fecha_latam' => 'Ayer', 'hora' => '20:30', 'apellido' => 'ROLHAUSER', 'ppm' => '10', 'menor_que' => 1, 'es_actual' => false),
+        array('id_planilla' => $id_planilla - 2, 'fecha_corta' => 'Ayer', 'fecha_latam' => 'Ayer', 'hora' => '12:45', 'apellido' => 'GATICA', 'ppm' => '15', 'menor_que' => 0, 'es_actual' => false),
+        array('id_planilla' => $id_planilla - 3, 'fecha_corta' => 'Ayer', 'fecha_latam' => 'Ayer', 'hora' => '05:00', 'apellido' => 'CISTERNA', 'ppm' => '11', 'menor_que' => 1, 'es_actual' => false),
+        array('id_planilla' => $id_planilla - 4, 'fecha_corta' => '07/11', 'fecha_latam' => '07/11', 'hora' => '21:10', 'apellido' => 'PASCUAL', 'ppm' => '14', 'menor_que' => 0, 'es_actual' => false)
+    );
+}
+
+$kpi_vent_gral = !empty($rows_tritio[0]['vent_gral']) ? formato_valor_gbq($rows_tritio[0]['vent_gral']) : ($db_connected ? '--' : '1.45');
+$kpi_vent_reactor = !empty($rows_tritio[0]['vent_reactor']) ? formato_valor_gbq($rows_tritio[0]['vent_reactor']) : ($db_connected ? '--' : '0.88');
+$kpi_c14 = isset($row_carbono14['medicion']) && $row_carbono14['medicion'] !== '' ? decimales_limpio($row_carbono14['medicion'], 1) : ($db_connected ? '--' : '3.1');
+$kpi_dedo_frio = isset($row_dedo_frio['ppm']) && $row_dedo_frio['ppm'] !== '' ? decimales_limpio($row_dedo_frio['ppm'], 0) : ($db_connected ? '--' : '12');
 $kpi_dedo_frio_signo = (!empty($row_dedo_frio['menor_que']) && $row_dedo_frio['menor_que'] == 1) ? '< ' : '';
-$kpi_ro = !empty($row_concentrador['ldd%']) ? decimales_limpio($row_concentrador['ldd%'], 2) : '8.42';
+$kpi_ro = isset($row_concentrador['ldd%']) && $row_concentrador['ldd%'] !== '' ? decimales_limpio($row_concentrador['ldd%'], 2) : ($db_connected ? '--' : '8.42');
 
 $kpi_has_met = !empty($row_meteorologia['velocidad_mseg']) || !empty($row_meteorologia['direc_viento']);
-$kpi_met_val = $kpi_has_met ? htmlspecialchars($row_meteorologia['direc_viento'] . ' • ' . $row_meteorologia['velocidad_mseg'] . ' m/s', ENT_QUOTES, 'UTF-8') : 'Sur • 14.5 km/h';
-$kpi_met_pasquill = !empty($row_meteorologia['cond_pasquill']) ? htmlspecialchars($row_meteorologia['cond_pasquill'], ENT_QUOTES, 'UTF-8') : 'Pasquill Clase D (Neutral)';
+$kpi_met_val = $kpi_has_met ? htmlspecialchars($row_meteorologia['direc_viento'] . ' • ' . $row_meteorologia['velocidad_mseg'] . ' m/s', ENT_QUOTES, 'UTF-8') : ($db_connected ? 'Sin registro' : 'Sur • 14.5 km/h');
+$kpi_met_pasquill = !empty($row_meteorologia['cond_pasquill']) ? htmlspecialchars($row_meteorologia['cond_pasquill'], ENT_QUOTES, 'UTF-8') : ($db_connected ? 'Sin datos' : 'Pasquill Clase D (Neutral)');
 
 $fecha_latam = formafecha_latam($row_planilla['fecha']);
 ?>
@@ -1688,11 +1738,18 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
           </div>
           <!-- Micro-barra visual de los últimos 5 registros criogénicos -->
           <div class="kpi-mini-history" style="display: flex; gap: 3px; margin: 2px 0 3px;">
-            <span title="Hoy 04:15 (ALTUNA): < 12 ppm" style="background: rgba(236,72,153,0.3); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px; font-weight: 800; border: 1px solid rgba(236,72,153,0.5);">&lt;12</span>
-            <span title="Ayer 20:30 (ROLHAUSER): < 10 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">&lt;10</span>
-            <span title="Ayer 12:45 (GATICA): 15 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">15</span>
-            <span title="Ayer 05:00 (CISTERNA): < 11 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">&lt;11</span>
-            <span title="07/11 21:10 (PASCUAL): 14 ppm" style="background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;">14</span>
+            <?php if (empty($hist_dedofrio_vis)): ?>
+              <span style="font-size: 9px; color: var(--text-dim);">Sin registros previos</span>
+            <?php else: foreach ($hist_dedofrio_vis as $idx_df => $hdf): 
+              $df_pref_txt = $hdf['menor_que'] ? '< ' : '';
+              $df_pref_chip = $hdf['menor_que'] ? '&lt;' : '';
+              $df_title = htmlspecialchars($hdf['fecha_latam'] . ' ' . $hdf['hora'] . ' (' . $hdf['apellido'] . '): ' . $df_pref_txt . $hdf['ppm'] . ' ppm', ENT_QUOTES, 'UTF-8');
+              $df_chip_style = ($idx_df === 0)
+                ? 'background: rgba(236,72,153,0.3); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px; font-weight: 800; border: 1px solid rgba(236,72,153,0.5);'
+                : 'background: rgba(236,72,153,0.15); color: #f472b6; font-family: var(--font-mono); font-size: 8.5px; padding: 1px 4px; border-radius: 3px;';
+            ?>
+              <span title="<?php echo $df_title; ?>" style="<?php echo $df_chip_style; ?>"><?php echo $df_pref_chip . htmlspecialchars($hdf['ppm'], ENT_QUOTES, 'UTF-8'); ?></span>
+            <?php endforeach; endif; ?>
           </div>
           <div class="kpi-footer">Histórico 5 guardias nominal</div>
         </div>
@@ -1807,36 +1864,46 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                 </div>
                 <div class="metric-row">
                   <span class="metric-lbl">Emisión C-14:</span>
-                  <span class="metric-val"><?php echo decimales_limpio($row_carbono14['medicion'], 1); ?> MBq (<?php echo formato_hora_limpio($row_carbono14['hora']); ?> hs)</span>
+                  <span class="metric-val">
+                    <?php if (isset($row_carbono14['medicion']) && $row_carbono14['medicion'] !== ''): ?>
+                      <?php echo decimales_limpio($row_carbono14['medicion'], 1); ?> MBq (<?php echo formato_hora_limpio($row_carbono14['hora']); ?> hs)
+                    <?php else: ?>
+                      <span style="color: var(--accent-amber); font-weight: 700;">Sin carga</span>
+                    <?php endif; ?>
+                  </span>
                 </div>
                 <div class="metric-row">
                   <span class="metric-lbl">Dedo Frío Actual:</span>
                   <span class="metric-val" style="color: #f472b6; font-weight: 800;">
-                    <?php if (!empty($row_dedo_frio['menor_que'])) echo '< '; ?>
-                    <?php echo decimales_limpio($row_dedo_frio['ppm'], 0); ?> ppm
+                    <?php if (isset($row_dedo_frio['ppm']) && $row_dedo_frio['ppm'] !== ''): ?>
+                      <?php if (!empty($row_dedo_frio['menor_que'])) echo '&lt; '; ?>
+                      <?php echo decimales_limpio($row_dedo_frio['ppm'], 0); ?> ppm
+                    <?php else: ?>
+                      <span style="color: var(--accent-amber); font-weight: 700;">Sin carga</span>
+                    <?php endif; ?>
                   </span>
                 </div>
-                <!-- Historial últimos 5 criogénicos -->
+                <!-- Historial últimos 5 criogénicos reales -->
                 <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border-subtle);">
                   <div style="font-size: 9.5px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; margin-bottom: 4px;">
                     📊 Últimos 5 Registros Criogénicos:
                   </div>
                   <div style="display: flex; flex-direction: column; gap: 2px; font-size: 10px; font-family: var(--font-mono);">
-                    <div style="display: flex; justify-content: space-between; color: #f472b6;">
-                      <span>[1] Hoy 04:15 (ALTUNA):</span><strong>&lt; 12 ppm</strong>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
-                      <span>[2] Ayer 20:30 (ROLHAUSER):</span><span>&lt; 10 ppm</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
-                      <span>[3] Ayer 12:45 (GATICA):</span><span>15 ppm</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
-                      <span>[4] Ayer 05:00 (CISTERNA):</span><span>&lt; 11 ppm</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
-                      <span>[5] 07/11 21:10 (PASCUAL):</span><span>14 ppm</span>
-                    </div>
+                    <?php if (empty($hist_dedofrio_vis)): ?>
+                      <div style="color: var(--text-dim); font-style: italic;">Sin registros criogénicos previos en MySQL.</div>
+                    <?php else: foreach ($hist_dedofrio_vis as $idx_df => $hdf): 
+                      $row_col = ($idx_df === 0) ? '#f472b6' : 'var(--text-muted)';
+                      $df_pref = $hdf['menor_que'] ? '&lt; ' : '';
+                    ?>
+                      <div style="display: flex; justify-content: space-between; color: <?php echo $row_col; ?>;">
+                        <span>[<?php echo $idx_df + 1; ?>] <?php echo htmlspecialchars($hdf['fecha_corta'] . ' ' . $hdf['hora'] . ' (' . $hdf['apellido'] . ')', ENT_QUOTES, 'UTF-8'); ?>:</span>
+                        <?php if ($idx_df === 0): ?>
+                          <strong><?php echo $df_pref . htmlspecialchars($hdf['ppm'], ENT_QUOTES, 'UTF-8'); ?> ppm</strong>
+                        <?php else: ?>
+                          <span><?php echo $df_pref . htmlspecialchars($hdf['ppm'], ENT_QUOTES, 'UTF-8'); ?> ppm</span>
+                        <?php endif; ?>
+                      </div>
+                    <?php endforeach; endif; ?>
                   </div>
                 </div>
               </div>
