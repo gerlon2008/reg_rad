@@ -1886,17 +1886,30 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
           <div class="kpi-footer">📍 <?php echo htmlspecialchars($max_recinto_dosis, ENT_QUOTES, 'UTF-8'); ?></div>
         </div>
 
-        <!-- KPI 2: RO Gaseoso / Concentrador -->
-        <div class="kpi-card" onclick="goToSection('sec-liquidos')" title="Haga clic para ver efluentes y concentrador">
+        <!-- KPI 2: Control de Precintos Chimenea -->
+        <div class="kpi-card" onclick="goToSection('sec-gases')" title="Haga clic para ver control de precintos de chimenea">
           <div class="kpi-top-row">
-            <span class="kpi-label">% Restricción Operacional</span>
-            <span class="kpi-action-icon">📊 Ver</span>
+            <span class="kpi-label">Control de Precintos</span>
+            <span class="kpi-action-icon">🔒 Ver</span>
           </div>
           <div class="kpi-value-row">
-            <span class="kpi-value" style="color: var(--accent-green);"><?php echo $kpi_ro; ?></span>
-            <span class="kpi-unit">% RO</span>
+            <?php if (!empty($row_precintos)): ?>
+              <span class="kpi-value" style="color: var(--accent-green); font-size: 15px; letter-spacing: 0.5px;">CONFORME</span>
+              <span class="badge badge-green" style="font-size: 9px; margin-left: 6px;">✓ <?php echo !empty($row_precintos['hora']) ? formato_hora_limpio($row_precintos['hora']) : 'OK'; ?></span>
+            <?php else: ?>
+              <span class="kpi-value" style="color: var(--text-dim); font-size: 14px;">--</span>
+              <span class="badge" style="font-size: 9px; margin-left: 6px; color: var(--text-dim); border-color: var(--border-subtle);">Sin registrar</span>
+            <?php endif; ?>
           </div>
-          <div class="kpi-footer">Límite operacional normal</div>
+          <div class="kpi-footer">
+            <?php if (!empty($row_precintos)): ?>
+              S-123B: <?php echo htmlspecialchars(isset($row_precintos['puerta_s123B']) ? $row_precintos['puerta_s123B'] : 'B', ENT_QUOTES, 'UTF-8'); ?> • 
+              S-008: <?php echo htmlspecialchars(isset($row_precintos['puerta_s008']) ? $row_precintos['puerta_s008'] : 'B', ENT_QUOTES, 'UTF-8'); ?> • 
+              S-144: <?php echo htmlspecialchars(isset($row_precintos['puerta_s144']) ? $row_precintos['puerta_s144'] : 'B', ENT_QUOTES, 'UTF-8'); ?>
+            <?php else: ?>
+              Puertas S-123B, S-008 y S-144
+            <?php endif; ?>
+          </div>
         </div>
 
         <!-- KPI 3: Ventilación Chimenea (General y Reactor unificados) -->

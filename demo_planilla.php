@@ -3256,17 +3256,19 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           <div class="kpi-footer" id="kpi-max-recinto">📍 R-024 (PHT) • R-001</div>
         </div>
 
-        <!-- KPI 2: RO Gaseoso -->
-        <div class="kpi-card" style="--card-color: var(--accent-green);" onclick="openKpiModal('ro')" title="Haga clic para actualizar Restricción Operacional">
+        <!-- KPI 2: Control de Precintos -->
+        <div class="kpi-card" id="card-kpi-precintos" style="--card-color: var(--accent-green);" onclick="openKpiModal('precintos')" title="Haga clic para verificar / actualizar Control de Precintos">
           <div class="kpi-top-row">
-            <span class="kpi-label">% Restricción Operacional</span>
-            <span class="kpi-action-icon">✏️ Cargar</span>
+            <span class="kpi-label">Control de Precintos</span>
+            <span class="kpi-action-icon">🔒 Cargar</span>
           </div>
           <div class="kpi-value-row">
-            <span class="kpi-value" id="kpi-ro-val" style="color: var(--accent-green);">8.42</span>
-            <span class="kpi-unit">% RO</span>
+            <span class="kpi-value" id="kpi-precintos-val" style="color: var(--accent-green); font-size: 15px; letter-spacing: 0.5px;"><?php echo (!empty($precintos_id_db) && $precintos_id_db > 0) ? "NORMAL (B)" : "--"; ?></span>
+            <span class="kpi-unit" id="kpi-precintos-unit" style="font-size: 10px;"><?php echo (!empty($precintos_id_db) && $precintos_id_db > 0) ? (!empty($precintos_hora_db) ? $precintos_hora_db . ' hs' : 'OK') : 'Pendiente'; ?></span>
           </div>
-          <div class="kpi-footer" id="kpi-ro-footer">Chimenea en rango nominal</div>
+          <div class="kpi-footer" id="kpi-precintos-footer">
+            <?php echo (!empty($precintos_id_db) && $precintos_id_db > 0) ? ("S-123B: " . (!empty($precintos_s123b_db) ? $precintos_s123b_db : 'B') . " • S-008: " . (!empty($precintos_s008_db) ? $precintos_s008_db : 'B') . " • S-144: " . (!empty($precintos_s144_db) ? $precintos_s144_db : 'B')) : "Puertas S-123B, S-008 y S-144"; ?>
+          </div>
         </div>
 
         <!-- KPI 3: Ventilación Chimenea (General y Reactor unificados) -->
@@ -4259,7 +4261,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           <button type="button" class="kpi-tab-btn" data-tab="tab-gasesnobles" onclick="switchKpiTab('tab-gasesnobles')">🧪 Gases Nobles</button>
           <button type="button" class="kpi-tab-btn" data-tab="tab-c14" onclick="switchKpiTab('tab-c14')">⚛️ Carbono 14</button>
           <button type="button" class="kpi-tab-btn" data-tab="tab-dedofrio" onclick="switchKpiTab('tab-dedofrio')">❄️ Dedo Frío 73120</button>
-          <button type="button" class="kpi-tab-btn" data-tab="tab-ro" onclick="switchKpiTab('tab-ro')">📈 % RO Chimenea</button>
+          <button type="button" class="kpi-tab-btn" data-tab="tab-precintos" onclick="switchKpiTab('tab-precintos')">🔒 Control Precintos</button>
           <button type="button" class="kpi-tab-btn" data-tab="tab-met" onclick="switchKpiTab('tab-met')">🌤️ Meteorología</button>
         </div>
 
@@ -4434,59 +4436,64 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           </div>
         </div>
 
-        <!-- TAB 4: % Restricción Operacional -->
-        <div class="kpi-tab-content" id="tab-ro" style="display: none;">
-          <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px;">
-            Porcentaje de Restricción Operacional acumulado del turno (Límite normativo ARN / NASA):
+        <!-- TAB 5: Control de Precintos -->
+        <div class="kpi-tab-content" id="tab-precintos" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="font-size: 11.5px; color: var(--text-muted);">
+              Verificación y estado de precintos en compuertas de filtrado de chimenea:
+            </div>
+            <button type="button" class="btn-ghost" onclick="fillNormalPrecintosModal()" style="font-size: 11px; padding: 4px 10px; border-radius: 4px; border: 1px solid var(--accent-cyan); color: var(--accent-cyan); background: rgba(6, 182, 212, 0.08); cursor: pointer;">
+              ⚡ Normal ("B" en todas)
+            </button>
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
             <div class="field-group">
-              <label class="field-label">% RO Asignado / Calculado</label>
-              <input type="text" id="kpi-in-ro-val" class="field-control mono" style="font-size: 14px; font-weight: 700; color: #34d399;" value="8.42">
+              <label class="field-label">Hora de Control (HH:MM)</label>
+              <input type="text" id="kpi-in-precintos-hora" class="field-control mono latam-timepicker-input" value="<?php echo htmlspecialchars(!empty($precintos_hora_db) ? $precintos_hora_db : date('H:i'), ENT_QUOTES, 'UTF-8'); ?>">
             </div>
             <div class="field-group">
-              <label class="field-label">Condición / Estado</label>
-              <input type="text" id="kpi-in-ro-desc" class="field-control" value="Chimenea en rango nominal">
+              <label class="field-label">Puerta S-123B (Filtros)</label>
+              <input type="text" id="kpi-in-precintos-s123b" class="field-control mono" style="font-weight: 700; color: var(--accent-green);" placeholder="B" value="<?php echo htmlspecialchars(!empty($precintos_s123b_db) ? $precintos_s123b_db : 'B', ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Puerta S-008</label>
+              <input type="text" id="kpi-in-precintos-s008" class="field-control mono" style="font-weight: 700; color: var(--accent-green);" placeholder="B" value="<?php echo htmlspecialchars(!empty($precintos_s008_db) ? $precintos_s008_db : 'B', ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Puerta S-144</label>
+              <input type="text" id="kpi-in-precintos-s144" class="field-control mono" style="font-weight: 700; color: var(--accent-green);" placeholder="B" value="<?php echo htmlspecialchars(!empty($precintos_s144_db) ? $precintos_s144_db : 'B', ENT_QUOTES, 'UTF-8'); ?>">
             </div>
           </div>
-          <div id="alert-tab-ro" class="kpi-field-alert"></div>
+          <div id="alert-tab-precintos" class="kpi-field-alert"></div>
 
-          <!-- TABLA DE LOS ÚLTIMOS REGISTROS DE % RO -->
+          <!-- RESUMEN DE ESTADO Y COMPUERTAS DE CHIMENEA -->
           <div style="background: rgba(9, 28, 24, 0.7); border: 1px solid var(--border-card); border-radius: 6px; padding: 10px 12px; margin-top: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
               <span style="font-size: 10.5px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase;">
-                📊 Histórico de Restricción Operacional (% RO)
+                🔒 Estado de Compuertas &bull; Banco de Filtros
               </span>
-              <span style="font-size: 9.5px; color: var(--text-dim); font-family: var(--font-mono);">Límite Alerta: 15%</span>
+              <span style="font-size: 9.5px; color: var(--text-dim); font-family: var(--font-mono);">Criterio CNE: B = Bueno / Intacto</span>
             </div>
-            <table class="data-table" style="font-size: 11px;">
-              <thead>
-                <tr>
-                  <th style="padding: 5px 8px;">Fecha</th>
-                  <th style="padding: 5px 8px;">Hora</th>
-                  <th style="padding: 5px 8px;">Oficial Responsable</th>
-                  <th style="padding: 5px 8px; text-align: right; color: var(--accent-green);">% RO</th>
-                  <th style="padding: 5px 8px; text-align: center;">Condición</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php if (isset($miconex) && $miconex) { ?>
-                  <tr>
-                    <td colspan="5" style="text-align: center; color: var(--text-dim); padding: 10px; font-style: italic;">
-                      El % RO real se consolida desde los módulos de Efluentes Gaseosos y Líquidos de cada guardia.
-                    </td>
-                  </tr>
-                <?php } else { ?>
-                  <tr>
-                    <td class="mono">08/11/2026</td>
-                    <td class="mono">23:00</td>
-                    <td style="font-weight: 700;">ALTUNA, LEONARDO (P)</td>
-                    <td class="mono" style="text-align: right; color: var(--accent-green); font-weight: 700;">8.42%</td>
-                    <td style="text-align: center;"><span class="sync-badge">● Nominal (Demo)</span></td>
-                  </tr>
-                <?php } ?>
-              </tbody>
-            </table>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+              <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 8px; text-align: center;">
+                <div style="font-size: 10px; color: var(--text-muted); font-weight: 700;">PUERTA S-123B</div>
+                <div id="badge-modal-s123b" style="font-size: 13px; font-weight: 800; color: var(--accent-green); font-family: var(--font-mono); margin-top: 2px;">
+                  <?php echo htmlspecialchars(!empty($precintos_s123b_db) ? $precintos_s123b_db : 'B', ENT_QUOTES, 'UTF-8'); ?>
+                </div>
+              </div>
+              <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 8px; text-align: center;">
+                <div style="font-size: 10px; color: var(--text-muted); font-weight: 700;">PUERTA S-008</div>
+                <div id="badge-modal-s008" style="font-size: 13px; font-weight: 800; color: var(--accent-green); font-family: var(--font-mono); margin-top: 2px;">
+                  <?php echo htmlspecialchars(!empty($precintos_s008_db) ? $precintos_s008_db : 'B', ENT_QUOTES, 'UTF-8'); ?>
+                </div>
+              </div>
+              <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 8px; text-align: center;">
+                <div style="font-size: 10px; color: var(--text-muted); font-weight: 700;">PUERTA S-144</div>
+                <div id="badge-modal-s144" style="font-size: 13px; font-weight: 800; color: var(--accent-green); font-family: var(--font-mono); margin-top: 2px;">
+                  <?php echo htmlspecialchars(!empty($precintos_s144_db) ? $precintos_s144_db : 'B', ENT_QUOTES, 'UTF-8'); ?>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -6210,6 +6217,24 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         document.getElementById('kpi-in-gn-hasta').value = document.getElementById('input-gn-hasta').value;
       }
 
+      // Sincronizar inputs de control de precintos al abrir modal
+      const secHoraPrec = document.getElementById('input-precintos-hora')?.value;
+      const secS123b = document.getElementById('input-precintos-s123b')?.value;
+      const secS008 = document.getElementById('input-precintos-s008')?.value;
+      const secS144 = document.getElementById('input-precintos-s144')?.value;
+      if (document.getElementById('kpi-in-precintos-hora') && secHoraPrec) {
+        document.getElementById('kpi-in-precintos-hora').value = secHoraPrec;
+      }
+      if (document.getElementById('kpi-in-precintos-s123b') && secS123b) {
+        document.getElementById('kpi-in-precintos-s123b').value = secS123b;
+      }
+      if (document.getElementById('kpi-in-precintos-s008') && secS008) {
+        document.getElementById('kpi-in-precintos-s008').value = secS008;
+      }
+      if (document.getElementById('kpi-in-precintos-s144') && secS144) {
+        document.getElementById('kpi-in-precintos-s144').value = secS144;
+      }
+
       if (targetTab === 'tritio') {
         switchKpiTab('tab-tritio');
       } else if (targetTab === 'gasesnobles') {
@@ -6218,13 +6243,29 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         switchKpiTab('tab-c14');
       } else if (targetTab === 'dedofrio') {
         switchKpiTab('tab-dedofrio');
-      } else if (targetTab === 'ro') {
-        switchKpiTab('tab-ro');
+      } else if (targetTab === 'precintos' || targetTab === 'ro') {
+        switchKpiTab('tab-precintos');
       } else if (targetTab === 'met') {
         switchKpiTab('tab-met');
       } else {
         switchKpiTab('tab-tritio');
       }
+    }
+
+    function fillNormalPrecintosModal() {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const hEl = document.getElementById('kpi-in-precintos-hora');
+      if (hEl && !hEl.value.trim()) hEl.value = hh + ':' + mm;
+      ['kpi-in-precintos-s123b', 'kpi-in-precintos-s008', 'kpi-in-precintos-s144'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = 'B';
+      });
+      ['badge-modal-s123b', 'badge-modal-s008', 'badge-modal-s144'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = 'B';
+      });
     }
 
     function closeKpiModal() {
@@ -6341,37 +6382,27 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         }
       }
 
-      // 4. % Restricción Operacional (Previo: 8.42%)
-      if (metrics.roVal !== '') {
-        const roNum = parseFloat(metrics.roVal);
-        const prevRo = 8.42;
-        if (!isNaN(roNum)) {
-          if (roNum >= 15.0) {
-            warnings.push({
-              tab: 'tab-ro',
-              inputId: 'kpi-in-ro-val',
-              param: '% Restricción Operacional',
-              unit: '% RO',
-              val: roNum + '%',
-              prevVal: prevRo + '%',
-              diffPct: Math.round(((roNum - prevRo) / prevRo) * 100),
-              isOverLimit: true,
-              msg: `Supera el umbral de advertencia operacional (15% RO)`
-            });
-          } else if (roNum >= prevRo * 1.8 && (roNum - prevRo) >= 4.0) {
-            const pct = Math.round(((roNum - prevRo) / prevRo) * 100);
-            warnings.push({
-              tab: 'tab-ro',
-              inputId: 'kpi-in-ro-val',
-              param: '% Restricción Operacional',
-              unit: '% RO',
-              val: roNum + '%',
-              prevVal: prevRo + '%',
-              diffPct: pct,
-              isOverLimit: false,
-              msg: `Alza de +${pct}% vs valor de referencia`
-            });
-          }
+      // 4. Control de Precintos
+      if (metrics.precS123b || metrics.precS008 || metrics.precS144) {
+        const doors = [
+          { name: 'Puerta S-123B', val: (metrics.precS123b || '').toUpperCase().trim() },
+          { name: 'Puerta S-008', val: (metrics.precS008 || '').toUpperCase().trim() },
+          { name: 'Puerta S-144', val: (metrics.precS144 || '').toUpperCase().trim() }
+        ];
+        const normalVals = ['B', 'BUENO', 'INTACTO', 'OK', 'CONFORME'];
+        const anomalia = doors.find(d => d.val && !normalVals.includes(d.val));
+        if (anomalia) {
+          warnings.push({
+            tab: 'tab-precintos',
+            inputId: 'kpi-in-precintos-s123b',
+            param: 'Control de Precintos',
+            unit: '',
+            val: `${anomalia.name}: ${anomalia.val}`,
+            prevVal: 'Normal (B)',
+            diffPct: null,
+            isOverLimit: true,
+            msg: `Estado anómalo registrado en precinto de ${anomalia.name}`
+          });
         }
       }
 
@@ -6403,19 +6434,22 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       const c14 = (document.getElementById('kpi-in-c14-val')?.value || '').trim();
       const dedoFrio = (document.getElementById('kpi-in-dedofrio-val')?.value || '').trim();
       const isMenor = document.getElementById('kpi-in-dedofrio-menor') ? document.getElementById('kpi-in-dedofrio-menor').checked : false;
-      const roVal = (document.getElementById('kpi-in-ro-val')?.value || '').trim();
+      const precHora = (document.getElementById('kpi-in-precintos-hora')?.value || '').trim();
+      const precS123b = (document.getElementById('kpi-in-precintos-s123b')?.value || '').trim();
+      const precS008 = (document.getElementById('kpi-in-precintos-s008')?.value || '').trim();
+      const precS144 = (document.getElementById('kpi-in-precintos-s144')?.value || '').trim();
       const metVel = (document.getElementById('kpi-in-met-vel')?.value || '').trim();
 
-      const metrics = { ventGral, ventReactor, c14, dedoFrio, isMenor, roVal, metVel };
+      const metrics = { ventGral, ventReactor, c14, dedoFrio, isMenor, precHora, precS123b, precS008, precS144, metVel };
       const warnings = checkKpiDiscrepancies(metrics);
 
       // Limpiar estilos y cajas de alerta
-      ['tab-dedofrio', 'tab-tritio', 'tab-c14', 'tab-ro', 'tab-met'].forEach(tab => {
+      ['tab-dedofrio', 'tab-tritio', 'tab-c14', 'tab-precintos', 'tab-met'].forEach(tab => {
         const el = document.getElementById('alert-' + tab);
         if (el) el.style.display = 'none';
       });
 
-      ['kpi-in-dedofrio-val', 'kpi-in-vent-gral', 'kpi-in-vent-reactor', 'kpi-in-c14-val', 'kpi-in-ro-val', 'kpi-in-met-vel'].forEach(id => {
+      ['kpi-in-dedofrio-val', 'kpi-in-vent-gral', 'kpi-in-vent-reactor', 'kpi-in-c14-val', 'kpi-in-precintos-s123b', 'kpi-in-met-vel'].forEach(id => {
         const inp = document.getElementById(id);
         if (inp) inp.classList.remove('input-alert-spike', 'input-alert-limit');
       });
@@ -6496,13 +6530,15 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       const c14 = (document.getElementById('kpi-in-c14-val').value || '').trim();
       const dedoFrio = (document.getElementById('kpi-in-dedofrio-val').value || '').trim();
       const isMenor = document.getElementById('kpi-in-dedofrio-menor') ? document.getElementById('kpi-in-dedofrio-menor').checked : false;
-      const roVal = (document.getElementById('kpi-in-ro-val').value || '').trim();
-      const roDesc = (document.getElementById('kpi-in-ro-desc').value || '').trim();
+      const precHora = (document.getElementById('kpi-in-precintos-hora')?.value || '').trim();
+      const precS123b = (document.getElementById('kpi-in-precintos-s123b')?.value || '').trim();
+      const precS008 = (document.getElementById('kpi-in-precintos-s008')?.value || '').trim();
+      const precS144 = (document.getElementById('kpi-in-precintos-s144')?.value || '').trim();
       const metDir = document.getElementById('kpi-in-met-dir') ? document.getElementById('kpi-in-met-dir').value : 'S';
       const metVel = document.getElementById('kpi-in-met-vel') ? (document.getElementById('kpi-in-met-vel').value || '').trim() : '';
       const metPasquill = document.getElementById('kpi-in-met-pasquill') ? document.getElementById('kpi-in-met-pasquill').value : 'Clase D (Neutral - Nocturno nublado)';
 
-      const metrics = { ventGral, ventReactor, c14, dedoFrio, isMenor, roVal, roDesc, metDir, metVel, metPasquill };
+      const metrics = { ventGral, ventReactor, c14, dedoFrio, isMenor, precHora, precS123b, precS008, precS144, metDir, metVel, metPasquill };
       const warnings = checkKpiDiscrepancies(metrics);
 
       // Si hay advertencias de discrepancia o exceso de límite operacional, disparar modal de confirmación
@@ -6554,13 +6590,13 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     }
 
     function applyKpiMetricsToDom(metrics, warnings = null) {
-      const { ventGral, ventReactor, c14, dedoFrio, isMenor, roVal, roDesc, metDir, metVel, metPasquill } = metrics;
+      const { ventGral, ventReactor, c14, dedoFrio, isMenor, precHora, precS123b, precS008, precS144, metDir, metVel, metPasquill } = metrics;
 
       const dfWarn = warnings ? warnings.find(w => w.param === 'Dedo Frío 73120') : null;
       const vgWarn = warnings ? warnings.find(w => w.param === 'Ventilación General') : null;
       const vrWarn = warnings ? warnings.find(w => w.param === 'Ventilación Reactor') : null;
       const c14Warn = warnings ? warnings.find(w => w.param === 'Emisión Carbono-14') : null;
-      const roWarn = warnings ? warnings.find(w => w.param === '% Restricción Operacional') : null;
+      const precWarn = warnings ? warnings.find(w => w.param === 'Control de Precintos') : null;
 
       // 1. Ventilación Chimenea (General y Reactor)
       const elVentGral = document.getElementById('kpi-vent-gral');
@@ -6653,22 +6689,56 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         if (cardDF) cardDF.classList.remove('is-pending');
       }
 
-      // 5. Restricción Operacional
-      const elRoVal = document.getElementById('kpi-ro-val');
-      const elRoFooter = document.getElementById('kpi-ro-footer');
-      const cardRo = elRoVal ? elRoVal.closest('.kpi-card') : null;
-      if (!roVal) {
-        if (elRoVal) elRoVal.innerHTML = '<span class="kpi-pending-pill">⚠️ PENDIENTE</span>';
-        if (elRoFooter) elRoFooter.innerHTML = '<span style="color: var(--accent-amber);">⚠️ Pendiente de cálculo</span>';
-        if (cardRo) cardRo.classList.add('is-pending');
-      } else {
-        if (elRoVal) {
-          elRoVal.innerHTML = roWarn 
-            ? `<span class="${roWarn.isOverLimit ? 'badge-red' : 'badge-amber'}" title="${roWarn.msg}">${roVal} ⚠️</span>` 
-            : roVal;
+      // 5. Control de Precintos
+      const elPrecVal = document.getElementById('kpi-precintos-val');
+      const elPrecUnit = document.getElementById('kpi-precintos-unit');
+      const elPrecFooter = document.getElementById('kpi-precintos-footer');
+      const cardPrec = document.getElementById('card-kpi-precintos') || (elPrecVal ? elPrecVal.closest('.kpi-card') : null);
+
+      if (precS123b || precS008 || precS144) {
+        const isAllB = (precS123b.toUpperCase() === 'B' && precS008.toUpperCase() === 'B' && precS144.toUpperCase() === 'B');
+        if (elPrecVal) {
+          if (precWarn) {
+            elPrecVal.innerHTML = `<span class="badge-amber" title="${precWarn.msg}">ANOMALÍA ⚠️</span>`;
+          } else {
+            elPrecVal.textContent = isAllB ? 'NORMAL (B)' : 'REGISTRADO';
+          }
         }
-        if (elRoFooter) elRoFooter.textContent = roDesc || 'Chimenea en rango nominal';
-        if (cardRo) cardRo.classList.remove('is-pending');
+        if (elPrecUnit) elPrecUnit.textContent = precHora ? (precHora + ' hs') : 'OK';
+        if (elPrecFooter) elPrecFooter.textContent = `S-123B: ${precS123b || 'B'} • S-008: ${precS008 || 'B'} • S-144: ${precS144 || 'B'}`;
+        if (cardPrec) cardPrec.classList.remove('is-pending');
+
+        // Sincronizar badges del modal
+        const bS123b = document.getElementById('badge-modal-s123b');
+        const bS008 = document.getElementById('badge-modal-s008');
+        const bS144 = document.getElementById('badge-modal-s144');
+        if (bS123b) bS123b.textContent = precS123b || 'B';
+        if (bS008) bS008.textContent = precS008 || 'B';
+        if (bS144) bS144.textContent = precS144 || 'B';
+
+        // Sincronizar inputs secundarios si existen
+        if (document.getElementById('input-precintos-hora')) document.getElementById('input-precintos-hora').value = precHora;
+        if (document.getElementById('input-precintos-s123b')) document.getElementById('input-precintos-s123b').value = precS123b;
+        if (document.getElementById('input-precintos-s008')) document.getElementById('input-precintos-s008').value = precS008;
+        if (document.getElementById('input-precintos-s144')) document.getElementById('input-precintos-s144').value = precS144;
+        const badgeSec = document.getElementById('badge-precintos-status');
+        if (badgeSec) {
+          badgeSec.textContent = '✓ Cargado';
+          badgeSec.style.color = 'var(--accent-emerald)';
+          badgeSec.style.borderColor = 'rgba(16,185,129,0.4)';
+          badgeSec.style.background = 'rgba(16,185,129,0.1)';
+        }
+
+        const chkBadgePrec = document.getElementById('chk-badge-prec');
+        if (chkBadgePrec) {
+          chkBadgePrec.textContent = '✓ Registrado';
+          chkBadgePrec.className = 'checklist-status-badge ok';
+        }
+      } else {
+        if (elPrecVal) elPrecVal.innerHTML = '<span class="kpi-pending-pill">⚠️ PENDIENTE</span>';
+        if (elPrecUnit) elPrecUnit.textContent = 'Pendiente';
+        if (elPrecFooter) elPrecFooter.innerHTML = '<span style="color: var(--accent-amber);">Puertas S-123B, S-008 y S-144</span>';
+        if (cardPrec) cardPrec.classList.add('is-pending');
       }
 
       // Sincronizar inputs secundarios si existen
@@ -6700,6 +6770,11 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         }
         if (dedoFrio) {
           SyncEngine.enqueue('dedofrio', `procesos_reg_rad.php?accion=guardar_valores_dedo_frio&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&hora=${horaActualStr}&ppm=${dedoFrio}&menor_que=${isMenor ? 1 : 0}`);
+        }
+        if (precS123b || precS008 || precS144) {
+          const accion = controlPrecintosSaved ? 'editar_valores_control_precintos' : 'guardar_valores_control_precintos';
+          SyncEngine.enqueue('precintos', `procesos_reg_rad.php?accion=${accion}&id_planilla=${activePlanillaId || 1}&id_usuario=1&fecha=${fechaSql}&hora=${encodeURIComponent(precHora || horaActualStr)}&puerta_s_123b=${encodeURIComponent(precS123b)}&puerta_s_008=${encodeURIComponent(precS008)}&puerta_s_144=${encodeURIComponent(precS144)}`);
+          controlPrecintosSaved = true;
         }
         const metVel = (document.getElementById('kpi-in-met-vel') ? document.getElementById('kpi-in-met-vel').value : '').trim();
         const metDir = (document.getElementById('kpi-in-met-dir') ? document.getElementById('kpi-in-met-dir').value : '').trim();
@@ -6739,9 +6814,14 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         document.getElementById('kpi-in-dedofrio-val').value = '';
         if (document.getElementById('input-dedo-frio')) document.getElementById('input-dedo-frio').value = '';
         showToast('🗑️ Medición de Dedo Frío eliminada (marcada como pendiente)');
-      } else if (activeTab === 'tab-ro') {
-        document.getElementById('kpi-in-ro-val').value = '';
-        showToast('🗑️ Medición de % RO eliminada (marcada como pendiente)');
+      } else if (activeTab === 'tab-precintos' || activeTab === 'tab-ro') {
+        if (document.getElementById('kpi-in-precintos-s123b')) document.getElementById('kpi-in-precintos-s123b').value = '';
+        if (document.getElementById('kpi-in-precintos-s008')) document.getElementById('kpi-in-precintos-s008').value = '';
+        if (document.getElementById('kpi-in-precintos-s144')) document.getElementById('kpi-in-precintos-s144').value = '';
+        if (document.getElementById('input-precintos-s123b')) document.getElementById('input-precintos-s123b').value = '';
+        if (document.getElementById('input-precintos-s008')) document.getElementById('input-precintos-s008').value = '';
+        if (document.getElementById('input-precintos-s144')) document.getElementById('input-precintos-s144').value = '';
+        showToast('🗑️ Control de Precintos restablecido (marcado como pendiente)');
       } else if (activeTab === 'tab-met') {
         if (document.getElementById('kpi-in-met-vel')) document.getElementById('kpi-in-met-vel').value = '';
         if (document.getElementById('input-met-vel')) document.getElementById('input-met-vel').value = '';
