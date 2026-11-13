@@ -251,10 +251,68 @@ if ($db_connected && $id_planilla > 0) {
         while ($r = mysql_fetch_assoc($q_esp)) $rows_espectrometria[] = $r;
     }
 
-    // 12. Efluentes Líquidos
-    $q_liq = @mysql_query("SELECT * FROM reg_rad_ef_liq_final_para_tabla WHERE id_planilla = $id_planilla", $miconex);
+    // 12. Efluentes Líquidos (con desglose isotópico)
+    $q_liq = @mysql_query("SELECT v.*, n.observaciones 
+        FROM reg_rad_ef_liq_final_para_tabla v 
+        LEFT JOIN regrad_efluentes_liquidos_nueva n ON n.id_efluentes = v.id_efluentes 
+        WHERE v.id_planilla = $id_planilla 
+        ORDER BY v.fecha DESC, v.hora DESC, v.id_efluentes DESC", $miconex);
     if ($q_liq) {
-        while ($r = mysql_fetch_assoc($q_liq)) $rows_efluentes_liq[] = $r;
+        while ($r = mysql_fetch_assoc($q_liq)) {
+            $id_ef = isset($r['id_efluentes']) ? intval($r['id_efluentes']) : 0;
+            $rads_ef = array();
+            if ($id_ef > 0) {
+                // 1) Intentar desde regrad_efluentes_liquidos_radionucleidos
+                $q_rad = @mysql_query("SELECT a.id, a.id_radionucleido_efluentes_liquidos, b.radionucleido, a.conc_Bq_litro 
+                    FROM regrad_efluentes_liquidos_radionucleidos a 
+                    LEFT JOIN reg_rad_radionucleidos_con_ki_ro b ON b.id_radionucleidos = a.id_radionucleido_efluentes_liquidos 
+                    WHERE a.id_regrad_efluentes_liquidos = $id_ef 
+                    ORDER BY a.id ASC", $miconex);
+                if ($q_rad && mysql_num_rows($q_rad) > 0) {
+                    while ($rr = mysql_fetch_assoc($q_rad)) {
+                        $c_bq_l = floatval($rr['conc_Bq_litro']);
+                        $vol_l = floatval($r['volumen_litro']);
+                        $act_bq = $c_bq_l * $vol_l;
+                        $rads_ef[] = array(
+                            'id' => intval($rr['id']),
+                            'id_radionucleido' => intval($rr['id_radionucleido_efluentes_liquidos']),
+                            'radionucleido' => !empty($rr['radionucleido']) ? $rr['radionucleido'] : ('ID ' . $rr['id_radionucleido_efluentes_liquidos']),
+                            'conc_Bq_litro' => $c_bq_l,
+                            'conc_uCi_ml' => $c_bq_l / 3.7e7,
+                            'actividad_Bq' => $act_bq,
+                            'actividad_TBq' => $act_bq / 1e12
+                        );
+                    }
+                }
+
+                // 2) Fallback si estaba en tabla histórica de cálculos
+                if (empty($rads_ef)) {
+                    $q_arch = @mysql_query("SELECT a.*, b.radionucleido 
+                        FROM reg_rad_efluentes_liquidos_radionucleidos_calculos_archivo a 
+                        LEFT JOIN reg_rad_radionucleidos_con_ki_ro b ON b.id_radionucleidos = a.id_radionucleidos 
+                        WHERE a.id_efluentes = $id_ef 
+                        ORDER BY a.id_radionucleidos ASC", $miconex);
+                    if ($q_arch && mysql_num_rows($q_arch) > 0) {
+                        while ($ra = mysql_fetch_assoc($q_arch)) {
+                            $c_bq_l = floatval($ra['concentracion']);
+                            $act_bq = isset($ra['actividad_Bq']) && floatval($ra['actividad_Bq']) > 0 ? floatval($ra['actividad_Bq']) : ($c_bq_l * floatval($r['volumen_litro']));
+                            $rads_ef[] = array(
+                                'id' => isset($ra['id']) ? intval($ra['id']) : intval($ra['id_radionucleidos']),
+                                'id_radionucleido' => intval($ra['id_radionucleidos']),
+                                'radionucleido' => !empty($ra['radionucleido']) ? $ra['radionucleido'] : ('ID ' . $ra['id_radionucleidos']),
+                                'conc_Bq_litro' => $c_bq_l,
+                                'conc_uCi_ml' => $c_bq_l / 3.7e7,
+                                'actividad_Bq' => $act_bq,
+                                'actividad_TBq' => $act_bq / 1e12,
+                                'LDD' => isset($ra['LDD']) ? floatval($ra['LDD']) : null
+                            );
+                        }
+                    }
+                }
+            }
+            $r['radionucleidos'] = $rads_ef;
+            $rows_efluentes_liq[] = $r;
+        }
     }
 
     // 13. Contaminación Superficial
@@ -318,6 +376,53 @@ if (!$db_connected && empty($rows_tareas)) {
     $rows_tareas = array(
         array('id_ptr' => 1042, 'recinto_nombre' => 'R-005 (SISTEMA D2O)', 'tasa_dosis' => 18.5, 'derrame_agua' => 0, 'texto_tarea' => 'MANTENIMIENTO PREVENTIVO DE BOMBA DE PURIFICACIÓN DE AGUA PESADA', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO', 'nombre_ayudante' => 'GOMEZ, FACUNDO'),
         array('id_ptr' => 1045, 'recinto_nombre' => 'R-012 (EDIFICIO REACTOR)', 'tasa_dosis' => 45.0, 'derrame_agua' => 0, 'texto_tarea' => 'RELEVAMIENTO RADIOLÓGICO PARA INSPECCIÓN TÉRMICA DE CAÑERÍAS', 'of_apellido' => 'ALTUNA', 'of_nombre' => 'LEONARDO', 'nombre_ayudante' => 'VAZQUEZ, DANIEL')
+    );
+}
+
+if (!$db_connected && empty($rows_efluentes_liq)) {
+    $rows_efluentes_liq = array(
+        array(
+            'id_efluentes' => 1,
+            'id_planilla' => $id_planilla,
+            'fecha' => !empty($row_planilla['fecha']) ? $row_planilla['fecha'] : date('Y-m-d'),
+            'hora' => '19:54',
+            'tanque' => '2',
+            'volumen_litro' => 39440.0,
+            'actividad_tritio' => 57980000000.0,
+            'actividad_gamma' => 725700.0,
+            'LDD_Ro_tritio' => 1.735,
+            'LDD_Ro_gamma' => 0.002,
+            'observaciones' => 'Descarga autorizada y verificada por PTR.',
+            'radionucleidos' => array(
+                array(
+                    'id' => 1,
+                    'id_radionucleido' => 1,
+                    'radionucleido' => 'H-3',
+                    'conc_Bq_litro' => 1470081.14,
+                    'conc_uCi_ml' => 0.03973,
+                    'actividad_Bq' => 57980000000.0,
+                    'actividad_TBq' => 0.05798
+                ),
+                array(
+                    'id' => 2,
+                    'id_radionucleido' => 3,
+                    'radionucleido' => 'Co-60',
+                    'conc_Bq_litro' => 12.5,
+                    'conc_uCi_ml' => 3.378e-7,
+                    'actividad_Bq' => 493000.0,
+                    'actividad_TBq' => 4.93e-7
+                ),
+                array(
+                    'id' => 3,
+                    'id_radionucleido' => 5,
+                    'radionucleido' => 'Cs-137',
+                    'conc_Bq_litro' => 5.9,
+                    'conc_uCi_ml' => 1.594e-7,
+                    'actividad_Bq' => 232700.0,
+                    'actividad_TBq' => 2.327e-7
+                )
+            )
+        )
     );
 }
 
@@ -1477,6 +1582,54 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       text-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
     }
 
+    /* Pills y botones de Radionucleídos de Efluentes Líquidos */
+    .btn-muestra-open {
+      background: rgba(6, 182, 212, 0.12);
+      border: 1px solid rgba(6, 182, 212, 0.38);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      white-space: nowrap;
+    }
+
+    .btn-muestra-open:hover {
+      background: var(--accent-cyan);
+      color: #02120e;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.45);
+      transform: scale(1.04);
+    }
+
+    .liq-rad-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(6, 182, 212, 0.08);
+      border: 1px solid rgba(6, 182, 212, 0.28);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .liq-rad-chip:hover {
+      background: rgba(6, 182, 212, 0.22);
+      border-color: var(--accent-cyan);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
     /* ========================================================== */
     /* TOOLTIPS PERSONALIZADOS CYBERPUNK RADIOLÓGICOS             */
     /* ========================================================== */
@@ -2231,20 +2384,51 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                     <th>Actividad Tritio (TBq)</th>
                     <th>Actividad Gamma (TBq)</th>
                     <th>% del RoDD</th>
+                    <th>Radionucleídos / Muestra</th>
                   </tr>
                 </thead>
                 <tbody>
                   <?php foreach ($rows_efluentes_liq as $ef): 
                     $roddTot = (float)$ef['LDD_Ro_tritio'] + (float)$ef['LDD_Ro_gamma'];
+                    $payload_ef = array(
+                      'tanque' => !empty($ef['tanque']) ? $ef['tanque'] : 'Tanque',
+                      'fecha' => formafecha_latam($ef['fecha']),
+                      'hora' => formato_hora_limpio($ef['hora']),
+                      'volumen_m3' => formato_volumen_m3($ef['volumen_litro']),
+                      'volumen_litro' => (float)$ef['volumen_litro'],
+                      'actividad_tritio_TBq' => formato_actividad_tbq_notacion($ef['actividad_tritio']),
+                      'actividad_gamma_TBq' => formato_actividad_tbq_notacion($ef['actividad_gamma']),
+                      'rodd_total' => number_format($roddTot, 3, ',', '') . '%',
+                      'observaciones' => !empty($ef['observaciones']) ? $ef['observaciones'] : '',
+                      'radionucleidos' => !empty($ef['radionucleidos']) ? $ef['radionucleidos'] : array()
+                    );
+                    $json_payload = htmlspecialchars(json_encode($payload_ef), ENT_QUOTES, 'UTF-8');
                   ?>
                     <tr>
                       <td class="mono"><?php echo formafecha_latam($ef['fecha']); ?></td>
                       <td class="mono"><?php echo formato_hora_limpio($ef['hora']); ?></td>
-                      <td style="font-weight: 700;"><?php echo htmlspecialchars($ef['tanque'], ENT_QUOTES, 'UTF-8'); ?></td>
+                      <td style="font-weight: 700; text-align: left;">
+                        <div style="color: #ffffff; font-size: 13px;"><?php echo htmlspecialchars($ef['tanque'], ENT_QUOTES, 'UTF-8'); ?></div>
+                        <?php if (!empty($ef['radionucleidos'])): ?>
+                          <div style="margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px;">
+                            <?php foreach ($ef['radionucleidos'] as $rn): ?>
+                              <span class="liq-rad-chip" onclick="abrirModalRadionucleidosLiquido(<?php echo $json_payload; ?>)" title="Concentración: <?php echo notacion_cientifica2($rn['conc_Bq_litro']); ?> Bq/l | Actividad: <?php echo formato_actividad_tbq_notacion($rn['actividad_TBq']); ?> TBq">
+                                <strong style="color: #67e8f9;"><?php echo htmlspecialchars($rn['radionucleido'], ENT_QUOTES, 'UTF-8'); ?></strong>
+                                <span style="opacity: 0.85; font-size: 9.5px;"><?php echo formato_actividad_tbq_notacion($rn['actividad_TBq']); ?> TBq</span>
+                              </span>
+                            <?php endforeach; ?>
+                          </div>
+                        <?php endif; ?>
+                      </td>
                       <td class="mono"><?php echo formato_volumen_m3($ef['volumen_litro']); ?></td>
-                      <td class="mono"><?php echo formato_actividad_tbq_notacion($ef['actividad_tritio']); ?></td>
-                      <td class="mono"><?php echo formato_actividad_tbq_notacion($ef['actividad_gamma']); ?></td>
+                      <td class="mono" style="color: #67e8f9; font-weight: 700;"><?php echo formato_actividad_tbq_notacion($ef['actividad_tritio']); ?></td>
+                      <td class="mono" style="color: #f472b6; font-weight: 700;"><?php echo formato_actividad_tbq_notacion($ef['actividad_gamma']); ?></td>
                       <td class="mono" style="font-weight: 700; color: var(--accent-cyan);"><?php echo number_format($roddTot, 3, ',', ''); ?>%</td>
+                      <td style="text-align: center; white-space: nowrap;">
+                        <button type="button" class="btn-muestra-open" onclick="abrirModalRadionucleidosLiquido(<?php echo $json_payload; ?>)" title="Ver espectrometría y radionucleídos de esta descarga">
+                          <span>🔬</span> Ver Muestra <?php if (!empty($ef['radionucleidos'])) echo '(' . count($ef['radionucleidos']) . ')'; ?>
+                        </button>
+                      </td>
                     </tr>
                   <?php endforeach; ?>
                 </tbody>
@@ -2524,6 +2708,8 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeRecintoHistoryModal();
+        closeActaModal();
+        cerrarModalRadionucleidosLiquido();
       }
     });
 
@@ -2584,6 +2770,85 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       } else {
         if (typeof showToast === 'function') showToast('📋 Texto disponible en pantalla');
       }
+    }
+
+    // ================= MODAL DE RADIONUCLEÍDOS / MUESTRA DE EFLUENTES LÍQUIDOS =================
+    function liqFormatoCNE(val) {
+      if (val === null || val === undefined || isNaN(val) || Number(val) === 0) return '0,000';
+      const v = Number(val);
+      const sign = v < 0 ? '-' : '';
+      const absV = Math.abs(v);
+      const exp = Math.floor(Math.log10(absV));
+      const mantissa = absV / Math.pow(10, exp);
+      const mantissaStr = mantissa.toFixed(3).replace('.', ',');
+      return sign + mantissaStr + 'E' + (exp >= 0 ? '+' : '') + exp;
+    }
+
+    function abrirModalRadionucleidosLiquido(data) {
+      if (!data) return;
+      const modal = document.getElementById('modal-radionucleidos-liquidos');
+      if (!modal) return;
+
+      document.getElementById('mrl-tanque-titulo').textContent = 'Tanque ' + (data.tanque || '-');
+      document.getElementById('mrl-fecha-hora').textContent = (data.fecha || '--/--/----') + ' • ' + (data.hora || '--:--') + ' hs';
+      document.getElementById('mrl-volumen').textContent = (data.volumen_m3 || '0.00') + ' m³';
+      document.getElementById('mrl-actividad-tritio').textContent = (data.actividad_tritio_TBq || '0,000') + ' TBq';
+      document.getElementById('mrl-actividad-gamma-rodd').textContent = (data.actividad_gamma_TBq || '0,000') + ' TBq (' + (data.rodd_total || '0,000%') + ')';
+
+      const rads = Array.isArray(data.radionucleidos) ? data.radionucleidos : [];
+      document.getElementById('mrl-cant-rads').textContent = rads.length;
+
+      const tbody = document.getElementById('mrl-tabla-rads-body');
+      if (tbody) {
+        if (rads.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 18px; font-style: italic;">No se registraron radionucleídos individuales asentados para esta descarga.</td></tr>';
+        } else {
+          tbody.innerHTML = rads.map((r, idx) => {
+            const radNombre = r.radionucleido || ('ID ' + (r.id_radionucleido || '-'));
+            const isH3 = radNombre.toUpperCase().indexOf('H-3') !== -1 || radNombre.toUpperCase().indexOf('TRITIO') !== -1;
+            const concBql = parseFloat(r.conc_Bq_litro) || 0;
+            const concUci = parseFloat(r.conc_uCi_ml) || (concBql / 3.7e7);
+            const actBq = parseFloat(r.actividad_Bq) || (concBql * (parseFloat(data.volumen_litro) || 0));
+            const actTbq = parseFloat(r.actividad_TBq) || (actBq / 1e12);
+
+            const badgeColor = isH3 ? '#67e8f9' : '#f472b6';
+            const badgeBg = isH3 ? 'rgba(6, 182, 212, 0.15)' : 'rgba(244, 114, 182, 0.15)';
+
+            return '<tr>' +
+              '<td class="mono" style="color: var(--text-dim);">' + (idx + 1) + '</td>' +
+              '<td style="text-align: left; font-weight: 800;">' +
+                '<span style="display: inline-flex; align-items: center; gap: 6px;">' +
+                  '<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ' + badgeColor + ';"></span>' +
+                  '<span style="color: ' + badgeColor + '; font-size: 13px;">' + radNombre + '</span>' +
+                  '<span style="font-size: 9.5px; font-weight: 600; padding: 1px 5px; border-radius: 3px; background: ' + badgeBg + '; color: ' + badgeColor + '; font-family: var(--font-mono);">' + (isH3 ? 'Tritio' : 'Gamma') + '</span>' +
+                '</span>' +
+              '</td>' +
+              '<td class="mono" style="font-weight: 700;">' + liqFormatoCNE(concBql) + ' <span style="font-size: 10px; color: var(--text-dim);">Bq/l</span></td>' +
+              '<td class="mono" style="color: var(--text-muted);">' + liqFormatoCNE(concUci) + ' <span style="font-size: 10px; color: var(--text-dim);">µCi/ml</span></td>' +
+              '<td class="mono" style="color: ' + badgeColor + '; font-weight: 800;">' + liqFormatoCNE(actTbq) + ' <span style="font-size: 10px;">TBq</span></td>' +
+              '<td class="mono" style="color: var(--text-dim);">' + liqFormatoCNE(actBq) + ' <span style="font-size: 10px;">Bq</span></td>' +
+            '</tr>';
+          }).join('');
+        }
+      }
+
+      const obsCont = document.getElementById('mrl-observaciones-container');
+      const obsTxt = document.getElementById('mrl-observaciones-texto');
+      if (obsCont && obsTxt) {
+        if (data.observaciones && data.observaciones.trim() !== '') {
+          obsTxt.textContent = data.observaciones;
+          obsCont.style.display = 'block';
+        } else {
+          obsCont.style.display = 'none';
+        }
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    function cerrarModalRadionucleidosLiquido() {
+      const modal = document.getElementById('modal-radionucleidos-liquidos');
+      if (modal) modal.style.display = 'none';
     }
 
     // ====================================================
@@ -2859,6 +3124,97 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
             <span>📋</span> Copiar Descripción
           </button>
           <button type="button" class="btn-primary" onclick="closeActaModal()" style="padding: 6px 18px; font-size: 12px; font-weight: 700; border-radius: 6px; background: var(--accent-cyan); color: #02120e; border: none; cursor: pointer;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL HUD: DESGLOSE DE RADIONUCLEÍDOS / MUESTRA DE EFLUENTE LÍQUIDO -->
+  <div class="modal-overlay" id="modal-radionucleidos-liquidos" style="display: none;" onclick="if(event.target===this) cerrarModalRadionucleidosLiquido();">
+    <div class="modal-box" style="max-width: 760px; border-left: 4px solid var(--accent-cyan); animation: cyber-hologram-assemble 0.28s ease-out;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 22px;">💧</span>
+          <div>
+            <div style="font-size: 11px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.5px;">
+              Muestra Isotópica &bull; Efluente Líquido
+            </div>
+            <div id="mrl-tanque-titulo" style="font-size: 15px; font-weight: 800; color: #ffffff; margin-top: 1px;">
+              Tanque -
+            </div>
+          </div>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="cerrarModalRadionucleidosLiquido()" style="background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; padding: 4px 8px; border-radius: 4px;" title="Cerrar modal (Esc)">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 16px 22px;">
+        <!-- Métricas del Efluente -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px;">
+          <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid var(--border-card); border-radius: 6px; padding: 8px 10px;">
+            <div style="font-size: 9.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Fecha y Hora</div>
+            <div id="mrl-fecha-hora" style="font-size: 12.5px; font-weight: 800; color: #ffffff; font-family: var(--font-mono); margin-top: 2px;">-</div>
+          </div>
+          <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid var(--border-card); border-radius: 6px; padding: 8px 10px;">
+            <div style="font-size: 9.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Volumen Emitido</div>
+            <div id="mrl-volumen" style="font-size: 13px; font-weight: 800; color: var(--accent-cyan); font-family: var(--font-mono); margin-top: 2px;">- m³</div>
+          </div>
+          <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid var(--border-card); border-radius: 6px; padding: 8px 10px;">
+            <div style="font-size: 9.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Actividad Tritio</div>
+            <div id="mrl-actividad-tritio" style="font-size: 13px; font-weight: 800; color: #67e8f9; font-family: var(--font-mono); margin-top: 2px;">- TBq</div>
+          </div>
+          <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid var(--border-card); border-radius: 6px; padding: 8px 10px;">
+            <div style="font-size: 9.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Gamma / % RoDD</div>
+            <div id="mrl-actividad-gamma-rodd" style="font-size: 12px; font-weight: 800; color: #f472b6; font-family: var(--font-mono); margin-top: 2px;">-</div>
+          </div>
+        </div>
+
+        <!-- Tabla de Radionucleídos de la Muestra -->
+        <div style="margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 11px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.5px;">
+              ☢️ Composición Isotópica Detectada (<span id="mrl-cant-rads">0</span> isótopos)
+            </span>
+            <span style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">
+              Actividad = Concentración (Bq/l) &times; Volumen (l)
+            </span>
+          </div>
+          <div style="max-height: 260px; overflow-y: auto; border: 1px solid var(--border-card); border-radius: 6px;">
+            <table class="data-table" style="margin: 0; width: 100%;">
+              <thead>
+                <tr>
+                  <th style="width: 40px;">#</th>
+                  <th style="text-align: left;">Radionucleído</th>
+                  <th>Concentración (Bq/l)</th>
+                  <th>Concentración (µCi/ml)</th>
+                  <th>Actividad (TBq)</th>
+                  <th>Actividad (Bq)</th>
+                </tr>
+              </thead>
+              <tbody id="mrl-tabla-rads-body">
+                <!-- Filas inyectadas por JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Observaciones / Autorización PTR si existen -->
+        <div id="mrl-observaciones-container" style="margin-bottom: 14px; display: none;">
+          <div style="font-size: 10px; font-weight: 700; color: var(--accent-amber); text-transform: uppercase; margin-bottom: 4px;">
+            📝 Observaciones de la Descarga / Autorización:
+          </div>
+          <div id="mrl-observaciones-texto" style="background: rgba(3, 15, 12, 0.8); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-amber); border-radius: 6px; padding: 8px 12px; font-size: 11.5px; color: var(--text-main); font-family: var(--font-sans); white-space: pre-wrap;">
+            -
+          </div>
+        </div>
+
+        <!-- Footer Modal -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
+          <span style="font-size: 10.5px; color: var(--text-dim); font-family: var(--font-mono);">
+            * Concentraciones y actividades verificadas bajo normas de Radioprotección CNE.
+          </span>
+          <button type="button" class="btn-primary" onclick="cerrarModalRadionucleidosLiquido()" style="padding: 6px 18px; font-size: 12px; font-weight: 700; border-radius: 6px; background: var(--accent-cyan); color: #02120e; border: none; cursor: pointer;">
             Cerrar
           </button>
         </div>

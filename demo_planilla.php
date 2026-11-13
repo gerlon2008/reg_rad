@@ -5308,13 +5308,13 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     </div>
   </div>
 
-  <!-- ================= MODAL: OBSERVACIONES DE EFLUENTE EMITIDO ================= -->
+  <!-- ================= MODAL: OBSERVACIONES Y RADIONUCLEÍDOS DE EFLUENTE EMITIDO ================= -->
   <div class="modal-overlay" id="modal-obs-liquido" style="display: none;">
-    <div class="modal-box" style="width: 520px; max-width: 95vw;">
+    <div class="modal-box" style="width: 660px; max-width: 95vw;">
       <div class="modal-header">
         <div class="modal-header-left">
-          <span>📝</span>
-          <span id="modal-obs-liq-title">Detalle y Observaciones del Tanque</span>
+          <span>🔬</span>
+          <span id="modal-obs-liq-title">Detalle y Composición Isotópica del Tanque</span>
         </div>
         <button type="button" class="btn-modal-close" onclick="closeObsLiquidoModal()" title="Cerrar (Esc)">✕</button>
       </div>
@@ -9235,6 +9235,17 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       return n.toFixed(4).replace('.', ',');
     }
 
+    function liqFormatoCNE(val) {
+      if (val === null || val === undefined || isNaN(val) || Number(val) === 0) return '0,000';
+      const v = Number(val);
+      const sign = v < 0 ? '-' : '';
+      const absV = Math.abs(v);
+      const exp = Math.floor(Math.log10(absV));
+      const mantissa = absV / Math.pow(10, exp);
+      const mantissaStr = mantissa.toFixed(3).replace('.', ',');
+      return `${sign}${mantissaStr}E${exp >= 0 ? '+' : ''}${exp}`;
+    }
+
     function populateLiqModalSelects() {
       const volSel = document.getElementById('liq-in-vol-unidad');
       if (volSel && volSel.options.length === 0) {
@@ -9608,13 +9619,57 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       const row = liqEmitidos.find(e => String(e.id_efluentes) === String(idEf));
       if (!row) return;
       document.getElementById('obs-liq-id').value = idEf;
-      document.getElementById('modal-obs-liq-title').textContent = `Detalle: ${row.tanque} (${liqFmtLatamDate(row.fecha)} ${row.hora})`;
+      document.getElementById('modal-obs-liq-title').textContent = `Muestra & Detalle: Tanque ${row.tanque} (${liqFmtLatamDate(row.fecha)} ${row.hora} hs)`;
       document.getElementById('obs-liq-texto').value = row.observaciones || '';
       const rads = row.radionucleidos || [];
-      document.getElementById('obs-liq-rads-list').innerHTML = rads.length > 0
-        ? `<div style="font-size:11px; color:var(--text-muted); margin-bottom:4px; font-weight:700;">Radionucleídos asentados:</div>` +
-          rads.map(r => `<span class="liq-rad-tag">${liqEscape(r.radionucleido)}: ${(parseFloat(r.conc_Bq_litro)||0).toExponential(2)} Bq/l</span>`).join('')
-        : '<div style="font-size:11px; color:var(--text-dim);">Sin detalle de radionucleídos</div>';
+      const volLitro = parseFloat(row.volumen_litro) || ((parseFloat(row.volumen_m3) || 0) * 1000);
+      let radsHtml = '';
+      if (rads.length > 0) {
+        radsHtml = `
+          <div style="margin-bottom: 14px;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+              <span>☢️ Composición Isotópica Detectada (${rads.length})</span>
+              <span style="font-size: 10.5px; color: var(--text-dim); font-family: var(--font-mono);">Volumen: ${(volLitro/1000).toFixed(2)} m³</span>
+            </div>
+            <div style="border: 1px solid var(--border-card); border-radius: 6px; overflow: hidden;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 11px; font-family: var(--font-mono);">
+                <thead>
+                  <tr style="background: rgba(9, 28, 24, 0.9); color: var(--text-muted); border-bottom: 1px solid var(--border-card); text-align: left;">
+                    <th style="padding: 6px 8px;">Radionucleído</th>
+                    <th style="padding: 6px 8px; text-align: right;">Conc. (Bq/l)</th>
+                    <th style="padding: 6px 8px; text-align: right;">Conc. (µCi/ml)</th>
+                    <th style="padding: 6px 8px; text-align: right;">Actividad (TBq)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rads.map(r => {
+                    const cBql = parseFloat(r.conc_Bq_litro) || 0;
+                    const cUci = cBql / 3.7e7;
+                    const actBq = cBql * volLitro;
+                    const actTbq = actBq / 1e12;
+                    const isH3 = (r.radionucleido || '').toUpperCase().includes('H-3');
+                    const color = isH3 ? '#67e8f9' : '#f472b6';
+                    return `
+                      <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2);">
+                        <td style="padding: 6px 8px; font-weight: 700; color: ${color};">
+                          <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${color}; margin-right:5px;"></span>
+                          ${liqEscape(r.radionucleido)}
+                        </td>
+                        <td style="padding: 6px 8px; text-align: right;">${liqFormatoCNE(cBql)}</td>
+                        <td style="padding: 6px 8px; text-align: right; color: var(--text-muted);">${liqFormatoCNE(cUci)}</td>
+                        <td style="padding: 6px 8px; text-align: right; font-weight: 700; color: ${color};">${liqFormatoCNE(actTbq)}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      } else {
+        radsHtml = '<div style="font-size:11px; color:var(--text-dim); margin-bottom: 10px; font-style: italic;">Sin detalle de radionucleídos individuales asentados para esta descarga</div>';
+      }
+      document.getElementById('obs-liq-rads-list').innerHTML = radsHtml;
       document.getElementById('modal-obs-liquido').style.display = 'flex';
     }
 
@@ -9824,7 +9879,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
       // 2) Emitidos Reales
       realList.forEach(e => {
-        const radTags = (e.radionucleidos || []).map(r => `<span class="liq-rad-tag">${liqEscape(r.radionucleido)}</span>`).join('');
+        const radTags = (e.radionucleidos || []).map(r => `<span class="liq-rad-tag" style="cursor:pointer;" onclick="openObsLiquidoModal(${e.id_efluentes})" title="Click para ver detalle isotópico">${liqEscape(r.radionucleido)}</span>`).join('');
         rows.push(`
           <tr>
             <td><span class="liq-badge emitido">🟢 EMITIDO REAL</span></td>
@@ -9838,8 +9893,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             <td class="num mono" style="color: #f472b6; font-weight: 700;">${liqFmtTBq(e.actividad_gamma_TBq)}</td>
             <td class="num mono" style="color: #fff; font-weight: 800;">${Number(e.rodd_total || 0).toFixed(3)}%</td>
             <td style="text-align: center; white-space: nowrap;">
+              <button type="button" class="liq-btn-mini" onclick="openObsLiquidoModal(${e.id_efluentes})" title="Ver radionucleidos y detalle de muestra">🔬 Muestra</button>
               <button type="button" class="liq-btn-mini" onclick="openPdfOficialLiquido(${e.id_efluentes})" title="Imprimir PDF oficial">🖨️ PDF</button>
-              <button type="button" class="liq-btn-mini" onclick="openObsLiquidoModal(${e.id_efluentes})" title="Detalle y observaciones">📝</button>
               <button type="button" class="liq-btn-mini danger" onclick="deleteEmitidoLiquido(${e.id_efluentes})" title="Eliminar registro">🗑️</button>
             </td>
           </tr>
