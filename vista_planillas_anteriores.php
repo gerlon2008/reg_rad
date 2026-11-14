@@ -946,7 +946,7 @@ if (!$db_connected) {
       border: 1px solid var(--accent-cyan);
       border-radius: 10px;
       width: 100%;
-      max-width: 820px;
+      max-width: 900px;
       max-height: 90vh;
       display: flex;
       flex-direction: column;
@@ -1054,14 +1054,103 @@ if (!$db_connected) {
       border: 1px solid var(--border-card);
       border-radius: 6px;
       padding: 12px;
-      min-height: 220px;
-      max-height: 380px;
+      min-height: 80px;
+      max-height: 150px;
       overflow-y: auto;
       font-family: var(--font-mono);
       font-size: 12px;
       color: var(--text-main);
       white-space: pre-wrap;
       line-height: 1.5;
+    }
+
+    .actas-tareas-container {
+      max-height: 320px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-right: 4px;
+    }
+
+    .acta-card-item {
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border-card);
+      border-left: 3px solid var(--accent-cyan);
+      border-radius: 6px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .acta-card-item:hover {
+      border-color: rgba(34, 211, 238, 0.4);
+      background: rgba(14, 43, 37, 0.7);
+    }
+
+    .acta-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .acta-badge-ptr {
+      background: rgba(34, 211, 238, 0.12);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(34, 211, 238, 0.3);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .acta-badge-dosis {
+      background: rgba(245, 158, 11, 0.12);
+      color: var(--accent-amber);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 700;
+    }
+
+    .acta-param-tag {
+      font-size: 10.5px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+    }
+
+    .acta-param-tag.tritio {
+      background: rgba(34, 211, 238, 0.08);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(34, 211, 238, 0.2);
+    }
+
+    .acta-param-tag.derrame {
+      background: rgba(59, 130, 246, 0.12);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .acta-param-tag.aerosol {
+      background: rgba(239, 68, 68, 0.12);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
     }
 
     .modal-footer {
@@ -1402,9 +1491,20 @@ if (!$db_connected) {
         <!-- Texto Libro de Actas -->
         <div>
           <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">
-            Novedades Asentadas en el Turno:
+            📖 Novedades de Turno (Libro de Actas General):
           </div>
           <div class="actas-content-box" id="modal-actas-texto">Cargando novedades...</div>
+        </div>
+
+        <!-- Actas y Tareas Diarias Registradas -->
+        <div>
+          <div style="font-size: 11px; font-weight: 700; color: var(--accent-cyan); margin-bottom: 6px; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;">
+            <span>📋 Actas de Guardia &amp; Tareas PTR (<span id="modal-actas-count">0</span>)</span>
+            <span style="font-size: 10px; color: var(--text-dim); text-transform: none;">Registros individuales asentados en MySQL</span>
+          </div>
+          <div id="modal-actas-tareas-list" class="actas-tareas-container">
+            <div style="color: var(--text-dim); font-style: italic; padding: 12px; text-align: center;">Cargando actas de la guardia...</div>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -1664,6 +1764,16 @@ if (!$db_connected) {
     // ================= MODAL LIBRO DE ACTAS =================
     const modalActasBackdrop = document.getElementById('modal-actas-backdrop');
 
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     function abrirNovedadesActas(idPlanilla, fecha, oficial, turno) {
       document.getElementById('modal-actas-id').textContent = 'PLANILLA #' + idPlanilla;
       document.getElementById('modal-actas-fecha').textContent = fecha;
@@ -1675,6 +1785,12 @@ if (!$db_connected) {
       document.getElementById('modal-actas-c14').textContent = '...';
       document.getElementById('modal-actas-dedo-frio').textContent = '...';
       document.getElementById('modal-actas-texto').textContent = 'Consultando novedades del servidor...';
+
+      // 3. Preparar contenedor de Actas de Guardia
+      const listEl = document.getElementById('modal-actas-tareas-list');
+      const countEl = document.getElementById('modal-actas-count');
+      if (countEl) countEl.textContent = '...';
+      if (listEl) listEl.innerHTML = '<div style="color: var(--text-dim); font-style: italic; padding: 12px; text-align: center;">Consultando actas registradas en el servidor...</div>';
 
       modalActasBackdrop.style.display = 'flex';
 
@@ -1715,6 +1831,71 @@ if (!$db_connected) {
         })
         .catch(() => {
           document.getElementById('modal-actas-texto').textContent = "Turno sin novedades radiológicas anormales. Recorridas de rutina completadas conforme al PO-SyR-01. Monitoreo de efluentes gaseosos normal.";
+        });
+
+      // 3. Recuperar Actas y Tareas Diarias (de regrad_actas_tareas_diarias)
+      fetch('procesos_reg_rad.php?accion=recuperar_tareas_diarias&format=json&id_planilla=' + idPlanilla)
+        .then(r => r.text())
+        .then(raw => {
+          let items = null;
+          try {
+            items = JSON.parse(raw);
+          } catch(e) {
+            items = null;
+          }
+
+          if (Array.isArray(items)) {
+            if (countEl) countEl.textContent = String(items.length);
+            if (items.length === 0) {
+              listEl.innerHTML = '<div style="color: var(--text-dim); font-style: italic; padding: 16px; text-align: center; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px dashed var(--border-card);">- No se registraron actas específicas de tareas o eventos PTR en esta guardia -</div>';
+              return;
+            }
+            listEl.innerHTML = items.map(a => {
+              const recintoTxt = escapeHtml(a.recinto || '-');
+              const ptrTxt = (a.ptr && a.ptr !== '-' && a.ptr !== '0') ? `<span class="acta-badge-ptr">📋 PTR: ${escapeHtml(a.ptr)}</span>` : '';
+              const horaTxt = a.hora ? `<span class="mono" style="font-weight: 700; color: var(--accent-cyan); font-size: 11.5px;">⏰ ${escapeHtml(a.hora)} hs</span>` : '';
+              const dosisTxt = (a.dosis !== undefined && a.dosis > 0) ? `<span class="acta-badge-dosis">☢️ ${Number(a.dosis).toFixed(1)} µSv/h</span>` : '';
+
+              const tags = [];
+              if (a.tritio > 0) tags.push(`<span class="acta-param-tag tritio">💧 Tritio: ${Number(a.tritio).toFixed(1)} DAC</span>`);
+              if (a.contaminacion_beta_gamma) tags.push(`<span class="acta-param-tag">β+γ: ${escapeHtml(a.contaminacion_beta_gamma)}</span>`);
+              if (a.contaminacion_alfa) tags.push(`<span class="acta-param-tag">α: ${escapeHtml(a.contaminacion_alfa)}</span>`);
+              if (a.derrame == 1) tags.push(`<span class="acta-param-tag derrame">💧 Hubo Derrame</span>`);
+              if (a.aerosoles > 0 || a.dispersion == 1) tags.push(`<span class="acta-param-tag aerosol">💨 Aerosoles: ${Number(a.aerosoles || 0).toFixed(1)} DAC</span>`);
+
+              const ofTxt = (a.oficial && a.oficial !== '-') ? `<strong style="color: #fff;">${escapeHtml(a.oficial)}</strong>` : '';
+              const ayTxt = (a.ayudante && a.ayudante !== '-') ? `&bull; Asistió: <strong style="color: #fff;">${escapeHtml(a.ayudante)}</strong>` : '';
+              const personalRow = (ofTxt || ayTxt) ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">👷‍♂️ Oficial: ${ofTxt} ${ayTxt}</div>` : '';
+
+              return `
+                <div class="acta-card-item">
+                  <div class="acta-card-header">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                      ${horaTxt}
+                      ${ptrTxt}
+                      <span style="font-weight: 700; color: #fff; font-size: 12.5px;">📍 ${recintoTxt}</span>
+                    </div>
+                    ${dosisTxt}
+                  </div>
+                  ${personalRow}
+                  ${tags.length > 0 ? `<div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px;">${tags.join('')}</div>` : ''}
+                  <div style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-main); white-space: pre-wrap; line-height: 1.45; background: rgba(0,0,0,0.22); padding: 8px 10px; border-radius: 4px; border-left: 2px solid var(--accent-cyan); margin-top: 4px;">
+                    ${escapeHtml(a.texto || '')}
+                  </div>
+                </div>
+              `;
+            }).join('');
+          } else if (raw && raw.trim() !== '') {
+            if (countEl) countEl.textContent = 'OK';
+            listEl.innerHTML = raw;
+          } else {
+            if (countEl) countEl.textContent = '0';
+            listEl.innerHTML = '<div style="color: var(--text-dim); font-style: italic; padding: 16px; text-align: center; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px dashed var(--border-card);">- No se registraron actas específicas de tareas o eventos PTR en esta guardia -</div>';
+          }
+        })
+        .catch(() => {
+          if (countEl) countEl.textContent = '0';
+          if (listEl) listEl.innerHTML = '<div style="color: var(--accent-red); font-style: italic; padding: 12px; text-align: center;">Error consultando actas del servidor</div>';
         });
     }
 

@@ -1255,7 +1255,7 @@ if ($accion == "obtener_registros_de_minizonas_registros_ptr") {
 	}
 }
 if ($accion == "recuperar_tareas_diarias") {
-	$id_planilla = $_GET['id_planilla'];
+	$id_planilla = isset($_GET['id_planilla']) ? (int)$_GET['id_planilla'] : 0;
 
 	// Hacemos el JOIN con la vista_personal_radioproteccion dos veces (una para el oficial, otra para el ayudante)
 	$query = "SELECT t.*, r.recinto as nombre_recinto,
@@ -1269,6 +1269,37 @@ if ($accion == "recuperar_tareas_diarias") {
 			  ORDER BY t.fecha_hora_carga ASC";
 
 	$resultado = mysql_query($query, $miconex) or die(mysql_error());
+
+	if (isset($_GET['format']) && $_GET['format'] === 'json') {
+		$items = array();
+		if ($resultado && mysql_num_rows($resultado) > 0) {
+			while ($row = mysql_fetch_assoc($resultado)) {
+				$hora_carga = !empty($row['fecha_hora_carga']) ? date('H:i', strtotime($row['fecha_hora_carga'])) : '--:--';
+				$of_nom = !empty($row['of_apellido']) ? mb_strtoupper($row['of_apellido'] . ", " . $row['of_nombre'], 'UTF-8') : '-';
+				$ay_nom = !empty($row['ay_apellido']) ? mb_strtoupper($row['ay_apellido'] . ", " . $row['ay_nombre'], 'UTF-8') : '-';
+				$items[] = array(
+					'id_tarea' => (int)$row['id_tarea'],
+					'fecha_hora_carga' => $row['fecha_hora_carga'],
+					'hora' => $hora_carga,
+					'ptr' => (!empty($row['id_ptr']) && $row['id_ptr'] != '0') ? $row['id_ptr'] : '-',
+					'recinto' => !empty($row['nombre_recinto']) ? $row['nombre_recinto'] : 'General de Planta',
+					'oficial' => $of_nom,
+					'ayudante' => $ay_nom,
+					'texto' => $row['texto_tarea'],
+					'dosis' => ($row['tasa_dosis'] !== null && $row['tasa_dosis'] !== '') ? (float)$row['tasa_dosis'] : 0,
+					'tritio' => ($row['tritio_dac'] !== null && $row['tritio_dac'] !== '') ? (float)$row['tritio_dac'] : 0,
+					'contaminacion_beta_gamma' => $row['contaminacion_beta_gamma'],
+					'contaminacion_alfa' => $row['contaminacion_alfa'],
+					'derrame' => !empty($row['derrame_agua']) ? 1 : 0,
+					'dispersion' => !empty($row['dispersion_aerosoles']) ? 1 : 0,
+					'aerosoles' => ($row['aerosoles_dac'] !== null && $row['aerosoles_dac'] !== '') ? (float)$row['aerosoles_dac'] : 0
+				);
+			}
+		}
+		header('Content-Type: application/json; charset=utf-8');
+		echo json_encode($items);
+		exit;
+	}
 
 	if (mysql_num_rows($resultado) == 0) {
 		echo "";
