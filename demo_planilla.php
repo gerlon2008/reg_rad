@@ -5360,6 +5360,34 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     </div>
   </div>
 
+  <!-- ================= MODAL DE SEGURIDAD: CONFIRMAR ELIMINACIÓN DE EFLUENTE ================= -->
+  <div class="modal-overlay" id="modal-delete-liq-confirm" style="display: none;" onclick="if(event.target===this) closeDeleteLiqModal();">
+    <div class="modal-box" style="width: 500px; max-width: 95vw; border-left: 4px solid var(--accent-red);">
+      <div class="modal-header" style="color: var(--accent-red);">
+        <div class="modal-header-left">
+          <span>⚠️</span>
+          <span>Confirmar Eliminación de Efluente Líquido</span>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeDeleteLiqModal()" title="Cerrar (Esc)">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        <p style="font-size: 13px; color: var(--text-main); margin-bottom: 12px;">
+          ¿Está seguro de que desea eliminar definitivamente la siguiente emisión asentada en la planilla?
+        </p>
+        <div id="delete-liq-details" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.28); border-radius: 6px; padding: 12px 14px; font-family: var(--font-mono); font-size: 11.5px; margin-bottom: 14px;">
+          <!-- Inyectado por JS -->
+        </div>
+        <p style="font-size: 11px; color: var(--text-dim); margin: 0;">
+          * Esta acción dará de baja la descarga en la planilla y borrará todos sus radionucleídos en MySQL. Esta operación no se puede deshacer.
+        </p>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button type="button" class="btn-modal-cancel" onclick="closeDeleteLiqModal()">CANCELAR</button>
+        <button type="button" class="btn-modal-confirm" onclick="executeDeleteEmitidoLiquido()" style="background: var(--accent-red); color: #fff;">🗑️ SÍ, ELIMINAR REGISTRO</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let activePlanillaId = <?php echo $id_planilla_activa ? $id_planilla_activa : 'null'; ?>;
     const ACTIVE_USUARIO_ID = <?php echo (int)($id_usuario_actual ? $id_usuario_actual : 1); ?>;
@@ -7523,6 +7551,9 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             if (overlay.id === 'confirm-modal') {
               pendingEntry = null;
             }
+            if (overlay.id === 'modal-delete-liq-confirm') {
+              pendingDeleteLiqId = null;
+            }
           }
         });
       }
@@ -9347,6 +9378,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           const opt = document.createElement('option');
           opt.value = r.id_radionucleidos;
           opt.textContent = r.radionucleido;
+          opt.setAttribute('data-original-name', r.radionucleido);
           radSel.appendChild(opt);
         });
       }
@@ -9405,6 +9437,35 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       if (m) m.style.display = 'none';
     }
 
+    function updateRadSelectOptions() {
+      const radSel = document.getElementById('liq-add-rad');
+      if (!radSel || radSel.options.length === 0) return;
+      const addedIds = new Set((liqDraftRads || []).map(r => String(r.id_radionucleido)));
+      const addedNames = new Set((liqDraftRads || []).map(r => (r.radionucleido || '').toUpperCase().trim()));
+
+      Array.from(radSel.options).forEach(opt => {
+        const origName = (opt.getAttribute('data-original-name') || opt.textContent.replace(/\s*\(ya agregado\)$/i, '')).trim();
+        if (!opt.getAttribute('data-original-name')) {
+          opt.setAttribute('data-original-name', origName);
+        }
+        const isAdded = addedIds.has(String(opt.value)) || addedNames.has(origName.toUpperCase());
+        if (isAdded) {
+          opt.disabled = true;
+          opt.textContent = `${origName} (ya agregado)`;
+        } else {
+          opt.disabled = false;
+          opt.textContent = origName;
+        }
+      });
+
+      if (radSel.selectedOptions[0] && radSel.selectedOptions[0].disabled) {
+        const firstAvailable = Array.from(radSel.options).find(opt => !opt.disabled);
+        if (firstAvailable) {
+          radSel.value = firstAvailable.value;
+        }
+      }
+    }
+
     function addDraftRadionucleido() {
       const radSel = document.getElementById('liq-add-rad');
       const actInp = document.getElementById('liq-add-conc');
@@ -9414,12 +9475,23 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         showToast('⚠️ Ingrese un radionucleído y una actividad válida (> 0)', 'warning');
         return;
       }
-      const radName = radSel.options[radSel.selectedIndex]?.textContent || '';
+
+      const selOpt = radSel.options[radSel.selectedIndex];
+      const radName = (selOpt?.getAttribute('data-original-name') || selOpt?.textContent?.replace(/\s*\(ya agregado\)$/i, '') || '').trim();
+      const radId = String(radSel.value);
+
+      // Bloquear radionucleídos repetidos
+      const exists = (liqDraftRads || []).some(r => String(r.id_radionucleido) === radId || (r.radionucleido && r.radionucleido.toUpperCase().trim() === radName.toUpperCase()));
+      if (exists) {
+        showToast(`⚠️ El radionucleído "${radName}" ya fue agregado a la muestra`, 'warning');
+        return;
+      }
+
       const unitName = unitSel.options[unitSel.selectedIndex]?.textContent || 'Bq';
       const actBq = actVal * getActFactorToBq(unitSel.value);
 
       liqDraftRads.push({
-        id_radionucleido: radSel.value,
+        id_radionucleido: radId,
         radionucleido: radName,
         act_ingresada: actVal,
         id_unidad_act: unitSel.value,
@@ -9447,6 +9519,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
       if (calc.rads.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-dim); padding: 10px;">Sin radionucleídos agregados aún</td></tr>';
+        updateRadSelectOptions();
         return;
       }
       tbody.innerHTML = calc.rads.map((r, idx) => `
@@ -9460,10 +9533,10 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           </td>
         </tr>
       `).join('');
+      updateRadSelectOptions();
     }
 
     function recalcModalLiqTotals() {
-      renderDraftRadsTable();
       const volVal = document.getElementById('liq-in-volumen')?.value || 0;
       const volUnit = document.getElementById('liq-in-vol-unidad')?.value || '2';
       const calc = calcLiqMetrics(volVal, volUnit, liqDraftRads);
@@ -9473,7 +9546,6 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       if (h3El) h3El.textContent = `${liqFmtTBq(calc.actividad_tritio_TBq)} TBq`;
       if (gamEl) gamEl.textContent = `${liqFmtTBq(calc.actividad_gamma_TBq)} TBq`;
       if (roddEl) roddEl.textContent = calc.rodd_est !== null ? `~${calc.rodd_est.toFixed(3)}%` : 'Al confirmar (BD)';
-      renderDraftRadsTable();
     }
 
     async function saveEfluenteModal(mode) {
@@ -9673,12 +9745,41 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       renderEfluentesLiquidos();
     }
 
-    async function deleteEmitidoLiquido(idEf) {
-      if (!confirm('¿Eliminar definitivamente esta emisión asentada en la planilla?')) return;
+    let pendingDeleteLiqId = null;
+
+    function deleteEmitidoLiquido(idEf) {
+      const row = (liqEmitidos || []).find(e => String(e.id_efluentes) === String(idEf));
+      if (!row) return;
+      pendingDeleteLiqId = idEf;
+
+      const detailsEl = document.getElementById('delete-liq-details');
+      if (detailsEl) {
+        detailsEl.innerHTML = `
+          <div style="font-weight: 800; color: #fff; font-size: 13px; margin-bottom: 6px;">💧 Tanque: ${liqEscape(row.tanque)}</div>
+          <div style="color: var(--text-muted); margin-bottom: 3px;">📅 Fecha: <strong>${liqEscape(liqFmtLatamDate(row.fecha))}</strong> • Hora: <strong>${liqEscape(row.hora)} hs</strong></div>
+          <div style="color: var(--text-muted); margin-bottom: 3px;">📦 Volumen: <strong>${Number(row.volumen_m3 || 0).toFixed(2)} m³</strong></div>
+          <div style="color: var(--text-muted);">☢️ Tritio: <strong style="color: var(--accent-cyan);">${liqFmtTBq(row.actividad_tritio_TBq)} TBq</strong> | Gamma: <strong style="color: #f472b6;">${liqFmtTBq(row.actividad_gamma_TBq)} TBq</strong> (${Number(row.rodd_total || 0).toFixed(3)}% RoDD)</div>
+        `;
+      }
+      const modal = document.getElementById('modal-delete-liq-confirm');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeDeleteLiqModal() {
+      pendingDeleteLiqId = null;
+      const modal = document.getElementById('modal-delete-liq-confirm');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function executeDeleteEmitidoLiquido() {
+      if (!pendingDeleteLiqId) return;
+      const idEf = pendingDeleteLiqId;
+      closeDeleteLiqModal();
+
       if (typeof IS_DEMO_MODE !== 'undefined' && IS_DEMO_MODE) {
         liqEmitidos = liqEmitidos.filter(e => String(e.id_efluentes) !== String(idEf));
         renderEfluentesLiquidos();
-        showToast('🗑️ Registro eliminado (Modo Demo)');
+        showToast('🗑️ Registro eliminado de la planilla');
         return;
       }
       try {
