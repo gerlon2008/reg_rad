@@ -2522,7 +2522,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     }
 
     /* Forzar mayúsculas en nombres y opciones */
-    .user-name, #topbar-jefe-turno, #sidebar-user-name, select option, #tasks-table td {
+    .user-name, #topbar-jefe-turno, #topbar-oficial-iniciador, #sidebar-user-name, select option, #tasks-table td {
       text-transform: uppercase;
     }
 
@@ -3185,6 +3185,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         <div class="sync-pill synced" id="sync-status-indicator" onclick="SyncEngine.flush(true)" title="Estado de sincronización: Haga clic para forzar reintento">
           ☁️ Servidor sincronizado
         </div>
+        <span>Oficial: <strong style="color: var(--text-main);" id="topbar-oficial-iniciador"><?php echo htmlspecialchars(!empty($oficial_iniciador_nombre) ? $oficial_iniciador_nombre : $oficial_actual, ENT_QUOTES, 'UTF-8'); ?></strong></span>
         <span>Jefe: <strong style="color: var(--text-main);" id="topbar-jefe-turno"><?php echo htmlspecialchars($jefe_turno_actual, ENT_QUOTES, 'UTF-8'); ?></strong></span>
         <div class="clock-pill" id="live-clock"><?php echo $hora_actual; ?>:00 hs</div>
       </div>
@@ -5543,6 +5544,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       const shiftTagTopbar = document.getElementById('topbar-shift-tag');
       if (shiftTagTopbar) shiftTagTopbar.textContent = turnoText;
       document.getElementById('topbar-jefe-turno').textContent = jefe;
+      const topbarOficial = document.getElementById('topbar-oficial-iniciador');
+      if (topbarOficial) topbarOficial.textContent = oficial;
       document.getElementById('sidebar-user-name').textContent = oficial;
       document.getElementById('sidebar-plant-status').textContent = planta;
 
