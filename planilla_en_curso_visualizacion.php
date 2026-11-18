@@ -1376,6 +1376,35 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       color: #6ee7b7;
     }
 
+    .badge-amber {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: rgba(245, 158, 11, 0.16);
+      border: 1px solid rgba(245, 158, 11, 0.5);
+      color: #fbbf24;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .badge-red {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: rgba(239, 68, 68, 0.22);
+      border: 1px solid rgba(239, 68, 68, 0.7);
+      color: #f87171;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 800;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.35);
+    }
+
     /* Gas Cards Grid */
     .gas-sub-grid {
       display: grid;
@@ -2048,16 +2077,51 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                 </tr>
               </thead>
               <tbody>
-                <?php foreach ($rows_rutina as $r): ?>
-                  <tr>
+                <?php foreach ($rows_rutina as $r): 
+                  $dNum = (float)$r['tasa_dosis'];
+                  $tNum = (float)$r['tritio'];
+                  $gNum = (float)$r['gases_nobles'];
+
+                  // Resaltado de dosis
+                  $dosisBadge = ($dNum >= 100.0) 
+                    ? '<span class="badge-red" title="Nivel Crítico (≥ 100 µSv/h)">' . number_format($dNum, 1) . ' ⚠️</span>' 
+                    : (($dNum >= 20.0) 
+                        ? '<span class="badge-amber" title="Nivel Elevado (≥ 20 µSv/h)">' . number_format($dNum, 1) . '</span>' 
+                        : '<span style="color: var(--accent-cyan); font-weight: 700;">' . number_format($dNum, 1) . '</span>');
+
+                  // Resaltado de tritio
+                  $tritioBadge = ($tNum >= 10.0) 
+                    ? '<span class="badge-red" title="Nivel Crítico (≥ 10.0 DAC)">' . number_format($tNum, 2) . ' ⚠️</span>' 
+                    : (($tNum >= 1.0) 
+                        ? '<span class="badge-amber" title="Nivel Elevado (≥ 1.0 DAC)">' . number_format($tNum, 2) . '</span>' 
+                        : number_format($tNum, 2));
+
+                  // Resaltado de gases nobles
+                  $gasesBadge = ($gNum >= 5.0) 
+                    ? '<span class="badge-red" title="Nivel Crítico (≥ 5.0 DAC)">' . number_format($gNum, 2) . ' ⚠️</span>' 
+                    : (($gNum >= 1.0) 
+                        ? '<span class="badge-amber" title="Nivel Elevado (≥ 1.0 DAC)">' . number_format($gNum, 2) . '</span>' 
+                        : number_format($gNum, 2));
+                  
+                  $recintoNom = !empty($r['recinto_nombre']) ? $r['recinto_nombre'] : '-';
+                  $recintoId = !empty($r['ubicacion']) ? intval($r['ubicacion']) : 0;
+                ?>
+                  <tr data-dosis="<?php echo $dNum; ?>" data-tritio="<?php echo $tNum; ?>" data-gases="<?php echo $gNum; ?>" data-recinto="<?php echo htmlspecialchars($recintoNom, ENT_QUOTES, 'UTF-8'); ?>">
                     <td class="mono"><?php echo formafecha_latam($r['fecha']); ?></td>
                     <td class="mono"><?php echo formato_hora_limpio($r['hora']); ?></td>
-                    <td class="text-left" style="font-weight: 600; color: #ffffff;">
-                      <?php echo htmlspecialchars($r['recinto_nombre'], ENT_QUOTES, 'UTF-8'); ?>
+                    <td class="text-left" style="font-weight: 700; color: #ffffff;">
+                      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                        <span class="recinto-link" onclick="openRecintoHistoryModal('<?php echo htmlspecialchars($recintoNom, ENT_QUOTES, 'UTF-8'); ?>', <?php echo $recintoId; ?>)" title="Ver las últimas 3 mediciones de este recinto">
+                          <?php echo htmlspecialchars($recintoNom, ENT_QUOTES, 'UTF-8'); ?>
+                        </span>
+                        <button type="button" class="btn-recinto-hist-pill" onclick="openRecintoHistoryModal('<?php echo htmlspecialchars($recintoNom, ENT_QUOTES, 'UTF-8'); ?>', <?php echo $recintoId; ?>)" title="Ver últimas 3 mediciones de este recinto">
+                          <span>⏱️ 3 Últimos</span>
+                        </button>
+                      </div>
                     </td>
-                    <td class="mono"><?php echo decimales_limpio($r['gases_nobles'], 2); ?></td>
-                    <td class="mono"><?php echo decimales_limpio($r['tritio'], 2); ?></td>
-                    <td class="mono" style="font-weight: 700; color: var(--accent-cyan);"><?php echo decimales_limpio($r['tasa_dosis'], 1); ?></td>
+                    <td class="mono"><?php echo $gasesBadge; ?></td>
+                    <td class="mono"><?php echo $tritioBadge; ?></td>
+                    <td class="mono"><?php echo $dosisBadge; ?></td>
                     <td class="text-left" style="color: var(--text-muted);"><?php echo htmlspecialchars((!empty($r['observaciones']) && $r['observaciones'] !== 'Sin observaciones' && $r['observaciones'] !== '-') ? $r['observaciones'] : '--Sin observaciones--', ENT_QUOTES, 'UTF-8'); ?></td>
                     <td style="text-transform: uppercase; font-size: 11px;">
                       <?php echo htmlspecialchars((!empty($r['of_apellido']) ? $r['of_apellido'] . ", " . $r['of_nombre'] : $oficial_nombre), ENT_QUOTES, 'UTF-8'); ?>
@@ -2660,7 +2724,71 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       ]
     };
 
-    function openRecintoHistoryModal(recintoParam) {
+    function renderRecintoHistoryModalRows(history, container, trendBadge) {
+      if (!history || history.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 18px; font-style: italic;">○ No hay relevamientos históricos registrados para este recinto.</div>';
+        if (trendBadge) {
+          trendBadge.innerHTML = '○ Sin historial previo';
+          trendBadge.style.color = 'var(--text-dim)';
+        }
+        return;
+      }
+
+      container.innerHTML = history.slice(0, 3).map((item, idx) => {
+        const tVal = parseFloat(item.tritio) || 0;
+        const dVal = parseFloat(item.dosis) || 0;
+        const gVal = parseFloat(item.gases) || 0;
+
+        const tStyle = tVal >= 10.0 ? 'color: #f87171; font-weight: 800;' : (tVal >= 1.0 ? 'color: #fbbf24; font-weight: 700;' : 'color: var(--accent-cyan); font-weight: 700;');
+        const dStyle = dVal >= 100.0 ? 'color: #f87171; font-weight: 800;' : (dVal >= 20.0 ? 'color: #fbbf24; font-weight: 700;' : 'color: var(--accent-amber); font-weight: 700;');
+        const gStyle = gVal >= 5.0 ? 'color: #f87171; font-weight: 800;' : (gVal >= 1.0 ? 'color: #fbbf24; font-weight: 700;' : 'color: #c084fc; font-weight: 700;');
+
+        return `
+          <div style="background: rgba(9, 28, 24, 0.85); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-cyan); border-radius: 6px; padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 11.5px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: 800; color: var(--accent-cyan); font-size: 12px;">[${idx + 1}]</span>
+              <span style="color: #ffffff; font-weight: 700;">📅 ${item.fecha} &bull; ${item.hora} hs</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="${gStyle}"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">G. nobles:</span> ${item.gases} DAC</span>
+              <span style="color: var(--border-card);">|</span>
+              <span style="${tStyle}"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Tritio:</span> ${item.tritio} DAC${tVal >= 10.0 ? ' ⚠️' : ''}</span>
+              <span style="color: var(--border-card);">|</span>
+              <span style="${dStyle}"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Dosis:</span> ${item.dosis} µSv/h${dVal >= 100.0 ? ' ⚠️' : ''}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      if (trendBadge) {
+        if (history.length >= 2) {
+          const d1 = parseFloat(history[0].dosis) || 0;
+          const dLast = parseFloat(history[Math.min(history.length - 1, 2)].dosis) || 0;
+          const t1 = parseFloat(history[0].tritio) || 0;
+          const tLast = parseFloat(history[Math.min(history.length - 1, 2)].tritio) || 0;
+
+          if (t1 >= 10.0) {
+            trendBadge.innerHTML = '🚨 Tritio Crítico (≥ 10 DAC)';
+            trendBadge.style.color = '#f87171';
+            return;
+          }
+          if (dLast > 0 && d1 > dLast * 1.3) {
+            trendBadge.innerHTML = '📈 Alza de Dosis (+ ' + Math.round(((d1 - dLast)/dLast)*100) + '%)';
+            trendBadge.style.color = 'var(--accent-amber)';
+            return;
+          }
+          if (tLast > 0 && t1 > tLast * 1.5) {
+            trendBadge.innerHTML = '📈 Alza de Tritio (+ ' + Math.round(((t1 - tLast)/tLast)*100) + '%)';
+            trendBadge.style.color = 'var(--accent-amber)';
+            return;
+          }
+        }
+        trendBadge.innerHTML = '🟢 Niveles habituales';
+        trendBadge.style.color = 'var(--accent-green)';
+      }
+    }
+
+    async function openRecintoHistoryModal(recintoParam, recintoId = 0) {
       const modal = document.getElementById('modal-recinto-historial');
       const labelNombre = document.getElementById('mrh-recinto-nombre');
       const container = document.getElementById('mrh-chips-container');
@@ -2669,48 +2797,40 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
 
       activeSelectedRecintoForPrefill = recintoParam;
       if (labelNombre) labelNombre.textContent = recintoParam;
-
-      let history = null;
-      const idMatch = (typeof recintoParam === 'string') ? recintoParam.match(/R-?(\d+)/i) : null;
-      const recintoId = idMatch ? parseInt(idMatch[1], 10).toString() : '1';
-
-      if (mockRecintoHistoryVis[recintoId]) {
-        history = mockRecintoHistoryVis[recintoId];
-      } else {
-        history = [
-          { fecha: '08/11/2026', hora: '23:30', dosis: '4.5', tritio: '0.40', gases: '0.00' },
-          { fecha: '08/11/2026', hora: '15:40', dosis: '4.0', tritio: '0.35', gases: '0.00' },
-          { fecha: '08/11/2026', hora: '08:10', dosis: '3.8', tritio: '0.30', gases: '0.00' }
-        ];
-      }
-
-      container.innerHTML = history.map((item, idx) => `
-        <div style="background: rgba(9, 28, 24, 0.85); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-cyan); border-radius: 6px; padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 11.5px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-weight: 800; color: var(--accent-cyan); font-size: 12px;">[${idx + 1}]</span>
-            <span style="color: #ffffff; font-weight: 700;">📅 ${item.fecha} &bull; ${item.hora} hs</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="color: #c084fc; font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">G. nobles:</span> ${item.gases} DAC</span>
-            <span style="color: var(--border-card);">|</span>
-            <span style="color: var(--accent-cyan); font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Tritio:</span> ${item.tritio} DAC</span>
-            <span style="color: var(--border-card);">|</span>
-            <span style="color: var(--accent-amber); font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Dosis:</span> ${item.dosis} µSv/h</span>
-          </div>
-        </div>
-      `).join('');
-
-      const d1 = parseFloat(history[0].dosis);
-      const d3 = parseFloat(history[2].dosis);
-      if (d1 > d3 * 1.3) {
-        trendBadge.innerHTML = '📈 Alza de Dosis (+ ' + Math.round(((d1 - d3)/d3)*100) + '%)';
-        trendBadge.style.color = 'var(--accent-amber)';
-      } else {
-        trendBadge.innerHTML = '🟢 Niveles estables';
-        trendBadge.style.color = 'var(--accent-green)';
-      }
-
+      container.innerHTML = '<div style="text-align: center; color: var(--accent-cyan); padding: 16px;">⏳ Consultando últimos valores en base de datos...</div>';
+      if (trendBadge) trendBadge.textContent = '';
       modal.style.display = 'flex';
+
+      try {
+        const url = `procesos_reg_rad.php?accion=historial_recinto&id_recinto=${encodeURIComponent(recintoId || 0)}&recinto_nombre=${encodeURIComponent(recintoParam || '')}&limite=3`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.items) && data.items.length > 0) {
+            renderRecintoHistoryModalRows(data.items, container, trendBadge);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Error consultando historial del recinto:', e);
+      }
+
+      // Fallback a registros mockeados si estuviera offline o sin BD
+      const idMatch = (typeof recintoParam === 'string') ? recintoParam.match(/R-?(\d+)/i) : null;
+      const ridStr = recintoId ? String(recintoId) : (idMatch ? parseInt(idMatch[1], 10).toString() : '1');
+      const history = (typeof mockRecintoHistoryVis !== 'undefined' && mockRecintoHistoryVis[ridStr])
+        ? mockRecintoHistoryVis[ridStr]
+        : null;
+
+      if (!history || history.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 18px; font-style: italic;">○ No hay relevamientos históricos registrados para este recinto.</div>';
+        if (trendBadge) {
+          trendBadge.innerHTML = '○ Sin historial previo';
+          trendBadge.style.color = 'var(--text-dim)';
+        }
+        return;
+      }
+      renderRecintoHistoryModalRows(history, container, trendBadge);
     }
 
     function closeRecintoHistoryModal() {

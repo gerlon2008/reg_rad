@@ -3457,8 +3457,23 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                   $tNum = (float)$row['tritio'];
                   $gNum = (float)$row['gases'];
                   
-                  $dosisBadge = ($dNum > 100) ? '<span class="badge-red">' . number_format($dNum, 1) . '</span>' : (($dNum > 20) ? '<span class="badge-amber">' . number_format($dNum, 1) . '</span>' : number_format($dNum, 1));
-                  $tritioBadge = ($tNum > 1.0) ? '<span class="badge-amber">' . number_format($tNum, 2) . '</span>' : number_format($tNum, 2);
+                  $dosisBadge = ($dNum >= 100.0) 
+                    ? '<span class="badge-red" title="Nivel Crítico / Muy Alto (≥ 100 µSv/h)">' . number_format($dNum, 1) . ' ⚠️</span>' 
+                    : (($dNum >= 20.0) 
+                        ? '<span class="badge-amber" title="Nivel Elevado (≥ 20 µSv/h)">' . number_format($dNum, 1) . '</span>' 
+                        : number_format($dNum, 1));
+
+                  $tritioBadge = ($tNum >= 10.0) 
+                    ? '<span class="badge-red" title="Nivel Crítico / Muy Alto (≥ 10.0 DAC)">' . number_format($tNum, 2) . ' ⚠️</span>' 
+                    : (($tNum >= 1.0) 
+                        ? '<span class="badge-amber" title="Nivel Elevado (≥ 1.0 DAC)">' . number_format($tNum, 2) . '</span>' 
+                        : number_format($tNum, 2));
+
+                  $gasesBadge = ($gNum >= 5.0) 
+                    ? '<span class="badge-red" title="Nivel Crítico / Muy Alto (≥ 5.0 DAC)">' . number_format($gNum, 2) . ' ⚠️</span>' 
+                    : (($gNum >= 1.0) 
+                        ? '<span class="badge-amber" title="Nivel Elevado (≥ 1.0 DAC)">' . number_format($gNum, 2) . '</span>' 
+                        : number_format($gNum, 2));
                 ?>
                 <tr data-dosis="<?php echo $dNum; ?>" data-tritio="<?php echo $tNum; ?>" data-gases="<?php echo $gNum; ?>" data-recinto="<?php echo htmlspecialchars($row['recinto'], ENT_QUOTES, 'UTF-8'); ?>">
                   <td><?php echo htmlspecialchars($row['fecha'], ENT_QUOTES, 'UTF-8'); ?></td>
@@ -3473,7 +3488,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                       </button>
                     </div>
                   </td>
-                  <td class="num"><?php echo number_format($gNum, 2); ?></td>
+                  <td class="num"><?php echo $gasesBadge; ?></td>
                   <td class="num"><?php echo $tritioBadge; ?></td>
                   <td class="num"><?php echo $dosisBadge; ?></td>
                   <td style="color: var(--text-muted);"><?php echo htmlspecialchars((!empty($row['obs']) && $row['obs'] !== 'Sin observaciones') ? $row['obs'] : '--Sin observaciones--', ENT_QUOTES, 'UTF-8'); ?></td>
@@ -5845,23 +5860,27 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       const gWarn = warnings ? warnings.find(w => w.param === 'Gases Nobles') : null;
 
       let dosisBadge = !isNaN(dNum) 
-        ? (dNum > 100 
-            ? `<span class="badge-red" title="${dWarn ? 'Alza de +' + dWarn.diffPct + '% vs previo' : 'Supera 100 µSv/h'}">${dNum.toFixed(1)} ⚠️</span>` 
-            : ((dNum > 20 || dWarn) 
-                ? `<span class="badge-amber" title="${dWarn ? 'Alza de +' + dWarn.diffPct + '% vs anterior' : 'Nivel elevado'}">${dNum.toFixed(1)}${dWarn ? ' ⚠️' : ''}</span>` 
+        ? (dNum >= 100.0 
+            ? `<span class="badge-red" title="${dWarn ? 'Alza de +' + dWarn.diffPct + '% vs previo' : 'Nivel Crítico (≥ 100 µSv/h)'}">${dNum.toFixed(1)} ⚠️</span>` 
+            : ((dNum >= 20.0 || dWarn) 
+                ? `<span class="badge-amber" title="${dWarn ? 'Alza de +' + dWarn.diffPct + '% vs anterior' : 'Nivel Elevado (≥ 20 µSv/h)'}">${dNum.toFixed(1)}${dWarn ? ' ⚠️' : ''}</span>` 
                 : dNum.toFixed(1))) 
         : '-';
 
       let tritioBadge = !isNaN(tNum) 
-        ? ((tNum > 1.0 || tWarn) 
-            ? `<span class="badge-amber" title="${tWarn ? 'Alza de +' + tWarn.diffPct + '% respecto a medición previa (' + tWarn.prevVal + ' DAC)' : 'Nivel > 1.0 DAC'}">${tNum.toFixed(2)}${tWarn ? ' ⚠️' : ''}</span>` 
-            : tNum.toFixed(2)) 
+        ? (tNum >= 10.0
+            ? `<span class="badge-red" title="${tWarn ? 'Alza de +' + tWarn.diffPct + '% vs previo' : 'Nivel Crítico (≥ 10.0 DAC)'}">${tNum.toFixed(2)} ⚠️</span>`
+            : ((tNum >= 1.0 || tWarn) 
+                ? `<span class="badge-amber" title="${tWarn ? 'Alza de +' + tWarn.diffPct + '% respecto a medición previa (' + tWarn.prevVal + ' DAC)' : 'Nivel Elevado (≥ 1.0 DAC)'}">${tNum.toFixed(2)}${tWarn ? ' ⚠️' : ''}</span>` 
+                : tNum.toFixed(2))) 
         : '-';
 
       let gasesBadge = !isNaN(gNum) 
-        ? (gWarn 
-            ? `<span class="badge-amber" title="Alza de +${gWarn.diffPct}% vs anterior">${gNum.toFixed(2)} ⚠️</span>` 
-            : gNum.toFixed(2)) 
+        ? (gNum >= 5.0
+            ? `<span class="badge-red" title="${gWarn ? 'Alza de +' + gWarn.diffPct + '% vs anterior' : 'Nivel Crítico (≥ 5.0 DAC)'}">${gNum.toFixed(2)} ⚠️</span>`
+            : ((gNum >= 1.0 || gWarn) 
+                ? `<span class="badge-amber" title="Alza de +${gWarn ? gWarn.diffPct : 0}% vs anterior">${gNum.toFixed(2)}${gWarn ? ' ⚠️' : ''}</span>` 
+                : gNum.toFixed(2))) 
         : '-';
 
       const tr = document.createElement('tr');
