@@ -656,8 +656,11 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                     $h_corta = substr($r['hora'], 0, 5);
                     $relevamientos_rutina_iniciales[] = array(
                         'id' => $r['id_relev_rutina'],
+                        'ubicacion' => $r['ubicacion'],
                         'fecha' => $f_latam,
+                        'fecha_raw' => $r['fecha'],
                         'hora' => $h_corta,
+                        'hora_raw' => $r['hora'],
                         'recinto' => $r['recinto'] ? $r['recinto'] : ('Recinto #' . $r['ubicacion']),
                         'gases' => $r['gases_nobles'],
                         'tritio' => $r['tritio'],
@@ -668,6 +671,88 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                 }
             } else if ($id_planilla_activa) {
                 $relevamientos_rutina_iniciales = array();
+            }
+
+            // Historial previo para promedios móviles (hasta 3 mediciones previas)
+            $hist_por_recinto = array();
+            $rutina_recinto_ids = array();
+            if (!empty($relevamientos_rutina_iniciales)) {
+                foreach ($relevamientos_rutina_iniciales as $item) {
+                    $u_id = isset($item['ubicacion']) ? intval($item['ubicacion']) : 0;
+                    if ($u_id > 0 && !in_array($u_id, $rutina_recinto_ids)) {
+                        $rutina_recinto_ids[] = $u_id;
+                    }
+                }
+            }
+            if (!empty($rutina_recinto_ids) && $miconex) {
+                $ids_in_str = implode(',', $rutina_recinto_ids);
+                $q_all_hist = @mysql_query("SELECT id_relev_rutina, id_planilla, ubicacion, fecha, hora, gases_nobles, tritio, tasa_dosis 
+                    FROM regrad_relevamiento_rutina 
+                    WHERE ubicacion IN ($ids_in_str) 
+                    ORDER BY fecha ASC, hora ASC, id_relev_rutina ASC", $miconex);
+                if ($q_all_hist) {
+                    while ($h = mysql_fetch_assoc($q_all_hist)) {
+                        $u = intval($h['ubicacion']);
+                        if (!isset($hist_por_recinto[$u])) {
+                            $hist_por_recinto[$u] = array();
+                        }
+                        $hist_por_recinto[$u][] = $h;
+                    }
+                }
+            }
+
+            if (!function_exists('evaluar_alza_parametro')) {
+                /**
+                 * Evalúa si una medición radiológica presenta un alza (spike) respecto al promedio de hasta 3 mediciones previas
+                 * Retorna array('is_spike' => bool, 'pct' => int|null, 'avg' => float, 'count' => int, 'is_crit' => bool, 'is_elev' => bool)
+                 */
+                function evaluar_alza_parametro($val, $prev_list, $param_key, $lim_crit, $lim_elev, $delta_min, $zero_threshold) {
+                    $val = (float)$val;
+                    $is_crit = ($val >= $lim_crit);
+                    $is_elev = ($val >= $lim_elev);
+                    $count = count($prev_list);
+                    
+                    if ($count === 0) {
+                        return array(
+                            'is_spike' => false,
+                            'pct' => null,
+                            'avg' => 0.0,
+                            'count' => 0,
+                            'is_crit' => $is_crit,
+                            'is_elev' => $is_elev
+                        );
+                    }
+                    
+                    $sum = 0.0;
+                    foreach ($prev_list as $p) {
+                        $sum += (float)(isset($p[$param_key]) ? $p[$param_key] : 0);
+                    }
+                    $avg = $sum / (float)$count;
+                    
+                    $is_spike = false;
+                    $pct = null;
+                    
+                    if ($avg > 0.0001) {
+                        $pct = (int)round((($val - $avg) / $avg) * 100);
+                        if ($pct >= 50 && ($val - $avg) >= $delta_min) {
+                            $is_spike = true;
+                        }
+                    } else {
+                        if ($val >= $zero_threshold) {
+                            $is_spike = true;
+                            $pct = null;
+                        }
+                    }
+                    
+                    return array(
+                        'is_spike' => $is_spike,
+                        'pct' => $pct,
+                        'avg' => $avg,
+                        'count' => $count,
+                        'is_crit' => $is_crit,
+                        'is_elev' => $is_elev
+                    );
+                }
             }
 
             // 14. Actas y Tareas Diarias de la planilla abierta
@@ -3456,24 +3541,74 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                   $dNum = (float)$row['dosis'];
                   $tNum = (float)$row['tritio'];
                   $gNum = (float)$row['gases'];
-                  
-                  $dosisBadge = ($dNum >= 100.0) 
-                    ? '<span class="badge-red" title="Nivel Crítico / Muy Alto (≥ 100 µSv/h)">' . number_format($dNum, 1) . ' ⚠️</span>' 
-                    : (($dNum >= 20.0) 
-                        ? '<span class="badge-amber" title="Nivel Elevado (≥ 20 µSv/h)">' . number_format($dNum, 1) . '</span>' 
-                        : number_format($dNum, 1));
+                  $recintoNom = $row['recinto'];
+                  $recintoId = isset($row['ubicacion']) ? intval($row['ubicacion']) : 0;
+                  $fRaw = isset($row['fecha_raw']) ? $row['fecha_raw'] : '';
+                  $hRaw = isset($row['hora_raw']) ? $row['hora_raw'] : '';
 
-                  $tritioBadge = ($tNum >= 10.0) 
-                    ? '<span class="badge-red" title="Nivel Crítico / Muy Alto (≥ 10.0 DAC)">' . number_format($tNum, 2) . ' ⚠️</span>' 
-                    : (($tNum >= 1.0) 
-                        ? '<span class="badge-amber" title="Nivel Elevado (≥ 1.0 DAC)">' . number_format($tNum, 2) . '</span>' 
-                        : number_format($tNum, 2));
+                  // Obtener hasta 3 mediciones previas de este recinto para calcular promedio móvil
+                  $prev_list = array();
+                  if ($recintoId > 0 && isset($hist_por_recinto[$recintoId])) {
+                      foreach ($hist_por_recinto[$recintoId] as $hp) {
+                          $is_prior = false;
+                          if ($fRaw !== '') {
+                              if ($hp['fecha'] < $fRaw) {
+                                  $is_prior = true;
+                              } elseif ($hp['fecha'] == $fRaw) {
+                                  if ($hRaw !== '' && $hp['hora'] < $hRaw) {
+                                      $is_prior = true;
+                                  } elseif (isset($hp['id_relev_rutina'], $row['id']) && intval($hp['id_relev_rutina']) < intval($row['id'])) {
+                                      $is_prior = true;
+                                  }
+                              }
+                          }
+                          if ($is_prior) {
+                              $prev_list[] = $hp;
+                          }
+                      }
+                  }
+                  $prev_3 = !empty($prev_list) ? array_slice($prev_list, -3) : array();
 
-                  $gasesBadge = ($gNum >= 5.0) 
-                    ? '<span class="badge-red" title="Nivel Crítico / Muy Alto (≥ 5.0 DAC)">' . number_format($gNum, 2) . ' ⚠️</span>' 
-                    : (($gNum >= 1.0) 
-                        ? '<span class="badge-amber" title="Nivel Elevado (≥ 1.0 DAC)">' . number_format($gNum, 2) . '</span>' 
-                        : number_format($gNum, 2));
+                  // Evaluar variación relativa respecto al promedio previo y límites absolutos
+                  $d_eval = evaluar_alza_parametro($dNum, $prev_3, 'tasa_dosis', 100.0, 20.0, 5.0, 10.0);
+                  $t_eval = evaluar_alza_parametro($tNum, $prev_3, 'tritio', 10.0, 1.0, 0.25, 0.50);
+                  $g_eval = evaluar_alza_parametro($gNum, $prev_3, 'gases_nobles', 5.0, 1.0, 0.20, 0.30);
+
+                  // 1. Resaltado de Dosis
+                  if ($d_eval['is_crit']) {
+                      $title_d = 'Nivel Crítico (≥ 100 µSv/h)' . ($d_eval['is_spike'] ? (' - Alza de ' . ($d_eval['pct'] !== null ? '+' . $d_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($d_eval['avg'], 1) . ' µSv/h, ' . $d_eval['count'] . ' med.)') : '');
+                      $dosisBadge = '<span class="badge-red" title="' . htmlspecialchars($title_d, ENT_QUOTES, 'UTF-8') . '">' . number_format($dNum, 1) . ' ⚠️</span>';
+                  } elseif ($d_eval['is_elev'] || $d_eval['is_spike']) {
+                      $title_d = ($d_eval['is_spike'] ? ('Alza de ' . ($d_eval['pct'] !== null ? '+' . $d_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($d_eval['avg'], 1) . ' µSv/h, ' . $d_eval['count'] . ' med.)' . ($d_eval['is_elev'] ? ' - Nivel Elevado (≥ 20 µSv/h)' : '')) : 'Nivel Elevado (≥ 20 µSv/h)');
+                      $trendIcon = $d_eval['is_spike'] ? ' 📈' : '';
+                      $dosisBadge = '<span class="badge-amber" title="' . htmlspecialchars($title_d, ENT_QUOTES, 'UTF-8') . '">' . number_format($dNum, 1) . $trendIcon . '</span>';
+                  } else {
+                      $dosisBadge = number_format($dNum, 1);
+                  }
+
+                  // 2. Resaltado de Tritio
+                  if ($t_eval['is_crit']) {
+                      $title_t = 'Nivel Crítico (≥ 10.0 DAC)' . ($t_eval['is_spike'] ? (' - Alza de ' . ($t_eval['pct'] !== null ? '+' . $t_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($t_eval['avg'], 2) . ' DAC, ' . $t_eval['count'] . ' med.)') : '');
+                      $tritioBadge = '<span class="badge-red" title="' . htmlspecialchars($title_t, ENT_QUOTES, 'UTF-8') . '">' . number_format($tNum, 2) . ' ⚠️</span>';
+                  } elseif ($t_eval['is_elev'] || $t_eval['is_spike']) {
+                      $title_t = ($t_eval['is_spike'] ? ('Alza de ' . ($t_eval['pct'] !== null ? '+' . $t_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($t_eval['avg'], 2) . ' DAC, ' . $t_eval['count'] . ' med.)' . ($t_eval['is_elev'] ? ' - Nivel Elevado (≥ 1.0 DAC)' : '')) : 'Nivel Elevado (≥ 1.0 DAC)');
+                      $trendIcon = $t_eval['is_spike'] ? ' 📈' : '';
+                      $tritioBadge = '<span class="badge-amber" title="' . htmlspecialchars($title_t, ENT_QUOTES, 'UTF-8') . '">' . number_format($tNum, 2) . $trendIcon . '</span>';
+                  } else {
+                      $tritioBadge = number_format($tNum, 2);
+                  }
+
+                  // 3. Resaltado de Gases Nobles
+                  if ($g_eval['is_crit']) {
+                      $title_g = 'Nivel Crítico (≥ 5.0 DAC)' . ($g_eval['is_spike'] ? (' - Alza de ' . ($g_eval['pct'] !== null ? '+' . $g_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($g_eval['avg'], 2) . ' DAC, ' . $g_eval['count'] . ' med.)') : '');
+                      $gasesBadge = '<span class="badge-red" title="' . htmlspecialchars($title_g, ENT_QUOTES, 'UTF-8') . '">' . number_format($gNum, 2) . ' ⚠️</span>';
+                  } elseif ($g_eval['is_elev'] || $g_eval['is_spike']) {
+                      $title_g = ($g_eval['is_spike'] ? ('Alza de ' . ($g_eval['pct'] !== null ? '+' . $g_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($g_eval['avg'], 2) . ' DAC, ' . $g_eval['count'] . ' med.)' . ($g_eval['is_elev'] ? ' - Nivel Elevado (≥ 1.0 DAC)' : '')) : 'Nivel Elevado (≥ 1.0 DAC)');
+                      $trendIcon = $g_eval['is_spike'] ? ' 📈' : '';
+                      $gasesBadge = '<span class="badge-amber" title="' . htmlspecialchars($title_g, ENT_QUOTES, 'UTF-8') . '">' . number_format($gNum, 2) . $trendIcon . '</span>';
+                  } else {
+                      $gasesBadge = number_format($gNum, 2);
+                  }
                 ?>
                 <tr data-dosis="<?php echo $dNum; ?>" data-tritio="<?php echo $tNum; ?>" data-gases="<?php echo $gNum; ?>" data-recinto="<?php echo htmlspecialchars($row['recinto'], ENT_QUOTES, 'UTF-8'); ?>">
                   <td><?php echo htmlspecialchars($row['fecha'], ENT_QUOTES, 'UTF-8'); ?></td>
@@ -5718,22 +5853,34 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         return r && (r === norm || r.startsWith(norm) || norm.startsWith(r));
       });
 
-      if (rows.length > 0) {
-        return rows.map(tr => ({
-          dosis: parseFloat(tr.getAttribute('data-dosis') || 0),
-          tritio: parseFloat(tr.getAttribute('data-tritio') || 0),
-          gases: parseFloat(tr.getAttribute('data-gases') || 0)
-        }));
+      const tableItems = rows.map(tr => ({
+        dosis: parseFloat(tr.getAttribute('data-dosis') || 0),
+        tritio: parseFloat(tr.getAttribute('data-tritio') || 0),
+        gases: parseFloat(tr.getAttribute('data-gases') || 0)
+      }));
+
+      if (tableItems.length >= 3) {
+        return tableItems.slice(0, 3);
       }
+
+      let combined = tableItems.slice();
 
       // En modo real: usar historial traído de MySQL si ya está en caché
       const cached = getCachedRecintoDbHistory(recintoId, recintoName);
       if (cached && cached.length > 0) {
-        return cached.map(h => ({
-          dosis: parseFloat(h.dosis || 0),
-          tritio: parseFloat(h.tritio || 0),
-          gases: parseFloat(h.gases || 0)
-        }));
+        cached.forEach(h => {
+          if (combined.length < 3) {
+            combined.push({
+              dosis: parseFloat(h.dosis || 0),
+              tritio: parseFloat(h.tritio || 0),
+              gases: parseFloat(h.gases || 0)
+            });
+          }
+        });
+      }
+
+      if (combined.length > 0) {
+        return combined.slice(0, 3);
       }
 
       // Solo en modo Demo Offline usar mockRecintoHistory / línea base ficticia
@@ -5743,7 +5890,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             dosis: parseFloat(h.dosis || 0),
             tritio: parseFloat(h.tritio || 0),
             gases: parseFloat(h.gases || 0)
-          }));
+          })).slice(0, 3);
         }
         return [{ dosis: 2.0, tritio: 0.25, gases: 0.00 }];
       }
@@ -5752,7 +5899,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     }
 
     /**
-     * Compara los valores ingresados contra el registro anterior del recinto para detectar saltos atípicos
+     * Compara los valores ingresados contra el promedio de hasta las últimas 3 mediciones previas
      */
     function checkDiscrepancies(recinto, gases, tritio, dosis) {
       const gVal = parseFloat(gases);
@@ -5763,47 +5910,55 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       const prevList = getPreviousMeasurementsForRecinto(recinto, recintoIdInput ? recintoIdInput.value : '');
       if (!prevList || prevList.length === 0) return null;
 
-      const prev = prevList[0];
+      const sampleList = prevList.slice(0, 3);
+      const count = sampleList.length;
+      if (count === 0) return null;
+
+      const avgTritio = sampleList.reduce((acc, cur) => acc + (parseFloat(cur.tritio) || 0), 0) / count;
+      const avgDosis = sampleList.reduce((acc, cur) => acc + (parseFloat(cur.dosis) || 0), 0) / count;
+      const avgGases = sampleList.reduce((acc, cur) => acc + (parseFloat(cur.gases) || 0), 0) / count;
+
       const warnings = [];
 
-      // 1. Evaluar Tritio
+      // 1. Evaluar Tritio (Umbral +50% vs promedio, delta >= 0.25 DAC)
       if (!isNaN(tVal)) {
-        const pTritio = !isNaN(prev.tritio) ? prev.tritio : 0;
-        if (pTritio > 0) {
-          const pct = Math.round(((tVal - pTritio) / pTritio) * 100);
-          if (pct >= 100 && (tVal - pTritio) >= 0.25) {
+        if (avgTritio > 0.0001) {
+          const pct = Math.round(((tVal - avgTritio) / avgTritio) * 100);
+          if (pct >= 50 && (tVal - avgTritio) >= 0.25) {
             warnings.push({
               param: 'Tritio',
               unit: 'DAC',
               val: tVal,
-              prevVal: pTritio,
+              avgVal: avgTritio,
+              count: count,
               diffPct: pct,
               type: 'spike'
             });
           }
-        } else if (tVal >= 0.5) {
+        } else if (tVal >= 0.50) {
           warnings.push({
             param: 'Tritio',
             unit: 'DAC',
             val: tVal,
-            prevVal: 0,
+            avgVal: 0,
+            count: count,
             diffPct: null,
             type: 'spike_from_zero'
           });
         }
       }
 
-      // 2. Evaluar Tasa de Dosis
+      // 2. Evaluar Tasa de Dosis (Umbral +50% vs promedio, delta >= 5.0 µSv/h)
       if (!isNaN(dVal)) {
-        const pDosis = !isNaN(prev.dosis) ? prev.dosis : 0;
-        if (pDosis > 0) {
-          const pct = Math.round(((dVal - pDosis) / pDosis) * 100);
-          if (pct >= 100 && (dVal - pDosis) >= 5.0) {
+        if (avgDosis > 0.0001) {
+          const pct = Math.round(((dVal - avgDosis) / avgDosis) * 100);
+          if (pct >= 50 && (dVal - avgDosis) >= 5.0) {
             warnings.push({
               param: 'Tasa Dosis',
               unit: 'µSv/h',
               val: dVal,
-              prevVal: pDosis,
+              avgVal: avgDosis,
+              count: count,
               diffPct: pct,
               type: 'spike'
             });
@@ -5813,34 +5968,36 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             param: 'Tasa Dosis',
             unit: 'µSv/h',
             val: dVal,
-            prevVal: 0,
+            avgVal: 0,
+            count: count,
             diffPct: null,
             type: 'spike_from_zero'
           });
         }
       }
 
-      // 3. Evaluar Gases Nobles
+      // 3. Evaluar Gases Nobles (Umbral +50% vs promedio, delta >= 0.20 DAC)
       if (!isNaN(gVal)) {
-        const pGases = !isNaN(prev.gases) ? prev.gases : 0;
-        if (pGases > 0) {
-          const pct = Math.round(((gVal - pGases) / pGases) * 100);
-          if (pct >= 100 && (gVal - pGases) >= 0.2) {
+        if (avgGases > 0.0001) {
+          const pct = Math.round(((gVal - avgGases) / avgGases) * 100);
+          if (pct >= 50 && (gVal - avgGases) >= 0.20) {
             warnings.push({
               param: 'Gases Nobles',
               unit: 'DAC',
               val: gVal,
-              prevVal: pGases,
+              avgVal: avgGases,
+              count: count,
               diffPct: pct,
               type: 'spike'
             });
           }
-        } else if (gVal >= 0.3) {
+        } else if (gVal >= 0.30) {
           warnings.push({
             param: 'Gases Nobles',
             unit: 'DAC',
             val: gVal,
-            prevVal: 0,
+            avgVal: 0,
+            count: count,
             diffPct: null,
             type: 'spike_from_zero'
           });
@@ -5861,25 +6018,25 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
       let dosisBadge = !isNaN(dNum) 
         ? (dNum >= 100.0 
-            ? `<span class="badge-red" title="${dWarn ? 'Alza de +' + dWarn.diffPct + '% vs previo' : 'Nivel Crítico (≥ 100 µSv/h)'}">${dNum.toFixed(1)} ⚠️</span>` 
+            ? `<span class="badge-red" title="${dWarn ? 'Nivel Crítico (≥ 100 µSv/h) - Alza de ' + (dWarn.diffPct !== null ? '+' + dWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + dWarn.avgVal.toFixed(1) + ' µSv/h, ' + dWarn.count + ' med.)' : 'Nivel Crítico (≥ 100 µSv/h)'}">${dNum.toFixed(1)} ⚠️</span>` 
             : ((dNum >= 20.0 || dWarn) 
-                ? `<span class="badge-amber" title="${dWarn ? 'Alza de +' + dWarn.diffPct + '% vs anterior' : 'Nivel Elevado (≥ 20 µSv/h)'}">${dNum.toFixed(1)}${dWarn ? ' ⚠️' : ''}</span>` 
+                ? `<span class="badge-amber" title="${dWarn ? 'Alza de ' + (dWarn.diffPct !== null ? '+' + dWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + dWarn.avgVal.toFixed(1) + ' µSv/h, ' + dWarn.count + ' med.)' + (dNum >= 20.0 ? ' - Nivel Elevado (≥ 20 µSv/h)' : '') : 'Nivel Elevado (≥ 20 µSv/h)'}">${dNum.toFixed(1)}${dWarn ? ' 📈' : ''}</span>` 
                 : dNum.toFixed(1))) 
         : '-';
 
       let tritioBadge = !isNaN(tNum) 
         ? (tNum >= 10.0
-            ? `<span class="badge-red" title="${tWarn ? 'Alza de +' + tWarn.diffPct + '% vs previo' : 'Nivel Crítico (≥ 10.0 DAC)'}">${tNum.toFixed(2)} ⚠️</span>`
+            ? `<span class="badge-red" title="${tWarn ? 'Nivel Crítico (≥ 10.0 DAC) - Alza de ' + (tWarn.diffPct !== null ? '+' + tWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + tWarn.avgVal.toFixed(2) + ' DAC, ' + tWarn.count + ' med.)' : 'Nivel Crítico (≥ 10.0 DAC)'}">${tNum.toFixed(2)} ⚠️</span>`
             : ((tNum >= 1.0 || tWarn) 
-                ? `<span class="badge-amber" title="${tWarn ? 'Alza de +' + tWarn.diffPct + '% respecto a medición previa (' + tWarn.prevVal + ' DAC)' : 'Nivel Elevado (≥ 1.0 DAC)'}">${tNum.toFixed(2)}${tWarn ? ' ⚠️' : ''}</span>` 
+                ? `<span class="badge-amber" title="${tWarn ? 'Alza de ' + (tWarn.diffPct !== null ? '+' + tWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + tWarn.avgVal.toFixed(2) + ' DAC, ' + tWarn.count + ' med.)' + (tNum >= 1.0 ? ' - Nivel Elevado (≥ 1.0 DAC)' : '') : 'Nivel Elevado (≥ 1.0 DAC)'}">${tNum.toFixed(2)}${tWarn ? ' 📈' : ''}</span>` 
                 : tNum.toFixed(2))) 
         : '-';
 
       let gasesBadge = !isNaN(gNum) 
         ? (gNum >= 5.0
-            ? `<span class="badge-red" title="${gWarn ? 'Alza de +' + gWarn.diffPct + '% vs anterior' : 'Nivel Crítico (≥ 5.0 DAC)'}">${gNum.toFixed(2)} ⚠️</span>`
+            ? `<span class="badge-red" title="${gWarn ? 'Nivel Crítico (≥ 5.0 DAC) - Alza de ' + (gWarn.diffPct !== null ? '+' + gWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + gWarn.avgVal.toFixed(2) + ' DAC, ' + gWarn.count + ' med.)' : 'Nivel Crítico (≥ 5.0 DAC)'}">${gNum.toFixed(2)} ⚠️</span>`
             : ((gNum >= 1.0 || gWarn) 
-                ? `<span class="badge-amber" title="Alza de +${gWarn ? gWarn.diffPct : 0}% vs anterior">${gNum.toFixed(2)}${gWarn ? ' ⚠️' : ''}</span>` 
+                ? `<span class="badge-amber" title="${gWarn ? 'Alza de ' + (gWarn.diffPct !== null ? '+' + gWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + gWarn.avgVal.toFixed(2) + ' DAC, ' + gWarn.count + ' med.)' + (gNum >= 1.0 ? ' - Nivel Elevado (≥ 1.0 DAC)' : '') : 'Nivel Elevado (≥ 1.0 DAC)'}">${gNum.toFixed(2)}${gWarn ? ' 📈' : ''}</span>` 
                 : gNum.toFixed(2))) 
         : '-';
 
@@ -6018,10 +6175,10 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                   <span style="font-weight: 700; color: #ffffff;">📊 ${w.param}:</span>
                   <span style="font-family: var(--font-mono); font-size: 13.5px;">
                     <strong style="color: var(--accent-amber); font-size: 14.5px;">${w.val} ${w.unit}</strong> 
-                    <span style="color: var(--text-dim); font-size: 11px;">(anterior: ${w.prevVal} ${w.unit})</span>
+                    <span style="color: var(--text-dim); font-size: 11px;">(prom. previo: ${w.avgVal ? w.avgVal.toFixed(2) : 0} ${w.unit} [${w.count} med.])</span>
                   </span>
                   <span class="badge-amber" style="font-size: 11px; font-weight: 800; padding: 3px 8px;">
-                    ${w.diffPct !== null ? '+' + w.diffPct + '%' : 'NUEVO PICO'}
+                    ${w.diffPct !== null ? '+' + w.diffPct + '% 📈' : 'NUEVO PICO'}
                   </span>
                 </div>
               `).join('')}
@@ -6109,7 +6266,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       const warnings = checkDiscrepancies(recinto, gases, tritio, dosis);
       if (warnings && warnings.length > 0) {
         const w = warnings[0];
-        trendBadge.innerHTML = `⚠️ Variación de ${w.param} (${w.diffPct !== null ? '+' + w.diffPct + '%' : 'Pico'}) vs anterior`;
+        trendBadge.innerHTML = `⚠️ Alza de ${w.param} (${w.diffPct !== null ? '+' + w.diffPct + '%' : 'Pico'} vs prom. ${w.count} med.)`;
         trendBadge.style.color = 'var(--accent-amber)';
       } else {
         trendBadge.innerHTML = '🟢 Niveles habituales';
@@ -8827,33 +8984,80 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         return;
       }
 
-      container.innerHTML = history.slice(0, 3).map((item, idx) => `
-        <div style="background: rgba(9, 28, 24, 0.85); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-cyan); border-radius: 6px; padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 11.5px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-weight: 800; color: var(--accent-cyan); font-size: 12px;">[${idx + 1}]</span>
-            <span style="color: #ffffff; font-weight: 700;">📅 ${item.fecha} &bull; ${item.hora} hs</span>
+      container.innerHTML = history.slice(0, 3).map((item, idx) => {
+        const tVal = parseFloat(item.tritio) || 0;
+        const dVal = parseFloat(item.dosis) || 0;
+        const gVal = parseFloat(item.gases) || 0;
+
+        const tStyle = tVal >= 10.0 ? 'color: #f87171; font-weight: 800;' : (tVal >= 1.0 ? 'color: #fbbf24; font-weight: 700;' : 'color: var(--accent-cyan); font-weight: 700;');
+        const dStyle = dVal >= 100.0 ? 'color: #f87171; font-weight: 800;' : (dVal >= 20.0 ? 'color: #fbbf24; font-weight: 700;' : 'color: var(--accent-amber); font-weight: 700;');
+        const gStyle = gVal >= 5.0 ? 'color: #f87171; font-weight: 800;' : (gVal >= 1.0 ? 'color: #fbbf24; font-weight: 700;' : 'color: #c084fc; font-weight: 700;');
+
+        return `
+          <div style="background: rgba(9, 28, 24, 0.85); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-cyan); border-radius: 6px; padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 11.5px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: 800; color: var(--accent-cyan); font-size: 12px;">[${idx + 1}]</span>
+              <span style="color: #ffffff; font-weight: 700;">📅 ${item.fecha} &bull; ${item.hora} hs</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="${gStyle}"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">G. nobles:</span> ${item.gases} DAC</span>
+              <span style="color: var(--border-card);">|</span>
+              <span style="${tStyle}"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Tritio:</span> ${item.tritio} DAC${tVal >= 10.0 ? ' ⚠️' : ''}</span>
+              <span style="color: var(--border-card);">|</span>
+              <span style="${dStyle}"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Dosis:</span> ${item.dosis} µSv/h${dVal >= 100.0 ? ' ⚠️' : ''}</span>
+            </div>
           </div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="color: #c084fc; font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">G. nobles:</span> ${item.gases} DAC</span>
-            <span style="color: var(--border-card);">|</span>
-            <span style="color: var(--accent-cyan); font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Tritio:</span> ${item.tritio} DAC</span>
-            <span style="color: var(--border-card);">|</span>
-            <span style="color: var(--accent-amber); font-weight: 700;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Dosis:</span> ${item.dosis} µSv/h</span>
-          </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
 
       if (trendBadge) {
         if (history.length >= 2) {
-          const d1 = parseFloat(history[0].dosis);
-          const dLast = parseFloat(history[Math.min(history.length - 1, 2)].dosis);
-          if (dLast > 0 && d1 > dLast * 1.3) {
-            trendBadge.innerHTML = '📈 Alza de Dosis (+ ' + Math.round(((d1 - dLast)/dLast)*100) + '%)';
+          const latest = history[0];
+          const prevSamples = history.slice(1, 4);
+          const pCount = prevSamples.length;
+
+          const t1 = parseFloat(latest.tritio) || 0;
+          const d1 = parseFloat(latest.dosis) || 0;
+          const g1 = parseFloat(latest.gases) || 0;
+
+          const avgT = prevSamples.reduce((a, c) => a + (parseFloat(c.tritio) || 0), 0) / pCount;
+          const avgD = prevSamples.reduce((a, c) => a + (parseFloat(c.dosis) || 0), 0) / pCount;
+          const avgG = prevSamples.reduce((a, c) => a + (parseFloat(c.gases) || 0), 0) / pCount;
+
+          if (t1 >= 10.0 || d1 >= 100.0 || g1 >= 5.0) {
+            trendBadge.innerHTML = '🚨 Nivel Crítico Detectado';
+            trendBadge.style.color = '#f87171';
+            return;
+          }
+
+          if (avgT > 0 && ((t1 - avgT) / avgT) >= 0.50 && (t1 - avgT) >= 0.25) {
+            const pct = Math.round(((t1 - avgT) / avgT) * 100);
+            trendBadge.innerHTML = `📈 Alza de Tritio (+${pct}% vs prom. ${pCount} med.)`;
+            trendBadge.style.color = 'var(--accent-amber)';
+            return;
+          }
+
+          if (avgD > 0 && ((d1 - avgD) / avgD) >= 0.50 && (d1 - avgD) >= 5.0) {
+            const pct = Math.round(((d1 - avgD) / avgD) * 100);
+            trendBadge.innerHTML = `📈 Alza de Dosis (+${pct}% vs prom. ${pCount} med.)`;
+            trendBadge.style.color = 'var(--accent-amber)';
+            return;
+          }
+
+          if (avgG > 0 && ((g1 - avgG) / avgG) >= 0.50 && (g1 - avgG) >= 0.20) {
+            const pct = Math.round(((g1 - avgG) / avgG) * 100);
+            trendBadge.innerHTML = `📈 Alza de Gases (+${pct}% vs prom. ${pCount} med.)`;
+            trendBadge.style.color = 'var(--accent-amber)';
+            return;
+          }
+
+          if (t1 >= 1.0 || d1 >= 20.0 || g1 >= 1.0) {
+            trendBadge.innerHTML = '⚠️ Niveles Elevados Estándar';
             trendBadge.style.color = 'var(--accent-amber)';
             return;
           }
         }
-        trendBadge.innerHTML = '🟢 Niveles estables';
+        trendBadge.innerHTML = '🟢 Niveles habituales';
         trendBadge.style.color = 'var(--accent-green)';
       }
     }

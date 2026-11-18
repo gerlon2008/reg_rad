@@ -200,6 +200,88 @@ if ($db_connected && $id_planilla > 0) {
         while ($r = mysql_fetch_assoc($q_rut)) $rows_rutina[] = $r;
     }
 
+    // 2.1 Historial previo para evaluar alzas relativas (promedio móvil de hasta 3 mediciones previas)
+    $hist_por_recinto = array();
+    $rutina_recinto_ids = array();
+    if (!empty($rows_rutina)) {
+        foreach ($rows_rutina as $r_item) {
+            $u_id = isset($r_item['ubicacion']) ? intval($r_item['ubicacion']) : 0;
+            if ($u_id > 0 && !in_array($u_id, $rutina_recinto_ids)) {
+                $rutina_recinto_ids[] = $u_id;
+            }
+        }
+    }
+    if (!empty($rutina_recinto_ids) && $db_connected) {
+        $ids_in_str = implode(',', $rutina_recinto_ids);
+        $q_all_hist = @mysql_query("SELECT id_relev_rutina, id_planilla, ubicacion, fecha, hora, gases_nobles, tritio, tasa_dosis 
+            FROM regrad_relevamiento_rutina 
+            WHERE ubicacion IN ($ids_in_str) 
+            ORDER BY fecha ASC, hora ASC, id_relev_rutina ASC", $miconex);
+        if ($q_all_hist) {
+            while ($h = mysql_fetch_assoc($q_all_hist)) {
+                $u = intval($h['ubicacion']);
+                if (!isset($hist_por_recinto[$u])) {
+                    $hist_por_recinto[$u] = array();
+                }
+                $hist_por_recinto[$u][] = $h;
+            }
+        }
+    }
+
+    if (!function_exists('evaluar_alza_parametro')) {
+        /**
+         * Evalúa si una medición radiológica presenta un alza (spike) respecto al promedio de hasta 3 mediciones previas
+         * Retorna array('is_spike' => bool, 'pct' => int|null, 'avg' => float, 'count' => int, 'is_crit' => bool, 'is_elev' => bool)
+         */
+        function evaluar_alza_parametro($val, $prev_list, $param_key, $lim_crit, $lim_elev, $delta_min, $zero_threshold) {
+            $val = (float)$val;
+            $is_crit = ($val >= $lim_crit);
+            $is_elev = ($val >= $lim_elev);
+            $count = count($prev_list);
+            
+            if ($count === 0) {
+                return array(
+                    'is_spike' => false,
+                    'pct' => null,
+                    'avg' => 0.0,
+                    'count' => 0,
+                    'is_crit' => $is_crit,
+                    'is_elev' => $is_elev
+                );
+            }
+            
+            $sum = 0.0;
+            foreach ($prev_list as $p) {
+                $sum += (float)(isset($p[$param_key]) ? $p[$param_key] : 0);
+            }
+            $avg = $sum / (float)$count;
+            
+            $is_spike = false;
+            $pct = null;
+            
+            if ($avg > 0.0001) {
+                $pct = (int)round((($val - $avg) / $avg) * 100);
+                if ($pct >= 50 && ($val - $avg) >= $delta_min) {
+                    $is_spike = true;
+                }
+            } else {
+                if ($val >= $zero_threshold) {
+                    $is_spike = true;
+                    $pct = null;
+                }
+            }
+            
+            return array(
+                'is_spike' => $is_spike,
+                'pct' => $pct,
+                'avg' => $avg,
+                'count' => $count,
+                'is_crit' => $is_crit,
+                'is_elev' => $is_elev
+            );
+        }
+    }
+
     // 3. Gases Nobles
     $q_gn = @mysql_query("SELECT * FROM regrad_gases_nobles WHERE id_planilla = $id_planilla", $miconex);
     if ($q_gn && $r = mysql_fetch_assoc($q_gn)) $row_gases_nobles = $r;
@@ -2081,30 +2163,70 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                   $dNum = (float)$r['tasa_dosis'];
                   $tNum = (float)$r['tritio'];
                   $gNum = (float)$r['gases_nobles'];
-
-                  // Resaltado de dosis
-                  $dosisBadge = ($dNum >= 100.0) 
-                    ? '<span class="badge-red" title="Nivel Crítico (≥ 100 µSv/h)">' . number_format($dNum, 1) . ' ⚠️</span>' 
-                    : (($dNum >= 20.0) 
-                        ? '<span class="badge-amber" title="Nivel Elevado (≥ 20 µSv/h)">' . number_format($dNum, 1) . '</span>' 
-                        : '<span style="color: var(--accent-cyan); font-weight: 700;">' . number_format($dNum, 1) . '</span>');
-
-                  // Resaltado de tritio
-                  $tritioBadge = ($tNum >= 10.0) 
-                    ? '<span class="badge-red" title="Nivel Crítico (≥ 10.0 DAC)">' . number_format($tNum, 2) . ' ⚠️</span>' 
-                    : (($tNum >= 1.0) 
-                        ? '<span class="badge-amber" title="Nivel Elevado (≥ 1.0 DAC)">' . number_format($tNum, 2) . '</span>' 
-                        : number_format($tNum, 2));
-
-                  // Resaltado de gases nobles
-                  $gasesBadge = ($gNum >= 5.0) 
-                    ? '<span class="badge-red" title="Nivel Crítico (≥ 5.0 DAC)">' . number_format($gNum, 2) . ' ⚠️</span>' 
-                    : (($gNum >= 1.0) 
-                        ? '<span class="badge-amber" title="Nivel Elevado (≥ 1.0 DAC)">' . number_format($gNum, 2) . '</span>' 
-                        : number_format($gNum, 2));
-                  
                   $recintoNom = !empty($r['recinto_nombre']) ? $r['recinto_nombre'] : '-';
                   $recintoId = !empty($r['ubicacion']) ? intval($r['ubicacion']) : 0;
+
+                  // Obtener hasta las 3 mediciones previas de este recinto
+                  $prev_list = array();
+                  if ($recintoId > 0 && isset($hist_por_recinto[$recintoId])) {
+                      foreach ($hist_por_recinto[$recintoId] as $hp) {
+                          $is_prior = false;
+                          if ($hp['fecha'] < $r['fecha']) {
+                              $is_prior = true;
+                          } elseif ($hp['fecha'] == $r['fecha']) {
+                              if ($hp['hora'] < $r['hora']) {
+                                  $is_prior = true;
+                              } elseif ($hp['hora'] == $r['hora'] && isset($hp['id_relev_rutina'], $r['id_relev_rutina']) && intval($hp['id_relev_rutina']) < intval($r['id_relev_rutina'])) {
+                                  $is_prior = true;
+                              }
+                          }
+                          if ($is_prior) {
+                              $prev_list[] = $hp;
+                          }
+                      }
+                  }
+                  $prev_3 = !empty($prev_list) ? array_slice($prev_list, -3) : array();
+
+                  // Evaluar variación relativa respecto al promedio previo y límites absolutos
+                  $d_eval = evaluar_alza_parametro($dNum, $prev_3, 'tasa_dosis', 100.0, 20.0, 5.0, 10.0);
+                  $t_eval = evaluar_alza_parametro($tNum, $prev_3, 'tritio', 10.0, 1.0, 0.25, 0.50);
+                  $g_eval = evaluar_alza_parametro($gNum, $prev_3, 'gases_nobles', 5.0, 1.0, 0.20, 0.30);
+
+                  // 1. Resaltado de Dosis
+                  if ($d_eval['is_crit']) {
+                      $title_d = 'Nivel Crítico (≥ 100 µSv/h)' . ($d_eval['is_spike'] ? (' - Alza de ' . ($d_eval['pct'] !== null ? '+' . $d_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($d_eval['avg'], 1) . ' µSv/h, ' . $d_eval['count'] . ' med.)') : '');
+                      $dosisBadge = '<span class="badge-red" title="' . htmlspecialchars($title_d, ENT_QUOTES, 'UTF-8') . '">' . number_format($dNum, 1) . ' ⚠️</span>';
+                  } elseif ($d_eval['is_elev'] || $d_eval['is_spike']) {
+                      $title_d = ($d_eval['is_spike'] ? ('Alza de ' . ($d_eval['pct'] !== null ? '+' . $d_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($d_eval['avg'], 1) . ' µSv/h, ' . $d_eval['count'] . ' med.)' . ($d_eval['is_elev'] ? ' - Nivel Elevado (≥ 20 µSv/h)' : '')) : 'Nivel Elevado (≥ 20 µSv/h)');
+                      $trendIcon = $d_eval['is_spike'] ? ' 📈' : '';
+                      $dosisBadge = '<span class="badge-amber" title="' . htmlspecialchars($title_d, ENT_QUOTES, 'UTF-8') . '">' . number_format($dNum, 1) . $trendIcon . '</span>';
+                  } else {
+                      $dosisBadge = '<span style="color: var(--accent-cyan); font-weight: 700;">' . number_format($dNum, 1) . '</span>';
+                  }
+
+                  // 2. Resaltado de Tritio
+                  if ($t_eval['is_crit']) {
+                      $title_t = 'Nivel Crítico (≥ 10.0 DAC)' . ($t_eval['is_spike'] ? (' - Alza de ' . ($t_eval['pct'] !== null ? '+' . $t_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($t_eval['avg'], 2) . ' DAC, ' . $t_eval['count'] . ' med.)') : '');
+                      $tritioBadge = '<span class="badge-red" title="' . htmlspecialchars($title_t, ENT_QUOTES, 'UTF-8') . '">' . number_format($tNum, 2) . ' ⚠️</span>';
+                  } elseif ($t_eval['is_elev'] || $t_eval['is_spike']) {
+                      $title_t = ($t_eval['is_spike'] ? ('Alza de ' . ($t_eval['pct'] !== null ? '+' . $t_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($t_eval['avg'], 2) . ' DAC, ' . $t_eval['count'] . ' med.)' . ($t_eval['is_elev'] ? ' - Nivel Elevado (≥ 1.0 DAC)' : '')) : 'Nivel Elevado (≥ 1.0 DAC)');
+                      $trendIcon = $t_eval['is_spike'] ? ' 📈' : '';
+                      $tritioBadge = '<span class="badge-amber" title="' . htmlspecialchars($title_t, ENT_QUOTES, 'UTF-8') . '">' . number_format($tNum, 2) . $trendIcon . '</span>';
+                  } else {
+                      $tritioBadge = number_format($tNum, 2);
+                  }
+
+                  // 3. Resaltado de Gases Nobles
+                  if ($g_eval['is_crit']) {
+                      $title_g = 'Nivel Crítico (≥ 5.0 DAC)' . ($g_eval['is_spike'] ? (' - Alza de ' . ($g_eval['pct'] !== null ? '+' . $g_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($g_eval['avg'], 2) . ' DAC, ' . $g_eval['count'] . ' med.)') : '');
+                      $gasesBadge = '<span class="badge-red" title="' . htmlspecialchars($title_g, ENT_QUOTES, 'UTF-8') . '">' . number_format($gNum, 2) . ' ⚠️</span>';
+                  } elseif ($g_eval['is_elev'] || $g_eval['is_spike']) {
+                      $title_g = ($g_eval['is_spike'] ? ('Alza de ' . ($g_eval['pct'] !== null ? '+' . $g_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($g_eval['avg'], 2) . ' DAC, ' . $g_eval['count'] . ' med.)' . ($g_eval['is_elev'] ? ' - Nivel Elevado (≥ 1.0 DAC)' : '')) : 'Nivel Elevado (≥ 1.0 DAC)');
+                      $trendIcon = $g_eval['is_spike'] ? ' 📈' : '';
+                      $gasesBadge = '<span class="badge-amber" title="' . htmlspecialchars($title_g, ENT_QUOTES, 'UTF-8') . '">' . number_format($gNum, 2) . $trendIcon . '</span>';
+                  } else {
+                      $gasesBadge = number_format($gNum, 2);
+                  }
                 ?>
                   <tr data-dosis="<?php echo $dNum; ?>" data-tritio="<?php echo $tNum; ?>" data-gases="<?php echo $gNum; ?>" data-recinto="<?php echo htmlspecialchars($recintoNom, ENT_QUOTES, 'UTF-8'); ?>">
                     <td class="mono"><?php echo formafecha_latam($r['fecha']); ?></td>
@@ -2762,23 +2884,47 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
 
       if (trendBadge) {
         if (history.length >= 2) {
-          const d1 = parseFloat(history[0].dosis) || 0;
-          const dLast = parseFloat(history[Math.min(history.length - 1, 2)].dosis) || 0;
-          const t1 = parseFloat(history[0].tritio) || 0;
-          const tLast = parseFloat(history[Math.min(history.length - 1, 2)].tritio) || 0;
+          const latest = history[0];
+          const prevSamples = history.slice(1, 4);
+          const pCount = prevSamples.length;
 
-          if (t1 >= 10.0) {
-            trendBadge.innerHTML = '🚨 Tritio Crítico (≥ 10 DAC)';
+          const t1 = parseFloat(latest.tritio) || 0;
+          const d1 = parseFloat(latest.dosis) || 0;
+          const g1 = parseFloat(latest.gases) || 0;
+
+          const avgT = prevSamples.reduce((a, c) => a + (parseFloat(c.tritio) || 0), 0) / pCount;
+          const avgD = prevSamples.reduce((a, c) => a + (parseFloat(c.dosis) || 0), 0) / pCount;
+          const avgG = prevSamples.reduce((a, c) => a + (parseFloat(c.gases) || 0), 0) / pCount;
+
+          if (t1 >= 10.0 || d1 >= 100.0 || g1 >= 5.0) {
+            trendBadge.innerHTML = '🚨 Nivel Crítico Detectado';
             trendBadge.style.color = '#f87171';
             return;
           }
-          if (dLast > 0 && d1 > dLast * 1.3) {
-            trendBadge.innerHTML = '📈 Alza de Dosis (+ ' + Math.round(((d1 - dLast)/dLast)*100) + '%)';
+
+          if (avgT > 0 && ((t1 - avgT) / avgT) >= 0.50 && (t1 - avgT) >= 0.25) {
+            const pct = Math.round(((t1 - avgT) / avgT) * 100);
+            trendBadge.innerHTML = `📈 Alza de Tritio (+${pct}% vs prom. ${pCount} med.)`;
             trendBadge.style.color = 'var(--accent-amber)';
             return;
           }
-          if (tLast > 0 && t1 > tLast * 1.5) {
-            trendBadge.innerHTML = '📈 Alza de Tritio (+ ' + Math.round(((t1 - tLast)/tLast)*100) + '%)';
+
+          if (avgD > 0 && ((d1 - avgD) / avgD) >= 0.50 && (d1 - avgD) >= 5.0) {
+            const pct = Math.round(((d1 - avgD) / avgD) * 100);
+            trendBadge.innerHTML = `📈 Alza de Dosis (+${pct}% vs prom. ${pCount} med.)`;
+            trendBadge.style.color = 'var(--accent-amber)';
+            return;
+          }
+
+          if (avgG > 0 && ((g1 - avgG) / avgG) >= 0.50 && (g1 - avgG) >= 0.20) {
+            const pct = Math.round(((g1 - avgG) / avgG) * 100);
+            trendBadge.innerHTML = `📈 Alza de Gases (+${pct}% vs prom. ${pCount} med.)`;
+            trendBadge.style.color = 'var(--accent-amber)';
+            return;
+          }
+
+          if (t1 >= 1.0 || d1 >= 20.0 || g1 >= 1.0) {
+            trendBadge.innerHTML = '⚠️ Niveles Elevados Estándar';
             trendBadge.style.color = 'var(--accent-amber)';
             return;
           }
