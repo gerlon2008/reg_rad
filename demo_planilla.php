@@ -2403,25 +2403,40 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     }
 
     .badge-amber {
-      background: rgba(245, 158, 11, 0.15);
-      border: 1px solid rgba(245, 158, 11, 0.4);
-      color: var(--accent-amber);
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 3px !important;
+      white-space: nowrap !important;
+      flex-wrap: nowrap !important;
+      background: rgba(245, 158, 11, 0.16);
+      border: 1px solid rgba(245, 158, 11, 0.5);
+      color: #fbbf24;
       padding: 2px 6px;
       border-radius: 4px;
       font-family: var(--font-mono);
       font-size: 11px;
       font-weight: 700;
+      line-height: 1.2;
     }
 
     .badge-red {
-      background: rgba(239, 68, 68, 0.2);
-      border: 1px solid rgba(239, 68, 68, 0.5);
-      color: var(--accent-red);
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 3px !important;
+      white-space: nowrap !important;
+      flex-wrap: nowrap !important;
+      background: rgba(239, 68, 68, 0.22);
+      border: 1px solid rgba(239, 68, 68, 0.7);
+      color: #f87171;
       padding: 2px 6px;
       border-radius: 4px;
       font-family: var(--font-mono);
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 800;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.35);
+      line-height: 1.2;
     }
 
             /* Estilos para botón de apertura y filas clickeables de actas */
@@ -3811,9 +3826,9 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                   <th style="width: 105px;">Fecha</th>
                   <th style="width: 75px; text-align: right;">Hora</th>
                   <th>Recinto / Ubicación</th>
-                  <th style="width: 105px; text-align: right;">Gases (DAC)</th>
-                  <th style="width: 105px; text-align: right;">Tritio (DAC)</th>
-                  <th style="width: 115px; text-align: right;">Tasa Dosis (µSv/h)</th>
+                  <th style="min-width: 95px; width: 105px; text-align: right; white-space: nowrap;">Gases (DAC)</th>
+                  <th style="min-width: 100px; width: 105px; text-align: right; white-space: nowrap;">Tritio (DAC)</th>
+                  <th style="min-width: 110px; width: 115px; text-align: right; white-space: nowrap;">Tasa Dosis (µSv/h)</th>
                   <th>Observaciones</th>
                   <th style="width: 140px;">Oficial</th>
                   <th style="width: 60px; text-align: center;">Acción</th>
@@ -3867,10 +3882,10 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                   // 1. Resaltado de Dosis
                   if ($d_eval['is_crit']) {
                       $title_d = 'Nivel Crítico (≥ 100 µSv/h)' . ($d_eval['is_spike'] ? (' - Alza de ' . ($d_eval['pct'] !== null ? '+' . $d_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($d_eval['avg'], 1) . ' µSv/h, ' . $d_eval['count'] . ' med.)') : '');
-                      $dosisBadge = '<span class="badge-red" title="' . htmlspecialchars($title_d, ENT_QUOTES, 'UTF-8') . '">' . number_format($dNum, 1) . ' ⚠️</span>';
+                      $dosisBadge = '<span class="badge-red" title="' . htmlspecialchars($title_d, ENT_QUOTES, 'UTF-8') . '">' . number_format($dNum, 1) . '&nbsp;⚠️</span>';
                   } elseif ($d_eval['is_elev'] || $d_eval['is_spike']) {
                       $title_d = ($d_eval['is_spike'] ? ('Alza de ' . ($d_eval['pct'] !== null ? '+' . $d_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($d_eval['avg'], 1) . ' µSv/h, ' . $d_eval['count'] . ' med.)' . ($d_eval['is_elev'] ? ' - Nivel Elevado (≥ 20 µSv/h)' : '')) : 'Nivel Elevado (≥ 20 µSv/h)');
-                      $trendIcon = $d_eval['is_spike'] ? ' 📈' : '';
+                      $trendIcon = $d_eval['is_spike'] ? '&nbsp;📈' : '';
                       $dosisBadge = '<span class="badge-amber" title="' . htmlspecialchars($title_d, ENT_QUOTES, 'UTF-8') . '">' . number_format($dNum, 1) . $trendIcon . '</span>';
                   } else {
                       $dosisBadge = number_format($dNum, 1);
@@ -3879,10 +3894,10 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                   // 2. Resaltado de Tritio
                   if ($t_eval['is_crit']) {
                       $title_t = 'Nivel Crítico (≥ 10.0 DAC)' . ($t_eval['is_spike'] ? (' - Alza de ' . ($t_eval['pct'] !== null ? '+' . $t_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($t_eval['avg'], 2) . ' DAC, ' . $t_eval['count'] . ' med.)') : '');
-                      $tritioBadge = '<span class="badge-red" title="' . htmlspecialchars($title_t, ENT_QUOTES, 'UTF-8') . '">' . number_format($tNum, 2) . ' ⚠️</span>';
+                      $tritioBadge = '<span class="badge-red" title="' . htmlspecialchars($title_t, ENT_QUOTES, 'UTF-8') . '">' . number_format($tNum, 2) . '&nbsp;⚠️</span>';
                   } elseif ($t_eval['is_elev'] || $t_eval['is_spike']) {
                       $title_t = ($t_eval['is_spike'] ? ('Alza de ' . ($t_eval['pct'] !== null ? '+' . $t_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($t_eval['avg'], 2) . ' DAC, ' . $t_eval['count'] . ' med.)' . ($t_eval['is_elev'] ? ' - Nivel Elevado (≥ 1.0 DAC)' : '')) : 'Nivel Elevado (≥ 1.0 DAC)');
-                      $trendIcon = $t_eval['is_spike'] ? ' 📈' : '';
+                      $trendIcon = $t_eval['is_spike'] ? '&nbsp;📈' : '';
                       $tritioBadge = '<span class="badge-amber" title="' . htmlspecialchars($title_t, ENT_QUOTES, 'UTF-8') . '">' . number_format($tNum, 2) . $trendIcon . '</span>';
                   } else {
                       $tritioBadge = number_format($tNum, 2);
@@ -3891,10 +3906,10 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                   // 3. Resaltado de Gases Nobles
                   if ($g_eval['is_crit']) {
                       $title_g = 'Nivel Crítico (≥ 5.0 DAC)' . ($g_eval['is_spike'] ? (' - Alza de ' . ($g_eval['pct'] !== null ? '+' . $g_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($g_eval['avg'], 2) . ' DAC, ' . $g_eval['count'] . ' med.)') : '');
-                      $gasesBadge = '<span class="badge-red" title="' . htmlspecialchars($title_g, ENT_QUOTES, 'UTF-8') . '">' . number_format($gNum, 2) . ' ⚠️</span>';
+                      $gasesBadge = '<span class="badge-red" title="' . htmlspecialchars($title_g, ENT_QUOTES, 'UTF-8') . '">' . number_format($gNum, 2) . '&nbsp;⚠️</span>';
                   } elseif ($g_eval['is_elev'] || $g_eval['is_spike']) {
                       $title_g = ($g_eval['is_spike'] ? ('Alza de ' . ($g_eval['pct'] !== null ? '+' . $g_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($g_eval['avg'], 2) . ' DAC, ' . $g_eval['count'] . ' med.)' . ($g_eval['is_elev'] ? ' - Nivel Elevado (≥ 1.0 DAC)' : '')) : 'Nivel Elevado (≥ 1.0 DAC)');
-                      $trendIcon = $g_eval['is_spike'] ? ' 📈' : '';
+                      $trendIcon = $g_eval['is_spike'] ? '&nbsp;📈' : '';
                       $gasesBadge = '<span class="badge-amber" title="' . htmlspecialchars($title_g, ENT_QUOTES, 'UTF-8') . '">' . number_format($gNum, 2) . $trendIcon . '</span>';
                   } else {
                       $gasesBadge = number_format($gNum, 2);
@@ -3913,9 +3928,9 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
                       </button>
                     </div>
                   </td>
-                  <td class="num"><?php echo $gasesBadge; ?></td>
-                  <td class="num"><?php echo $tritioBadge; ?></td>
-                  <td class="num"><?php echo $dosisBadge; ?></td>
+                  <td class="num" style="white-space: nowrap;"><?php echo $gasesBadge; ?></td>
+                  <td class="num" style="white-space: nowrap;"><?php echo $tritioBadge; ?></td>
+                  <td class="num" style="white-space: nowrap;"><?php echo $dosisBadge; ?></td>
                   <td style="color: var(--text-muted);"><?php echo htmlspecialchars((!empty($row['obs']) && $row['obs'] !== 'Sin observaciones') ? $row['obs'] : '--Sin observaciones--', ENT_QUOTES, 'UTF-8'); ?></td>
                   <td><?php echo htmlspecialchars($row['oficial'], ENT_QUOTES, 'UTF-8'); ?></td>
                   <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
@@ -6308,25 +6323,25 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
       let dosisBadge = !isNaN(dNum) 
         ? (dNum >= 100.0 
-            ? `<span class="badge-red" title="${dWarn ? 'Nivel Crítico (≥ 100 µSv/h) - Alza de ' + (dWarn.diffPct !== null ? '+' + dWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + dWarn.avgVal.toFixed(1) + ' µSv/h, ' + dWarn.count + ' med.)' : 'Nivel Crítico (≥ 100 µSv/h)'}">${dNum.toFixed(1)} ⚠️</span>` 
+            ? `<span class="badge-red" title="${dWarn ? 'Nivel Crítico (≥ 100 µSv/h) - Alza de ' + (dWarn.diffPct !== null ? '+' + dWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + dWarn.avgVal.toFixed(1) + ' µSv/h, ' + dWarn.count + ' med.)' : 'Nivel Crítico (≥ 100 µSv/h)'}">${dNum.toFixed(1)}&nbsp;⚠️</span>` 
             : ((dNum >= 20.0 || dWarn) 
-                ? `<span class="badge-amber" title="${dWarn ? 'Alza de ' + (dWarn.diffPct !== null ? '+' + dWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + dWarn.avgVal.toFixed(1) + ' µSv/h, ' + dWarn.count + ' med.)' + (dNum >= 20.0 ? ' - Nivel Elevado (≥ 20 µSv/h)' : '') : 'Nivel Elevado (≥ 20 µSv/h)'}">${dNum.toFixed(1)}${dWarn ? ' 📈' : ''}</span>` 
+                ? `<span class="badge-amber" title="${dWarn ? 'Alza de ' + (dWarn.diffPct !== null ? '+' + dWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + dWarn.avgVal.toFixed(1) + ' µSv/h, ' + dWarn.count + ' med.)' + (dNum >= 20.0 ? ' - Nivel Elevado (≥ 20 µSv/h)' : '') : 'Nivel Elevado (≥ 20 µSv/h)'}">${dNum.toFixed(1)}${dWarn ? '&nbsp;📈' : ''}</span>` 
                 : dNum.toFixed(1))) 
         : '-';
 
       let tritioBadge = !isNaN(tNum) 
         ? (tNum >= 10.0
-            ? `<span class="badge-red" title="${tWarn ? 'Nivel Crítico (≥ 10.0 DAC) - Alza de ' + (tWarn.diffPct !== null ? '+' + tWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + tWarn.avgVal.toFixed(2) + ' DAC, ' + tWarn.count + ' med.)' : 'Nivel Crítico (≥ 10.0 DAC)'}">${tNum.toFixed(2)} ⚠️</span>`
+            ? `<span class="badge-red" title="${tWarn ? 'Nivel Crítico (≥ 10.0 DAC) - Alza de ' + (tWarn.diffPct !== null ? '+' + tWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + tWarn.avgVal.toFixed(2) + ' DAC, ' + tWarn.count + ' med.)' : 'Nivel Crítico (≥ 10.0 DAC)'}">${tNum.toFixed(2)}&nbsp;⚠️</span>`
             : ((tNum >= 1.0 || tWarn) 
-                ? `<span class="badge-amber" title="${tWarn ? 'Alza de ' + (tWarn.diffPct !== null ? '+' + tWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + tWarn.avgVal.toFixed(2) + ' DAC, ' + tWarn.count + ' med.)' + (tNum >= 1.0 ? ' - Nivel Elevado (≥ 1.0 DAC)' : '') : 'Nivel Elevado (≥ 1.0 DAC)'}">${tNum.toFixed(2)}${tWarn ? ' 📈' : ''}</span>` 
+                ? `<span class="badge-amber" title="${tWarn ? 'Alza de ' + (tWarn.diffPct !== null ? '+' + tWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + tWarn.avgVal.toFixed(2) + ' DAC, ' + tWarn.count + ' med.)' + (tNum >= 1.0 ? ' - Nivel Elevado (≥ 1.0 DAC)' : '') : 'Nivel Elevado (≥ 1.0 DAC)'}">${tNum.toFixed(2)}${tWarn ? '&nbsp;📈' : ''}</span>` 
                 : tNum.toFixed(2))) 
         : '-';
 
       let gasesBadge = !isNaN(gNum) 
         ? (gNum >= 5.0
-            ? `<span class="badge-red" title="${gWarn ? 'Nivel Crítico (≥ 5.0 DAC) - Alza de ' + (gWarn.diffPct !== null ? '+' + gWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + gWarn.avgVal.toFixed(2) + ' DAC, ' + gWarn.count + ' med.)' : 'Nivel Crítico (≥ 5.0 DAC)'}">${gNum.toFixed(2)} ⚠️</span>`
+            ? `<span class="badge-red" title="${gWarn ? 'Nivel Crítico (≥ 5.0 DAC) - Alza de ' + (gWarn.diffPct !== null ? '+' + gWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + gWarn.avgVal.toFixed(2) + ' DAC, ' + gWarn.count + ' med.)' : 'Nivel Crítico (≥ 5.0 DAC)'}">${gNum.toFixed(2)}&nbsp;⚠️</span>`
             : ((gNum >= 1.0 || gWarn) 
-                ? `<span class="badge-amber" title="${gWarn ? 'Alza de ' + (gWarn.diffPct !== null ? '+' + gWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + gWarn.avgVal.toFixed(2) + ' DAC, ' + gWarn.count + ' med.)' + (gNum >= 1.0 ? ' - Nivel Elevado (≥ 1.0 DAC)' : '') : 'Nivel Elevado (≥ 1.0 DAC)'}">${gNum.toFixed(2)}${gWarn ? ' 📈' : ''}</span>` 
+                ? `<span class="badge-amber" title="${gWarn ? 'Alza de ' + (gWarn.diffPct !== null ? '+' + gWarn.diffPct + '%' : 'significativa') + ' vs prom. previo (' + gWarn.avgVal.toFixed(2) + ' DAC, ' + gWarn.count + ' med.)' + (gNum >= 1.0 ? ' - Nivel Elevado (≥ 1.0 DAC)' : '') : 'Nivel Elevado (≥ 1.0 DAC)'}">${gNum.toFixed(2)}${gWarn ? '&nbsp;📈' : ''}</span>` 
                 : gNum.toFixed(2))) 
         : '-';
 
@@ -6356,9 +6371,9 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             </button>
           </div>
         </td>
-        <td class="num">${gasesBadge}</td>
-        <td class="num">${tritioBadge}</td>
-        <td class="num">${dosisBadge}</td>
+        <td class="num" style="white-space: nowrap;">${gasesBadge}</td>
+        <td class="num" style="white-space: nowrap;">${tritioBadge}</td>
+        <td class="num" style="white-space: nowrap;">${dosisBadge}</td>
         <td style="color: var(--text-muted);">${cleanObs}</td>
         <td>${oficial}</td>
         <td style="text-align: center;"><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
@@ -9284,17 +9299,17 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         const gStyle = gVal >= 5.0 ? 'color: #f87171; font-weight: 800;' : (gVal >= 1.0 ? 'color: #fbbf24; font-weight: 700;' : 'color: #c084fc; font-weight: 700;');
 
         return `
-          <div style="background: rgba(9, 28, 24, 0.85); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-cyan); border-radius: 6px; padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 11.5px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="background: rgba(9, 28, 24, 0.85); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-cyan); border-radius: 6px; padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 11.5px; white-space: nowrap; flex-wrap: nowrap; gap: 12px;">
+            <div style="display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0;">
               <span style="font-weight: 800; color: var(--accent-cyan); font-size: 12px;">[${idx + 1}]</span>
-              <span style="color: #ffffff; font-weight: 700;">📅 ${item.fecha} &bull; ${item.hora} hs</span>
+              <span style="color: #ffffff; font-weight: 700; white-space: nowrap;">📅&nbsp;${item.fecha}&nbsp;&bull;&nbsp;${item.hora}&nbsp;hs</span>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="${gStyle}"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">G. nobles:</span> ${item.gases} DAC</span>
+            <div style="display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0;">
+              <span style="${gStyle}; white-space: nowrap;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">G.&nbsp;nobles:</span>&nbsp;${item.gases}&nbsp;DAC</span>
               <span style="color: var(--border-card);">|</span>
-              <span style="${tStyle}"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Tritio:</span> ${item.tritio} DAC${tVal >= 10.0 ? ' ⚠️' : ''}</span>
+              <span style="${tStyle}; white-space: nowrap;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Tritio:</span>&nbsp;${item.tritio}&nbsp;DAC${tVal >= 10.0 ? '&nbsp;⚠️' : ''}</span>
               <span style="color: var(--border-card);">|</span>
-              <span style="${dStyle}"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Dosis:</span> ${item.dosis} µSv/h${dVal >= 100.0 ? ' ⚠️' : ''}</span>
+              <span style="${dStyle}; white-space: nowrap;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Dosis:</span>&nbsp;${item.dosis}&nbsp;µSv/h${dVal >= 100.0 ? '&nbsp;⚠️' : ''}</span>
             </div>
           </div>
         `;
@@ -10742,7 +10757,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
   </script>
     <!-- MODAL HUD: HISTORIAL DE LOS ÚLTIMOS 3 VALORES DEL RECINTO SELECCIONADO -->
   <div class="modal-overlay" id="modal-recinto-historial" style="display: none;" onclick="if(event.target===this) closeRecintoHistoryModal();">
-    <div class="modal-box" style="max-width: 620px; border-left: 4px solid var(--accent-cyan); animation: cyber-hologram-assemble 0.28s ease-out;">
+    <div class="modal-box" style="max-width: 740px; width: 95vw; border-left: 4px solid var(--accent-cyan); animation: cyber-hologram-assemble 0.28s ease-out;">
       <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
           <div style="font-size: 11px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.5px;">

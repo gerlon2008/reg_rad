@@ -1461,32 +1461,40 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
     }
 
     .badge-amber {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 3px !important;
+      white-space: nowrap !important;
+      flex-wrap: nowrap !important;
       background: rgba(245, 158, 11, 0.16);
       border: 1px solid rgba(245, 158, 11, 0.5);
       color: #fbbf24;
-      padding: 2px 7px;
+      padding: 2px 6px;
       border-radius: 4px;
       font-family: var(--font-mono);
       font-size: 11px;
       font-weight: 700;
+      line-height: 1.2;
     }
 
     .badge-red {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 3px !important;
+      white-space: nowrap !important;
+      flex-wrap: nowrap !important;
       background: rgba(239, 68, 68, 0.22);
       border: 1px solid rgba(239, 68, 68, 0.7);
       color: #f87171;
-      padding: 2px 7px;
+      padding: 2px 6px;
       border-radius: 4px;
       font-family: var(--font-mono);
       font-size: 11px;
       font-weight: 800;
       box-shadow: 0 0 8px rgba(239, 68, 68, 0.35);
+      line-height: 1.2;
     }
 
     /* Gas Cards Grid */
@@ -2444,9 +2452,9 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                   <th rowspan="2" style="width: 100px;">Estado</th>
                 </tr>
                 <tr>
-                  <th style="width: 80px;">G.Nobles<br><span style="font-weight: normal;">(DAC)</span></th>
-                  <th style="width: 80px;">Tritio<br><span style="font-weight: normal;">(DAC)</span></th>
-                  <th style="width: 90px;">T.Dosis<br><span style="font-weight: normal;">(µSv/h)</span></th>
+                  <th style="min-width: 95px; width: 95px; white-space: nowrap;">G.Nobles<br><span style="font-weight: normal;">(DAC)</span></th>
+                  <th style="min-width: 100px; width: 100px; white-space: nowrap;">Tritio<br><span style="font-weight: normal;">(DAC)</span></th>
+                  <th style="min-width: 100px; width: 100px; white-space: nowrap;">T.Dosis<br><span style="font-weight: normal;">(µSv/h)</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -2486,10 +2494,10 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                   // 1. Resaltado de Dosis
                   if ($d_eval['is_crit']) {
                       $title_d = 'Nivel Crítico (≥ 100 µSv/h)' . ($d_eval['is_spike'] ? (' - Alza de ' . ($d_eval['pct'] !== null ? '+' . $d_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($d_eval['avg'], 1) . ' µSv/h, ' . $d_eval['count'] . ' med.)') : '');
-                      $dosisBadge = '<span class="badge-red" title="' . htmlspecialchars($title_d, ENT_QUOTES, 'UTF-8') . '">' . number_format($dNum, 1) . ' ⚠️</span>';
+                      $dosisBadge = '<span class="badge-red" title="' . htmlspecialchars($title_d, ENT_QUOTES, 'UTF-8') . '">' . number_format($dNum, 1) . '&nbsp;⚠️</span>';
                   } elseif ($d_eval['is_elev'] || $d_eval['is_spike']) {
                       $title_d = ($d_eval['is_spike'] ? ('Alza de ' . ($d_eval['pct'] !== null ? '+' . $d_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($d_eval['avg'], 1) . ' µSv/h, ' . $d_eval['count'] . ' med.)' . ($d_eval['is_elev'] ? ' - Nivel Elevado (≥ 20 µSv/h)' : '')) : 'Nivel Elevado (≥ 20 µSv/h)');
-                      $trendIcon = $d_eval['is_spike'] ? ' 📈' : '';
+                      $trendIcon = $d_eval['is_spike'] ? '&nbsp;📈' : '';
                       $dosisBadge = '<span class="badge-amber" title="' . htmlspecialchars($title_d, ENT_QUOTES, 'UTF-8') . '">' . number_format($dNum, 1) . $trendIcon . '</span>';
                   } else {
                       $dosisBadge = '<span style="color: var(--accent-cyan); font-weight: 700;">' . number_format($dNum, 1) . '</span>';
@@ -2498,10 +2506,10 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                   // 2. Resaltado de Tritio
                   if ($t_eval['is_crit']) {
                       $title_t = 'Nivel Crítico (≥ 10.0 DAC)' . ($t_eval['is_spike'] ? (' - Alza de ' . ($t_eval['pct'] !== null ? '+' . $t_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($t_eval['avg'], 2) . ' DAC, ' . $t_eval['count'] . ' med.)') : '');
-                      $tritioBadge = '<span class="badge-red" title="' . htmlspecialchars($title_t, ENT_QUOTES, 'UTF-8') . '">' . number_format($tNum, 2) . ' ⚠️</span>';
+                      $tritioBadge = '<span class="badge-red" title="' . htmlspecialchars($title_t, ENT_QUOTES, 'UTF-8') . '">' . number_format($tNum, 2) . '&nbsp;⚠️</span>';
                   } elseif ($t_eval['is_elev'] || $t_eval['is_spike']) {
                       $title_t = ($t_eval['is_spike'] ? ('Alza de ' . ($t_eval['pct'] !== null ? '+' . $t_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($t_eval['avg'], 2) . ' DAC, ' . $t_eval['count'] . ' med.)' . ($t_eval['is_elev'] ? ' - Nivel Elevado (≥ 1.0 DAC)' : '')) : 'Nivel Elevado (≥ 1.0 DAC)');
-                      $trendIcon = $t_eval['is_spike'] ? ' 📈' : '';
+                      $trendIcon = $t_eval['is_spike'] ? '&nbsp;📈' : '';
                       $tritioBadge = '<span class="badge-amber" title="' . htmlspecialchars($title_t, ENT_QUOTES, 'UTF-8') . '">' . number_format($tNum, 2) . $trendIcon . '</span>';
                   } else {
                       $tritioBadge = number_format($tNum, 2);
@@ -2510,10 +2518,10 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                   // 3. Resaltado de Gases Nobles
                   if ($g_eval['is_crit']) {
                       $title_g = 'Nivel Crítico (≥ 5.0 DAC)' . ($g_eval['is_spike'] ? (' - Alza de ' . ($g_eval['pct'] !== null ? '+' . $g_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($g_eval['avg'], 2) . ' DAC, ' . $g_eval['count'] . ' med.)') : '');
-                      $gasesBadge = '<span class="badge-red" title="' . htmlspecialchars($title_g, ENT_QUOTES, 'UTF-8') . '">' . number_format($gNum, 2) . ' ⚠️</span>';
+                      $gasesBadge = '<span class="badge-red" title="' . htmlspecialchars($title_g, ENT_QUOTES, 'UTF-8') . '">' . number_format($gNum, 2) . '&nbsp;⚠️</span>';
                   } elseif ($g_eval['is_elev'] || $g_eval['is_spike']) {
                       $title_g = ($g_eval['is_spike'] ? ('Alza de ' . ($g_eval['pct'] !== null ? '+' . $g_eval['pct'] . '%' : 'significativa') . ' vs prom. previo (' . number_format($g_eval['avg'], 2) . ' DAC, ' . $g_eval['count'] . ' med.)' . ($g_eval['is_elev'] ? ' - Nivel Elevado (≥ 1.0 DAC)' : '')) : 'Nivel Elevado (≥ 1.0 DAC)');
-                      $trendIcon = $g_eval['is_spike'] ? ' 📈' : '';
+                      $trendIcon = $g_eval['is_spike'] ? '&nbsp;📈' : '';
                       $gasesBadge = '<span class="badge-amber" title="' . htmlspecialchars($title_g, ENT_QUOTES, 'UTF-8') . '">' . number_format($gNum, 2) . $trendIcon . '</span>';
                   } else {
                       $gasesBadge = number_format($gNum, 2);
@@ -2532,9 +2540,9 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
                         </button>
                       </div>
                     </td>
-                    <td class="mono"><?php echo $gasesBadge; ?></td>
-                    <td class="mono"><?php echo $tritioBadge; ?></td>
-                    <td class="mono"><?php echo $dosisBadge; ?></td>
+                    <td class="mono" style="white-space: nowrap; text-align: center;"><?php echo $gasesBadge; ?></td>
+                    <td class="mono" style="white-space: nowrap; text-align: center;"><?php echo $tritioBadge; ?></td>
+                    <td class="mono" style="white-space: nowrap; text-align: center;"><?php echo $dosisBadge; ?></td>
                     <td class="text-left" style="color: var(--text-muted);"><?php echo htmlspecialchars((!empty($r['observaciones']) && $r['observaciones'] !== 'Sin observaciones' && $r['observaciones'] !== '-') ? $r['observaciones'] : '--Sin observaciones--', ENT_QUOTES, 'UTF-8'); ?></td>
                     <td style="text-transform: uppercase; font-size: 11px;">
                       <?php echo htmlspecialchars((!empty($r['of_apellido']) ? $r['of_apellido'] . ", " . $r['of_nombre'] : $oficial_nombre), ENT_QUOTES, 'UTF-8'); ?>
@@ -3157,17 +3165,17 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
         const gStyle = gVal >= 5.0 ? 'color: #f87171; font-weight: 800;' : (gVal >= 1.0 ? 'color: #fbbf24; font-weight: 700;' : 'color: #c084fc; font-weight: 700;');
 
         return `
-          <div style="background: rgba(9, 28, 24, 0.85); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-cyan); border-radius: 6px; padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 11.5px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="background: rgba(9, 28, 24, 0.85); border: 1px solid var(--border-card); border-left: 3px solid var(--accent-cyan); border-radius: 6px; padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 11.5px; white-space: nowrap; flex-wrap: nowrap; gap: 12px;">
+            <div style="display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0;">
               <span style="font-weight: 800; color: var(--accent-cyan); font-size: 12px;">[${idx + 1}]</span>
-              <span style="color: #ffffff; font-weight: 700;">📅 ${item.fecha} &bull; ${item.hora} hs</span>
+              <span style="color: #ffffff; font-weight: 700; white-space: nowrap;">📅&nbsp;${item.fecha}&nbsp;&bull;&nbsp;${item.hora}&nbsp;hs</span>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="${gStyle}"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">G. nobles:</span> ${item.gases} DAC</span>
+            <div style="display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0;">
+              <span style="${gStyle}; white-space: nowrap;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">G.&nbsp;nobles:</span>&nbsp;${item.gases}&nbsp;DAC</span>
               <span style="color: var(--border-card);">|</span>
-              <span style="${tStyle}"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Tritio:</span> ${item.tritio} DAC${tVal >= 10.0 ? ' ⚠️' : ''}</span>
+              <span style="${tStyle}; white-space: nowrap;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Tritio:</span>&nbsp;${item.tritio}&nbsp;DAC${tVal >= 10.0 ? '&nbsp;⚠️' : ''}</span>
               <span style="color: var(--border-card);">|</span>
-              <span style="${dStyle}"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Dosis:</span> ${item.dosis} µSv/h${dVal >= 100.0 ? ' ⚠️' : ''}</span>
+              <span style="${dStyle}; white-space: nowrap;"><span style="color: var(--text-dim); font-size: 10px; font-weight: 600;">Dosis:</span>&nbsp;${item.dosis}&nbsp;µSv/h${dVal >= 100.0 ? '&nbsp;⚠️' : ''}</span>
             </div>
           </div>
         `;
@@ -3660,7 +3668,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
   </script>
   <!-- MODAL HUD: HISTORIAL DE LOS ÚLTIMOS 3 VALORES DEL RECINTO SELECCIONADO -->
   <div class="modal-overlay" id="modal-recinto-historial" style="display: none;" onclick="if(event.target===this) closeRecintoHistoryModal();">
-    <div class="modal-box" style="max-width: 620px; border-left: 4px solid var(--accent-cyan); animation: cyber-hologram-assemble 0.28s ease-out;">
+    <div class="modal-box" style="max-width: 740px; width: 95vw; border-left: 4px solid var(--accent-cyan); animation: cyber-hologram-assemble 0.28s ease-out;">
       <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
           <div style="font-size: 11px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.5px;">
