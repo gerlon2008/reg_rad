@@ -133,6 +133,60 @@ if (!function_exists('formato_valor_mbq')) {
     }
 }
 
+if (!function_exists('evaluar_alza_parametro')) {
+    /**
+     * Evalúa si una medición radiológica presenta un alza (spike) respecto al promedio de hasta 3 mediciones previas
+     * Retorna array('is_spike' => bool, 'pct' => int|null, 'avg' => float, 'count' => int, 'is_crit' => bool, 'is_elev' => bool)
+     */
+    function evaluar_alza_parametro($val, $prev_list, $param_key, $lim_crit, $lim_elev, $delta_min, $zero_threshold) {
+        $val = (float)$val;
+        $is_crit = ($val >= $lim_crit);
+        $is_elev = ($val >= $lim_elev);
+        $count = count($prev_list);
+        
+        if ($count === 0) {
+            return array(
+                'is_spike' => false,
+                'pct' => null,
+                'avg' => 0.0,
+                'count' => 0,
+                'is_crit' => $is_crit,
+                'is_elev' => $is_elev
+            );
+        }
+        
+        $sum = 0.0;
+        foreach ($prev_list as $p) {
+            $sum += (float)(isset($p[$param_key]) ? $p[$param_key] : 0);
+        }
+        $avg = $sum / (float)$count;
+        
+        $is_spike = false;
+        $pct = null;
+        
+        if ($avg > 0.0001) {
+            $pct = (int)round((($val - $avg) / $avg) * 100);
+            if ($pct >= 50 && ($val - $avg) >= $delta_min) {
+                $is_spike = true;
+            }
+        } else {
+            if ($val >= $zero_threshold) {
+                $is_spike = true;
+                $pct = null;
+            }
+        }
+        
+        return array(
+            'is_spike' => $is_spike,
+            'pct' => $pct,
+            'avg' => $avg,
+            'count' => $count,
+            'is_crit' => $is_crit,
+            'is_elev' => $is_elev
+        );
+    }
+}
+
 // Datos predeterminados (Fallback realista CNE)
 $row_planilla = array(
     'id_planilla_diaria' => $id_planilla,
@@ -213,9 +267,11 @@ if ($db_connected && $id_planilla > 0) {
     }
     if (!empty($rutina_recinto_ids) && $db_connected) {
         $ids_in_str = implode(',', $rutina_recinto_ids);
+        $fecha_ref = !empty($row_planilla['fecha']) ? $row_planilla['fecha'] : date('Y-m-d');
         $q_all_hist = @mysql_query("SELECT id_relev_rutina, id_planilla, ubicacion, fecha, hora, gases_nobles, tritio, tasa_dosis 
             FROM regrad_relevamiento_rutina 
             WHERE ubicacion IN ($ids_in_str) 
+              AND fecha >= DATE_SUB('$fecha_ref', INTERVAL 60 DAY)
             ORDER BY fecha ASC, hora ASC, id_relev_rutina ASC", $miconex);
         if ($q_all_hist) {
             while ($h = mysql_fetch_assoc($q_all_hist)) {
@@ -225,60 +281,6 @@ if ($db_connected && $id_planilla > 0) {
                 }
                 $hist_por_recinto[$u][] = $h;
             }
-        }
-    }
-
-    if (!function_exists('evaluar_alza_parametro')) {
-        /**
-         * Evalúa si una medición radiológica presenta un alza (spike) respecto al promedio de hasta 3 mediciones previas
-         * Retorna array('is_spike' => bool, 'pct' => int|null, 'avg' => float, 'count' => int, 'is_crit' => bool, 'is_elev' => bool)
-         */
-        function evaluar_alza_parametro($val, $prev_list, $param_key, $lim_crit, $lim_elev, $delta_min, $zero_threshold) {
-            $val = (float)$val;
-            $is_crit = ($val >= $lim_crit);
-            $is_elev = ($val >= $lim_elev);
-            $count = count($prev_list);
-            
-            if ($count === 0) {
-                return array(
-                    'is_spike' => false,
-                    'pct' => null,
-                    'avg' => 0.0,
-                    'count' => 0,
-                    'is_crit' => $is_crit,
-                    'is_elev' => $is_elev
-                );
-            }
-            
-            $sum = 0.0;
-            foreach ($prev_list as $p) {
-                $sum += (float)(isset($p[$param_key]) ? $p[$param_key] : 0);
-            }
-            $avg = $sum / (float)$count;
-            
-            $is_spike = false;
-            $pct = null;
-            
-            if ($avg > 0.0001) {
-                $pct = (int)round((($val - $avg) / $avg) * 100);
-                if ($pct >= 50 && ($val - $avg) >= $delta_min) {
-                    $is_spike = true;
-                }
-            } else {
-                if ($val >= $zero_threshold) {
-                    $is_spike = true;
-                    $pct = null;
-                }
-            }
-            
-            return array(
-                'is_spike' => $is_spike,
-                'pct' => $pct,
-                'avg' => $avg,
-                'count' => $count,
-                'is_crit' => $is_crit,
-                'is_elev' => $is_elev
-            );
         }
     }
 
@@ -1821,9 +1823,298 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       background: rgba(28, 10, 10, 0.97);
       color: #fef2f2;
     }
+
+    /* ================= PANTALLA DE CARGA FUTURISTA SCADA ================= */
+    .scada-loader-overlay {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(circle at center, #071a17 0%, #030b0a 70%, #010404 100%);
+      z-index: 999999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono, monospace);
+      overflow: hidden;
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1), transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.45s;
+    }
+    .scada-loader-overlay.loaded {
+      opacity: 0;
+      transform: scale(1.03);
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .scada-loader-scanlines {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%), linear-gradient(90deg, rgba(20, 184, 166, 0.03), rgba(245, 158, 11, 0.01), rgba(20, 184, 166, 0.03));
+      background-size: 100% 3px, 6px 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .scada-loader-center {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      max-width: 520px;
+      padding: 30px;
+    }
+    .scada-loader-corner {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      border: 2px solid rgba(20, 184, 166, 0.5);
+      pointer-events: none;
+      z-index: 3;
+    }
+    .scada-loader-corner.top-left { top: 24px; left: 24px; border-right: none; border-bottom: none; }
+    .scada-loader-corner.top-right { top: 24px; right: 24px; border-left: none; border-bottom: none; }
+    .scada-loader-corner.bottom-left { bottom: 24px; left: 24px; border-right: none; border-top: none; }
+    .scada-loader-corner.bottom-right { bottom: 24px; right: 24px; border-left: none; border-top: none; }
+
+    .scada-reactor-core {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+    .scada-ring-outer {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px dashed rgba(20, 184, 166, 0.4);
+      animation: scada-spin-cw 12s linear infinite;
+    }
+    .scada-ring-mid {
+      position: absolute;
+      inset: 12px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: var(--accent-amber);
+      border-bottom-color: var(--accent-cyan);
+      box-shadow: 0 0 15px rgba(20, 184, 166, 0.25);
+      animation: scada-spin-ccw 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+    .scada-ring-inner {
+      position: absolute;
+      inset: 26px;
+      border-radius: 50%;
+      border: 1px dashed rgba(245, 158, 11, 0.6);
+      animation: scada-spin-cw 8s linear infinite;
+    }
+    .scada-core-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(20, 184, 166, 0.35) 0%, rgba(4, 22, 20, 0.95) 80%);
+      border: 1.5px solid var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-cyan);
+      box-shadow: 0 0 25px rgba(20, 184, 166, 0.7);
+      animation: scada-pulse 2s ease-in-out infinite;
+    }
+    .scada-core-icon svg {
+      width: 26px;
+      height: 26px;
+      filter: drop-shadow(0 0 6px var(--accent-cyan));
+    }
+
+    .scada-loader-subbrand {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--accent-amber);
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 6px;
+      text-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+    }
+    .scada-loader-title {
+      font-size: 16px;
+      letter-spacing: 2px;
+      color: #ffffff;
+      margin: 0 0 8px 0;
+      font-weight: 800;
+      text-transform: uppercase;
+      text-shadow: 0 0 16px rgba(20, 184, 166, 0.5);
+    }
+    .scada-loader-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      color: var(--accent-cyan);
+      background: rgba(20, 184, 166, 0.12);
+      border: 1px solid rgba(20, 184, 166, 0.35);
+      padding: 3px 10px;
+      border-radius: 12px;
+      margin-bottom: 22px;
+    }
+    .scada-loader-pulsedot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+      animation: scada-pulse 1.2s infinite;
+    }
+
+    .scada-progress-wrapper {
+      width: 360px;
+      max-width: 85vw;
+      margin-bottom: 16px;
+    }
+    .scada-progress-track {
+      position: relative;
+      width: 100%;
+      height: 8px;
+      background: rgba(8, 28, 25, 0.95);
+      border: 1px solid rgba(20, 184, 166, 0.4);
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.8);
+    }
+    .scada-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #0d9488, #14b8a6, #f59e0b);
+      box-shadow: 0 0 12px rgba(20, 184, 166, 0.8);
+      border-radius: 3px;
+      transition: width 0.18s ease-out;
+    }
+    .scada-progress-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      letter-spacing: 1px;
+    }
+    #scada-loader-pct {
+      color: var(--accent-cyan);
+      font-weight: 700;
+      font-size: 11px;
+    }
+
+    .scada-loader-console {
+      background: rgba(3, 14, 12, 0.85);
+      border: 1px solid rgba(20, 184, 166, 0.25);
+      border-radius: 4px;
+      padding: 8px 14px;
+      font-size: 11px;
+      color: var(--accent-cyan);
+      width: 380px;
+      max-width: 90vw;
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    }
+    .scada-console-prompt {
+      color: var(--accent-amber);
+      font-weight: 800;
+    }
+    #scada-loader-log {
+      flex: 1;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #cbd5e1;
+    }
+    .scada-console-cursor {
+      color: var(--accent-cyan);
+      animation: scada-blink 0.8s infinite;
+      font-weight: 800;
+    }
+    .scada-loader-footer {
+      font-size: 9.5px;
+      letter-spacing: 1.5px;
+      color: rgba(148, 163, 184, 0.6);
+      text-transform: uppercase;
+    }
+
+    @keyframes scada-spin-cw {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @keyframes scada-spin-ccw {
+      from { transform: rotate(360deg); }
+      to { transform: rotate(0deg); }
+    }
+    @keyframes scada-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.08); opacity: 0.75; }
+    }
+    @keyframes scada-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
   </style>
 </head>
 <body>
+
+  <!-- ================= PANTALLA DE CARGA FUTURISTA SCADA ================= -->
+  <div id="scada-loader" class="scada-loader-overlay">
+    <div class="scada-loader-scanlines"></div>
+    <div class="scada-loader-corner top-left"></div>
+    <div class="scada-loader-corner top-right"></div>
+    <div class="scada-loader-corner bottom-left"></div>
+    <div class="scada-loader-corner bottom-right"></div>
+    
+    <div class="scada-loader-center">
+      <div class="scada-reactor-core">
+        <div class="scada-ring-outer"></div>
+        <div class="scada-ring-mid"></div>
+        <div class="scada-ring-inner"></div>
+        <div class="scada-core-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3.5" fill="rgba(20, 184, 166, 0.45)"></circle>
+            <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path>
+          </svg>
+        </div>
+      </div>
+
+      <div class="scada-loader-brand">
+        <div class="scada-loader-subbrand">CENTRAL NUCLEAR EMBALSE &bull; NA-SA</div>
+        <h1 class="scada-loader-title">CARGANDO SISTEMA RADIOLÓGICO</h1>
+        <div class="scada-loader-badge"><span class="scada-loader-pulsedot"></span> MODO LÍNEA &bull; HMI SYR</div>
+      </div>
+
+      <div class="scada-progress-wrapper">
+        <div class="scada-progress-track">
+          <div id="scada-progress-bar" class="scada-progress-fill"></div>
+        </div>
+        <div class="scada-progress-stats">
+          <span id="scada-loader-phase">SINCRONIZANDO</span>
+          <span id="scada-loader-pct">0%</span>
+        </div>
+      </div>
+
+      <div class="scada-loader-console">
+        <span class="scada-console-prompt">&gt;</span>
+        <span id="scada-loader-log">Inicializando telemetría de recintos y promedios móviles...</span>
+        <span class="scada-console-cursor">_</span>
+      </div>
+
+      <div class="scada-loader-footer">
+        SEGURIDAD RADIOLÓGICA &bull; AUDITORÍA &amp; CONTROL OPERACIONAL &bull; ARN
+      </div>
+    </div>
+  </div>
 
   <!-- ================= SIDEBAR ================= -->
   <aside class="sidebar">
@@ -3282,6 +3573,90 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
         setAppTheme(savedTheme);
       }
     } catch(e) {}
+
+    // ================= CONTROL DE PANTALLA DE CARGA SCADA =================
+    (function initScadaLoader() {
+      const loader = document.getElementById('scada-loader');
+      const bar = document.getElementById('scada-progress-bar');
+      const pct = document.getElementById('scada-loader-pct');
+      const phase = document.getElementById('scada-loader-phase');
+      const log = document.getElementById('scada-loader-log');
+      if (!loader) return;
+
+      const messages = [
+        'Conectando a base de datos radiológica...',
+        'Cargando relevamientos de recintos y promedios móviles...',
+        'Calculando tendencias relativas vs historial...',
+        'Verificando efluentes gaseosos y chimenea...',
+        'Comprobando balance de efluentes líquidos...',
+        'Sincronizando consola HMI central...'
+      ];
+
+      let currentPct = 15;
+      let msgIdx = 0;
+
+      const interval = setInterval(() => {
+        if (currentPct < 90) {
+          currentPct += Math.floor(Math.random() * 14) + 8;
+          if (currentPct > 90) currentPct = 90;
+          if (bar) bar.style.width = currentPct + '%';
+          if (pct) pct.textContent = currentPct + '%';
+          
+          msgIdx = (msgIdx + 1) % messages.length;
+          if (log) log.textContent = messages[msgIdx];
+          if (phase) {
+            if (currentPct < 40) phase.textContent = 'TELEMETRÍA';
+            else if (currentPct < 75) phase.textContent = 'PROMEDIOS MÓVILES';
+            else phase.textContent = 'SINCRONIZANDO';
+          }
+        }
+      }, 160);
+
+      window.hideScadaLoader = function() {
+        clearInterval(interval);
+        if (bar) bar.style.width = '100%';
+        if (pct) pct.textContent = '100%';
+        if (phase) phase.textContent = 'LISTO';
+        if (log) log.textContent = 'Sistema cargado con éxito.';
+        setTimeout(() => {
+          loader.classList.add('loaded');
+          setTimeout(() => {
+            loader.style.display = 'none';
+          }, 450);
+        }, 220);
+      };
+
+      window.showScadaLoader = function(customMsg) {
+        if (!loader) return;
+        if (customMsg && log) log.textContent = customMsg;
+        if (bar) bar.style.width = '35%';
+        if (pct) pct.textContent = '35%';
+        if (phase) phase.textContent = 'CARGANDO';
+        loader.style.display = 'flex';
+        loader.classList.remove('loaded');
+      };
+
+      if (document.readyState === 'complete') {
+        window.hideScadaLoader();
+      } else {
+        window.addEventListener('load', () => window.hideScadaLoader());
+      }
+      setTimeout(() => {
+        if (!loader.classList.contains('loaded')) {
+          window.hideScadaLoader();
+        }
+      }, 3500);
+
+      // Mostrar loader al hacer clic en enlaces de navegación del sistema
+      document.querySelectorAll('a[href]:not([target="_blank"]):not([href^="#"]):not([href^="javascript"])').forEach(a => {
+        a.addEventListener('click', function(e) {
+          if (!e.ctrlKey && !e.shiftKey && !e.metaKey && this.getAttribute('href') !== '') {
+            const txt = this.textContent.trim().replace(/\s+/g, ' ');
+            window.showScadaLoader(txt ? `Cargando ${txt}...` : 'Cargando vista...');
+          }
+        });
+      });
+    })();
   </script>
   <!-- MODAL HUD: HISTORIAL DE LOS ÚLTIMOS 3 VALORES DEL RECINTO SELECCIONADO -->
   <div class="modal-overlay" id="modal-recinto-historial" style="display: none;" onclick="if(event.target===this) closeRecintoHistoryModal();">
