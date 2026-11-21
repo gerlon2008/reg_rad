@@ -1024,7 +1024,6 @@ if ($accion == "guardar_valores_efluentes_liquidos") {
 
 	$query_guardar_valores_efluentes_liquidos = "INSERT INTO `regrad_efluentes_liquidos_nueva`(`id_planilla`,`tanque`, `fecha`, `hora`, `volumen_litro`, `usuario`) VALUES ('$id_planilla','$tanque','$fecha','$hora','$volumen','$id_usuario')";
 	$guardar_valores_efluentes_liquidos = mysql_query($query_guardar_valores_efluentes_liquidos, $miconex) or die(mysql_error());
-	$id_efluentes_insertado = mysql_insert_id($miconex);
 
 	$query_eliminar_valores_en_tabla_archivo = "DELETE FROM `reg_rad_efluentes_liquidos_radionucleidos_calculos_archivo` WHERE id_planilla = $id_planilla";
 	$eliminar_valores_en_tabla_archivo = mysql_query($query_eliminar_valores_en_tabla_archivo, $miconex) or die(mysql_error());
@@ -1033,11 +1032,7 @@ if ($accion == "guardar_valores_efluentes_liquidos") {
 	$actualizar_valores_en_tabla_archivo = mysql_query($query_actualizar_valores_en_tabla_archivo, $miconex) or die(mysql_error());
 
 	if ($guardar_valores_efluentes_liquidos) {
-		if (isset($_GET['retornar_id']) && $_GET['retornar_id'] == '1') {
-			echo "ok|" . $id_efluentes_insertado;
-		} else {
-			echo "ok";
-		}
+		echo "ok";
 	} else {
 		echo "mal";
 	}
@@ -1255,7 +1250,7 @@ if ($accion == "obtener_registros_de_minizonas_registros_ptr") {
 	}
 }
 if ($accion == "recuperar_tareas_diarias") {
-	$id_planilla = isset($_GET['id_planilla']) ? (int)$_GET['id_planilla'] : 0;
+	$id_planilla = $_GET['id_planilla'];
 
 	// Hacemos el JOIN con la vista_personal_radioproteccion dos veces (una para el oficial, otra para el ayudante)
 	$query = "SELECT t.*, r.recinto as nombre_recinto,
@@ -1269,37 +1264,6 @@ if ($accion == "recuperar_tareas_diarias") {
 			  ORDER BY t.fecha_hora_carga ASC";
 
 	$resultado = mysql_query($query, $miconex) or die(mysql_error());
-
-	if (isset($_GET['format']) && $_GET['format'] === 'json') {
-		$items = array();
-		if ($resultado && mysql_num_rows($resultado) > 0) {
-			while ($row = mysql_fetch_assoc($resultado)) {
-				$hora_carga = !empty($row['fecha_hora_carga']) ? date('H:i', strtotime($row['fecha_hora_carga'])) : '--:--';
-				$of_nom = !empty($row['of_apellido']) ? mb_strtoupper($row['of_apellido'] . ", " . $row['of_nombre'], 'UTF-8') : '-';
-				$ay_nom = !empty($row['ay_apellido']) ? mb_strtoupper($row['ay_apellido'] . ", " . $row['ay_nombre'], 'UTF-8') : '-';
-				$items[] = array(
-					'id_tarea' => (int)$row['id_tarea'],
-					'fecha_hora_carga' => $row['fecha_hora_carga'],
-					'hora' => $hora_carga,
-					'ptr' => (!empty($row['id_ptr']) && $row['id_ptr'] != '0') ? $row['id_ptr'] : '-',
-					'recinto' => !empty($row['nombre_recinto']) ? $row['nombre_recinto'] : 'General de Planta',
-					'oficial' => $of_nom,
-					'ayudante' => $ay_nom,
-					'texto' => $row['texto_tarea'],
-					'dosis' => ($row['tasa_dosis'] !== null && $row['tasa_dosis'] !== '') ? (float)$row['tasa_dosis'] : 0,
-					'tritio' => ($row['tritio_dac'] !== null && $row['tritio_dac'] !== '') ? (float)$row['tritio_dac'] : 0,
-					'contaminacion_beta_gamma' => $row['contaminacion_beta_gamma'],
-					'contaminacion_alfa' => $row['contaminacion_alfa'],
-					'derrame' => !empty($row['derrame_agua']) ? 1 : 0,
-					'dispersion' => !empty($row['dispersion_aerosoles']) ? 1 : 0,
-					'aerosoles' => ($row['aerosoles_dac'] !== null && $row['aerosoles_dac'] !== '') ? (float)$row['aerosoles_dac'] : 0
-				);
-			}
-		}
-		header('Content-Type: application/json; charset=utf-8');
-		echo json_encode($items);
-		exit;
-	}
 
 	if (mysql_num_rows($resultado) == 0) {
 		echo "";
@@ -1494,123 +1458,6 @@ if ($accion == "recuperar_registro_minizonas_para_edicion_V2") {
 
 	header('Content-Type: application/json');
 	echo json_encode($datos);
-	exit;
-}
-if ($accion == "listar_efluentes_liquidos_json") {
-	$id_planilla = intval($_GET['id_planilla']);
-	$lista = array();
-	$q_ef = "SELECT v.*, n.observaciones 
-	         FROM reg_rad_ef_liq_final_para_tabla v 
-	         LEFT JOIN regrad_efluentes_liquidos_nueva n ON n.id_efluentes = v.id_efluentes 
-	         WHERE v.id_planilla = $id_planilla 
-	         ORDER BY v.fecha DESC, v.hora DESC, v.id_efluentes DESC";
-	$res_ef = mysql_query($q_ef, $miconex);
-	if ($res_ef && mysql_num_rows($res_ef) > 0) {
-		while ($r_ef = mysql_fetch_assoc($res_ef)) {
-			$id_ef = intval($r_ef['id_efluentes']);
-			$rads = array();
-			$q_rad = "SELECT a.id, a.id_radionucleido_efluentes_liquidos, b.radionucleido, a.conc_Bq_litro 
-			          FROM regrad_efluentes_liquidos_radionucleidos a 
-			          LEFT JOIN reg_rad_radionucleidos_con_ki_ro b ON b.id_radionucleidos = a.id_radionucleido_efluentes_liquidos 
-			          WHERE a.id_regrad_efluentes_liquidos = $id_ef 
-			          ORDER BY a.id ASC";
-			$res_rad = mysql_query($q_rad, $miconex);
-			if ($res_rad && mysql_num_rows($res_rad) > 0) {
-				while ($rr = mysql_fetch_assoc($res_rad)) {
-					$rads[] = array(
-						'id' => intval($rr['id']),
-						'id_radionucleido' => intval($rr['id_radionucleido_efluentes_liquidos']),
-						'radionucleido' => $rr['radionucleido'] ? $rr['radionucleido'] : ('ID ' . $rr['id_radionucleido_efluentes_liquidos']),
-						'conc_Bq_litro' => floatval($rr['conc_Bq_litro'])
-					);
-				}
-			}
-			$vol_l = floatval($r_ef['volumen_litro']);
-			$act_h3_bq = floatval($r_ef['actividad_tritio']);
-			$act_gam_bq = floatval($r_ef['actividad_gamma']);
-			$rodd_h3 = floatval($r_ef['LDD_Ro_tritio']);
-			$rodd_gam = floatval($r_ef['LDD_Ro_gamma']);
-			$lista[] = array(
-				'id_efluentes' => $id_ef,
-				'fecha' => $r_ef['fecha'],
-				'hora' => substr($r_ef['hora'], 0, 5),
-				'tanque' => $r_ef['tanque'],
-				'volumen_litro' => $vol_l,
-				'volumen_m3' => round($vol_l / 1000.0, 3),
-				'actividad_tritio_Bq' => $act_h3_bq,
-				'actividad_tritio_TBq' => $act_h3_bq / 1e12,
-				'actividad_gamma_Bq' => $act_gam_bq,
-				'actividad_gamma_TBq' => $act_gam_bq / 1e12,
-				'LDD_Ro_tritio' => $rodd_h3,
-				'LDD_Ro_gamma' => $rodd_gam,
-				'rodd_total' => round($rodd_h3 + $rodd_gam, 4),
-				'observaciones' => $r_ef['observaciones'] ? $r_ef['observaciones'] : '',
-				'radionucleidos' => $rads
-			);
-		}
-	}
-	header('Content-Type: application/json; charset=utf-8');
-	echo json_encode($lista);
-	exit;
-}
-if ($accion == "eliminar_efluente_liquido") {
-	$id_efluentes = intval($_GET['id_efluentes']);
-	mysql_query("DELETE FROM `regrad_efluentes_liquidos_radionucleidos` WHERE id_regrad_efluentes_liquidos = $id_efluentes", $miconex);
-	mysql_query("DELETE FROM `reg_rad_efluentes_liquidos_radionucleidos_calculos_archivo` WHERE id_efluentes = $id_efluentes", $miconex);
-	$res_del = mysql_query("DELETE FROM `regrad_efluentes_liquidos_nueva` WHERE id_efluentes = $id_efluentes", $miconex);
-	echo ($res_del) ? "ok" : "mal";
-	exit;
-}
-if ($accion == "historial_recinto") {
-	$id_recinto = isset($_GET['id_recinto']) ? intval($_GET['id_recinto']) : 0;
-	$recinto_nombre = isset($_GET['recinto_nombre']) ? trim($_GET['recinto_nombre']) : '';
-	$id_planilla_actual = isset($_GET['id_planilla_actual']) ? intval($_GET['id_planilla_actual']) : 0;
-	$limite = isset($_GET['limite']) ? max(1, min(15, intval($_GET['limite']))) : 6;
-
-	if ($id_recinto <= 0 && $recinto_nombre !== '') {
-		$esc_nom = mysql_real_escape_string($recinto_nombre, $miconex);
-		$q_rec = "SELECT id FROM graf_tritio_recintos WHERE recinto = '$esc_nom' LIMIT 1";
-		$r_rec = mysql_query($q_rec, $miconex);
-		if ($r_rec && mysql_num_rows($r_rec) > 0) {
-			$row_rec = mysql_fetch_assoc($r_rec);
-			$id_recinto = intval($row_rec['id']);
-		} else {
-			$q_rec2 = "SELECT id FROM graf_tritio_recintos WHERE recinto LIKE '$esc_nom%' LIMIT 1";
-			$r_rec2 = mysql_query($q_rec2, $miconex);
-			if ($r_rec2 && mysql_num_rows($r_rec2) > 0) {
-				$row_rec2 = mysql_fetch_assoc($r_rec2);
-				$id_recinto = intval($row_rec2['id']);
-			}
-		}
-	}
-
-	$items = array();
-	if ($id_recinto > 0) {
-		$q_hist = "SELECT r.id_relev_rutina, r.id_planilla, r.fecha, r.hora, r.gases_nobles, r.tritio, r.tasa_dosis 
-		           FROM regrad_relevamiento_rutina r 
-		           WHERE r.ubicacion = $id_recinto 
-		           ORDER BY r.fecha DESC, r.hora DESC, r.id_relev_rutina DESC 
-		           LIMIT $limite";
-		$res_hist = mysql_query($q_hist, $miconex);
-		if ($res_hist && mysql_num_rows($res_hist) > 0) {
-			while ($rw = mysql_fetch_assoc($res_hist)) {
-				$pf = explode('-', $rw['fecha']);
-				$f_lat = (count($pf) == 3) ? ($pf[2] . '/' . $pf[1] . '/' . $pf[0]) : $rw['fecha'];
-				$items[] = array(
-					'id' => intval($rw['id_relev_rutina']),
-					'id_planilla' => intval($rw['id_planilla']),
-					'misma_planilla' => ($id_planilla_actual > 0 && intval($rw['id_planilla']) === $id_planilla_actual),
-					'fecha' => $f_lat,
-					'hora' => substr($rw['hora'], 0, 5),
-					'gases' => $rw['gases_nobles'] !== null ? number_format(floatval($rw['gases_nobles']), 2, '.', '') : '0.00',
-					'tritio' => $rw['tritio'] !== null ? number_format(floatval($rw['tritio']), 2, '.', '') : '0.00',
-					'dosis' => $rw['tasa_dosis'] !== null ? number_format(floatval($rw['tasa_dosis']), 1, '.', '') : '0.0'
-				);
-			}
-		}
-	}
-	header('Content-Type: application/json; charset=utf-8');
-	echo json_encode(array('ok' => true, 'id_recinto' => $id_recinto, 'items' => $items));
 	exit;
 }
 Mysql_close();
