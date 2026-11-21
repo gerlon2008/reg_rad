@@ -998,15 +998,19 @@ if (!is_dir($dir_registros)) {
 }
 @file_put_contents($ruta_archivo_pdf, $pdf_contenido);
 
-// 3. Enviar automáticamente por correo institucional a Exchange con el PDF adjunto
-if (file_exists($_SERVER["DOCUMENT_ROOT"] . "/ptr/registro_rad5/enviar_mail_planilla.php")) {
-    require_once($_SERVER["DOCUMENT_ROOT"] . "/ptr/registro_rad5/enviar_mail_planilla.php");
-} else if (file_exists(__DIR__ . '/enviar_mail_planilla.php')) {
-    require_once(__DIR__ . '/enviar_mail_planilla.php');
-}
+// 3. Enviar por correo institucional a Exchange SOLO si se solicita explícitamente con ?enviar_mail=1
+$debe_enviar_mail = isset($_GET['enviar_mail']) && ($_GET['enviar_mail'] === '1' || $_GET['enviar_mail'] === 'true');
 
-if (function_exists('enviar_planilla_por_correo')) {
-    enviar_planilla_por_correo($id_planilla, $ruta_archivo_pdf, $nombre_archivo_pdf, $row_planilla_en_curso, $miconex, $pdf_contenido);
+if ($debe_enviar_mail) {
+    if (file_exists($_SERVER["DOCUMENT_ROOT"] . "/ptr/registro_rad5/enviar_mail_planilla.php")) {
+        require_once($_SERVER["DOCUMENT_ROOT"] . "/ptr/registro_rad5/enviar_mail_planilla.php");
+    } else if (file_exists(__DIR__ . '/enviar_mail_planilla.php')) {
+        require_once(__DIR__ . '/enviar_mail_planilla.php');
+    }
+
+    if (function_exists('enviar_planilla_por_correo')) {
+        enviar_planilla_por_correo($id_planilla, $ruta_archivo_pdf, $nombre_archivo_pdf, $row_planilla_en_curso, $miconex, $pdf_contenido);
+    }
 }
 
 // 4. Entregar el archivo PDF al navegador para descarga/visualización

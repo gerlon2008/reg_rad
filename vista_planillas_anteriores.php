@@ -1598,9 +1598,12 @@ if (!$db_connected) {
             <button type="button" class="btn-action btn-secondary" onclick='abrirNovedadesActas(${Number(r.id)}, ${jsFecha}, ${jsOficial}, ${jsTurno})' title="Ver Novedades del Libro de Actas">
               <span>📋 Actas</span>
             </button>
-            <a href="pdf_impresion_registro_radiologico_tcpdf.php?id_planilla=${Number(r.id)}" target="_blank" class="btn-action" style="color: #34d399; border-color: rgba(16, 185, 129, 0.4);" title="Descargar PDF Oficial TCPDF y verificar envío por correo">
+            <a href="pdf_impresion_registro_radiologico_tcpdf.php?id_planilla=${Number(r.id)}" target="_blank" class="btn-action" style="color: #34d399; border-color: rgba(16, 185, 129, 0.4);" title="Descargar o ver PDF Oficial TCPDF (Solo documento, sin enviar correo)">
               <span>📄 PDF</span>
             </a>
+            <button type="button" class="btn-action" onclick="enviarMailHistorico(${Number(r.id)}, event)" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.4);" title="Enviar esta planilla histórica por correo institucional a Exchange con el PDF adjunto">
+              <span>✉️</span>
+            </button>
             <a href="planilla_en_curso_visualizacion.php?id_planilla=${Number(r.id)}&print=1" target="_blank" class="btn-action btn-print" title="Imprimir informe oficial">
               <span>🖨️</span>
             </a>
@@ -1775,6 +1778,34 @@ if (!$db_connected) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    function enviarMailHistorico(idPlanilla, e) {
+      if (!confirm(`¿Confirma el envío de la Planilla Diaria #${idPlanilla} por correo institucional a Exchange con el PDF adjunto?`)) {
+        return;
+      }
+      const btn = e ? e.currentTarget : null;
+      if (btn) {
+        btn.disabled = true;
+        btn.dataset.oldHtml = btn.innerHTML;
+        btn.innerHTML = '<span>⏳</span>';
+      }
+      fetch(`procesos_reg_rad.php?accion=enviar_mail_planilla&id_planilla=${idPlanilla}`)
+        .then(r => r.json())
+        .then(data => {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = btn.dataset.oldHtml || '<span>✉️</span>';
+          }
+          alert(data.exito ? ('✔️ ' + data.mensaje) : ('⚠️ Error al enviar correo:\n' + data.mensaje));
+        })
+        .catch(err => {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = btn.dataset.oldHtml || '<span>✉️</span>';
+          }
+          alert('⚠️ Error de comunicación al conectar con el servidor: ' + err.message);
+        });
     }
 
     function abrirNovedadesActas(idPlanilla, fecha, oficial, turno) {

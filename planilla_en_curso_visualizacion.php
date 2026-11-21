@@ -2242,11 +2242,14 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
             </button>
           </div>
         </div>
-        <a href="pdf_impresion_registro_radiologico_tcpdf.php?id_planilla=<?php echo $id_planilla; ?>" target="_blank" class="btn-topbar" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: #34d399;" title="Generar PDF Oficial con TCPDF y despachar por correo Exchange">
-          <span>📧 PDF Oficial &amp; Correo</span>
+        <a href="pdf_impresion_registro_radiologico_tcpdf.php?id_planilla=<?php echo $id_planilla; ?>" target="_blank" class="btn-topbar" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: #34d399;" title="Descargar o abrir el PDF Oficial TCPDF (Solo documento, sin enviar correo)">
+          <span>📄 PDF Oficial</span>
         </a>
-        <button type="button" class="btn-topbar btn-print" onclick="window.print()">
-          <span>🖨️ Imprimir Planilla</span>
+        <button type="button" class="btn-topbar" onclick="enviarMailPlanillaActual(event)" style="background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;" title="Enviar por correo institucional a Exchange con el PDF adjunto">
+          <span>✉️ Enviar Correo</span>
+        </button>
+        <button type="button" class="btn-topbar btn-print" onclick="window.print()" title="Imprimir la vista actual desde el navegador">
+          <span>🖨️ Imprimir Vista</span>
         </button>
         <a href="vista_planillas_anteriores.php" class="btn-topbar">
           <span>⬅️ Volver al Histórico</span>
@@ -3284,6 +3287,35 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
     function closeRecintoHistoryModal() {
       const modal = document.getElementById('modal-recinto-historial');
       if (modal) modal.style.display = 'none';
+    }
+
+    function enviarMailPlanillaActual(e) {
+      const planId = <?php echo intval($id_planilla); ?>;
+      if (!confirm(`¿Confirma el envío de la Planilla Diaria #${planId} por correo institucional a Exchange con el PDF adjunto?`)) {
+        return;
+      }
+      const btn = e ? e.currentTarget : null;
+      if (btn) {
+        btn.disabled = true;
+        btn.dataset.oldHtml = btn.innerHTML;
+        btn.innerHTML = '<span>⏳ Enviando...</span>';
+      }
+      fetch(`procesos_reg_rad.php?accion=enviar_mail_planilla&id_planilla=${planId}`)
+        .then(r => r.json())
+        .then(data => {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = btn.dataset.oldHtml || '<span>✉️ Enviar Correo</span>';
+          }
+          alert(data.exito ? ('✔️ ' + data.mensaje) : ('⚠️ Error al enviar correo:\n' + data.mensaje));
+        })
+        .catch(err => {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = btn.dataset.oldHtml || '<span>✉️ Enviar Correo</span>';
+          }
+          alert('⚠️ Error de comunicación al conectar con el servidor: ' + err.message);
+        });
     }
 
     document.addEventListener('keydown', (e) => {

@@ -100,6 +100,59 @@ if ($accion == "cerrar_planilla") {
 		echo "mal";
 	}
 }
+if ($accion == "enviar_mail_planilla") {
+	header('Content-Type: application/json; charset=utf-8');
+	$id_planilla = isset($_GET['id_planilla']) ? intval($_GET['id_planilla']) : 0;
+	if ($id_planilla <= 0) {
+		echo json_encode(array('exito' => false, 'mensaje' => 'ID de planilla inválido'));
+		exit;
+	}
+
+	if (file_exists(__DIR__ . '/enviar_mail_planilla.php')) {
+		require_once(__DIR__ . '/enviar_mail_planilla.php');
+	} else if (isset($_SERVER["DOCUMENT_ROOT"]) && file_exists($_SERVER["DOCUMENT_ROOT"] . "/ptr/registro_rad5/enviar_mail_planilla.php")) {
+		require_once($_SERVER["DOCUMENT_ROOT"] . "/ptr/registro_rad5/enviar_mail_planilla.php");
+	}
+
+	if (!function_exists('enviar_planilla_por_correo')) {
+		echo json_encode(array('exito' => false, 'mensaje' => 'No se encontró el módulo de correo enviar_mail_planilla.php'));
+		exit;
+	}
+
+	// Obtener datos de la planilla
+	$query_p = "SELECT * FROM regrad_planilla_diaria_nueva a 
+		LEFT JOIN regrad_turnos b ON b.id_turnos = a.turno 
+		LEFT JOIN regrad_of_rad d ON d.id_of_rad = a.of_rad 
+		LEFT JOIN regrad_jefes_turno e ON e.id_jefes_turno = a.jefe_turno 
+		WHERE id_planilla_diaria = $id_planilla LIMIT 1";
+	$res_p = @mysql_query($query_p, $miconex);
+	$datos_planilla = ($res_p && mysql_num_rows($res_p) > 0) ? mysql_fetch_assoc($res_p) : array();
+
+	// Buscar el archivo PDF en Registros_pdfs
+	$dir_registros = __DIR__ . '/Registros_pdfs';
+	if (!is_dir($dir_registros)) {
+		@mkdir($dir_registros, 0777, true);
+	}
+
+	$fecha_nom = (isset($datos_planilla['fecha']) && function_exists('formafecha11')) ? formafecha11($datos_planilla['fecha']) : date('d-m-Y');
+	$hora_nom  = isset($datos_planilla['horarios']) ? $datos_planilla['horarios'] : 'Turno';
+	$nombre_archivo_pdf = 'Registro_' . $fecha_nom . ' - ' . $hora_nom . '.pdf';
+	$ruta_archivo_pdf   = $dir_registros . '/' . $nombre_archivo_pdf;
+
+	// Si no existe el archivo PDF específico de esa fecha/horario, buscar el PDF más reciente en Registros_pdfs
+	$pdf_binario = null;
+	if (!file_exists($ruta_archivo_pdf) || filesize($ruta_archivo_pdf) == 0) {
+		$candidatos = glob($dir_registros . '/*.pdf');
+		if (!empty($candidatos)) {
+			$ruta_archivo_pdf = end($candidatos);
+			$nombre_archivo_pdf = basename($ruta_archivo_pdf);
+		}
+	}
+
+	$res = enviar_planilla_por_correo($id_planilla, $ruta_archivo_pdf, $nombre_archivo_pdf, $datos_planilla, $miconex, $pdf_binario);
+	echo json_encode($res);
+	exit;
+}
 if ($accion == "guardar_valores_gases_nobles") {
 	$id_planilla = $_GET['id_planilla'];
 	$id_usuario = $_GET['id_usuario'];

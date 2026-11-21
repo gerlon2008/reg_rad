@@ -2278,6 +2278,78 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       border-color: var(--accent-amber);
       transform: translateY(-1px);
     }
+    .btn-topbar-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      text-decoration: none;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+    }
+    .btn-topbar-action:hover {
+      background: rgba(16, 185, 129, 0.24);
+      border-color: #34d399;
+      transform: translateY(-1px);
+    }
+    .btn-topbar-action.mail {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: #38bdf8;
+    }
+    .btn-topbar-action.mail:hover {
+      background: rgba(56, 189, 248, 0.24);
+      border-color: #38bdf8;
+    }
+    .btn-cierre-doc {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .btn-cierre-doc.pdf {
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(16, 185, 129, 0.5);
+      color: #34d399;
+    }
+    .btn-cierre-doc.pdf:hover {
+      background: rgba(16, 185, 129, 0.28);
+      border-color: #34d399;
+      transform: translateY(-1px);
+    }
+    .btn-cierre-doc.mail {
+      background: rgba(56, 189, 248, 0.16);
+      border: 1px solid rgba(56, 189, 248, 0.5);
+      color: #38bdf8;
+    }
+    .btn-cierre-doc.mail:hover {
+      background: rgba(56, 189, 248, 0.28);
+      border-color: #38bdf8;
+      transform: translateY(-1px);
+    }
+    .btn-cierre-doc.print {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-card);
+      color: var(--text-main);
+    }
+    .btn-cierre-doc.print:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateY(-1px);
+    }
     .badge-checklist-pill {
       font-size: 10px;
       font-weight: 800;
@@ -3534,6 +3606,14 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         </span>
       </div>
       <div class="topbar-right">
+        <!-- ACCIONES DE REPORTE PDF Y CORREO EXCHANGE (SEPARADAS) -->
+        <a href="pdf_impresion_registro_radiologico_tcpdf.php?id_planilla=<?php echo $id_planilla_activa; ?>" target="_blank" class="btn-topbar-action" title="Generar y descargar el reporte oficial TCPDF (Solo documento, sin enviar correo)">
+          <span>📄 PDF Oficial</span>
+        </a>
+        <button type="button" class="btn-topbar-action mail" onclick="enviarMailPlanillaDemo(event)" title="Enviar esta planilla por correo institucional a Exchange con el PDF adjunto">
+          <span>✉️ Enviar Correo</span>
+        </button>
+
         <!-- BOTÓN VERIFICADOR / CHECKLIST DE CARGAS DEL TURNO -->
         <button type="button" class="btn-checklist-trigger" onclick="openChecklistModal()" title="Abrir Asistente de Verificación de Cargas del Turno">
           <span>📋 Estado de Cargas</span>
@@ -4608,9 +4688,32 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
               <br>• Se estampa la firma digital del <strong>Oficial de Radioprotección (<?php echo htmlspecialchars($oficial_actual, ENT_QUOTES, 'UTF-8'); ?>)</strong> y del <strong>Jefe de Turno (<?php echo htmlspecialchars($jefe_turno_actual, ENT_QUOTES, 'UTF-8'); ?>)</strong>.
               <br>• Se emite el reporte oficial inmutable en formato PDF para el archivo de SyR CNE.
             </p>
-            <button class="btn-register" style="padding: 10px 24px; font-size: 13px;" onclick="closeShiftFormal()">
-              🔒 FORMALIZAR Y CERRAR TURNO ACTUAL
-            </button>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 24px;">
+              <button class="btn-register" style="padding: 10px 24px; font-size: 13px;" onclick="closeShiftFormal()">
+                🔒 FORMALIZAR Y CERRAR TURNO ACTUAL
+              </button>
+            </div>
+
+            <div style="background: rgba(0, 0, 0, 0.28); border: 1px solid var(--border-card); border-radius: 8px; padding: 18px; margin-top: 15px;">
+              <div style="font-size: 12px; font-weight: 800; color: #ffffff; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                <span>📄</span> REPORTES OFICIALES &amp; DESPACHO POR CORREO
+              </div>
+              <p style="color: var(--text-dim); font-size: 11.5px; margin-bottom: 14px;">
+                Acciones independientes para generar el documento oficial en PDF o enviarlo a la casilla institucional de Exchange:
+              </p>
+              <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <a href="pdf_impresion_registro_radiologico_tcpdf.php?id_planilla=<?php echo $id_planilla_activa; ?>" target="_blank" class="btn-cierre-doc pdf" title="Generar y descargar el reporte oficial TCPDF multipágina (Solo documento, sin enviar correo)">
+                  <span>📄 Descargar / Ver PDF Oficial</span>
+                </a>
+                <button type="button" class="btn-cierre-doc mail" onclick="enviarMailPlanillaDemo(event)" title="Enviar la planilla y el PDF adjunto a correo.na-sa.com.ar (con confirmación)">
+                  <span>✉️ Enviar Planilla por Correo Exchange</span>
+                </button>
+                <button type="button" class="btn-cierre-doc print" onclick="window.print()" title="Imprimir la vista actual de pantalla en el navegador">
+                  <span>🖨️ Imprimir Vista de Pantalla</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -7968,13 +8071,63 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
     // ================= CIERRE DE TURNO =================
     function closeShiftFormal() {
-      showToast('🔒 Formalizando y cerrando planilla...', 2000);
-      fetch(`procesos_reg_rad.php?accion=cerrar_planilla&id_planilla=${activePlanillaId || 1}&id_usuario=1`)
-        .catch(e => console.log('Offline close'));
+      const planId = activePlanillaId || <?php echo intval($id_planilla_activa); ?>;
+      if (!confirm(`¿Confirma la formalización y cierre definitivo de la Planilla Diaria #${planId}?\nEsta acción estampará las firmas oficiales y congelará la edición de mediciones.`)) {
+        return;
+      }
+      showToast('🔒 Formalizando y cerrando planilla en MySQL...', 2000);
+      fetch(`procesos_reg_rad.php?accion=cerrar_planilla&id_planilla=${planId}&id_usuario=1`)
+        .then(r => r.text())
+        .then(res => {
+          showToast('🔒 Turno formalizado y cerrado con éxito.', 4000);
+          setTimeout(() => {
+            if (confirm(`Planilla #${planId} formalizada con éxito.\n\n¿Desea descargar el reporte oficial en formato PDF ahora?`)) {
+              window.open(`pdf_impresion_registro_radiologico_tcpdf.php?id_planilla=${planId}`, '_blank');
+            }
+            if (confirm(`¿Desea enviar la Planilla #${planId} por correo institucional a Exchange?`)) {
+              enviarMailPlanillaDemo();
+            }
+          }, 1200);
+        })
+        .catch(e => {
+          console.log('Offline close', e);
+          showToast('🔒 Turno formalizado en modo desconectado.', 4000);
+        });
+    }
 
-      setTimeout(() => {
-        showToast('🔒 Turno formalizado y cerrado. Planilla archivada con éxito.', 4000);
-      }, 1000);
+    function enviarMailPlanillaDemo(e) {
+      const planId = activePlanillaId || <?php echo intval($id_planilla_activa); ?>;
+      if (!confirm(`¿Confirma el envío de la Planilla Diaria #${planId} por correo institucional a Exchange con el PDF adjunto?`)) {
+        return;
+      }
+      const btn = e ? e.currentTarget : null;
+      if (btn) {
+        btn.disabled = true;
+        btn.dataset.oldHtml = btn.innerHTML;
+        btn.innerHTML = '<span>⏳ Conectando...</span>';
+      }
+      showToast('⏳ Conectando por socket a Exchange (correo.na-sa.com.ar:25)...', 3500);
+
+      fetch(`procesos_reg_rad.php?accion=enviar_mail_planilla&id_planilla=${planId}`)
+        .then(r => r.json())
+        .then(data => {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = btn.dataset.oldHtml || '<span>✉️ Enviar Correo</span>';
+          }
+          if (data.exito) {
+            showToast('✔️ ' + data.mensaje, 5000);
+          } else {
+            showToast('⚠️ Error al enviar correo: ' + data.mensaje, 6000);
+          }
+        })
+        .catch(err => {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = btn.dataset.oldHtml || '<span>✉️ Enviar Correo</span>';
+          }
+          showToast('⚠️ Error de comunicación: ' + err.message, 5000);
+        });
     }
 
     // ================= KEEP-ALIVE HEARTBEAT (ANTI-DESCONEXIÓN) =================
