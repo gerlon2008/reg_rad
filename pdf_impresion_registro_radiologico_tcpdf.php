@@ -160,10 +160,32 @@ if(is_null($row_planilla_en_curso['observaciones']) or $row_planilla_en_curso['o
 }
 
 
-/* incluimos primeramente el archivo que contiene la clase fpdf */
+/* incluimos primeramente el archivo que contiene la clase TCPDF */
+if (!class_exists('TCPDF')) {
+    $tcpdf_candidates = array(
+        __DIR__ . '/../TCPDF-master/tcpdf.php',
+        dirname(__DIR__) . '/TCPDF-master/tcpdf.php',
+        (isset($_SERVER["DOCUMENT_ROOT"]) ? $_SERVER["DOCUMENT_ROOT"] . '/ptr/TCPDF-master/tcpdf.php' : ''),
+        (isset($_SERVER["DOCUMENT_ROOT"]) ? $_SERVER["DOCUMENT_ROOT"] . '/TCPDF-master/tcpdf.php' : ''),
+        __DIR__ . '/tcpdf.php',
+        __DIR__ . '/../tcpdf.php',
+        __DIR__ . '/../../tcpdf.php',
+        (isset($_SERVER["DOCUMENT_ROOT"]) ? $_SERVER["DOCUMENT_ROOT"] . '/ptr/TCPDF-master/examples/tcpdf_include.php' : ''),
+        __DIR__ . '/../TCPDF-master/examples/tcpdf_include.php'
+    );
+    foreach ($tcpdf_candidates as $candidate) {
+        if (!empty($candidate) && file_exists($candidate)) {
+            require_once($candidate);
+            if (class_exists('TCPDF')) {
+                break;
+            }
+        }
+    }
+}
 
-// Include the main TCPDF library (search for installation path).
-require_once($_SERVER["DOCUMENT_ROOT"]."/ptr/TCPDF-master/examples/tcpdf_include.php");
+if (!class_exists('TCPDF')) {
+    die("Error crítico: No se pudo localizar la librería TCPDF en ../TCPDF-master/tcpdf.php ni en las rutas del servidor.");
+}
 class MYPDF extends TCPDF {
 
     public function Header()
@@ -973,7 +995,24 @@ $pdf->AddPage();
 $pdf->Ln(28);
 
 $pdf->Cell(0,245,(''),'LTBR',0,'C',TRUE);
-$pdf->Image($_SERVER["DOCUMENT_ROOT"]."/ptr/registro_rad5/Graficos/graf.jpg", 13 ,39, 184 , 242,'JPG');
+
+// Búsqueda dinámica de la imagen del gráfico (evita rutas absolutas rígidas)
+$grafico_path = '';
+$candidatos_grafico = array(
+    __DIR__ . '/Graficos/graf.jpg',
+    (isset($_SERVER["DOCUMENT_ROOT"]) ? $_SERVER["DOCUMENT_ROOT"] . '/ptr/registro_rad7/Graficos/graf.jpg' : ''),
+    (isset($_SERVER["DOCUMENT_ROOT"]) ? $_SERVER["DOCUMENT_ROOT"] . '/ptr/registro_rad5/Graficos/graf.jpg' : ''),
+    (isset($_SERVER["DOCUMENT_ROOT"]) ? $_SERVER["DOCUMENT_ROOT"] . '/ptr/registro_rad/Graficos/graf.jpg' : '')
+);
+foreach ($candidatos_grafico as $cg) {
+    if (!empty($cg) && file_exists($cg)) {
+        $grafico_path = $cg;
+        break;
+    }
+}
+if (!empty($grafico_path)) {
+    $pdf->Image($grafico_path, 13, 39, 184, 242, 'JPG');
+}
 
 
 // example using general stretching and spacing
@@ -1002,10 +1041,10 @@ if (!is_dir($dir_registros)) {
 $debe_enviar_mail = isset($_GET['enviar_mail']) && ($_GET['enviar_mail'] === '1' || $_GET['enviar_mail'] === 'true');
 
 if ($debe_enviar_mail) {
-    if (file_exists($_SERVER["DOCUMENT_ROOT"] . "/ptr/registro_rad5/enviar_mail_planilla.php")) {
-        require_once($_SERVER["DOCUMENT_ROOT"] . "/ptr/registro_rad5/enviar_mail_planilla.php");
-    } else if (file_exists(__DIR__ . '/enviar_mail_planilla.php')) {
+    if (file_exists(__DIR__ . '/enviar_mail_planilla.php')) {
         require_once(__DIR__ . '/enviar_mail_planilla.php');
+    } else if (isset($_SERVER["DOCUMENT_ROOT"]) && file_exists($_SERVER["DOCUMENT_ROOT"] . "/ptr/registro_rad5/enviar_mail_planilla.php")) {
+        require_once($_SERVER["DOCUMENT_ROOT"] . "/ptr/registro_rad5/enviar_mail_planilla.php");
     }
 
     if (function_exists('enviar_planilla_por_correo')) {
