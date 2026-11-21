@@ -12,14 +12,22 @@ $fecha_de_ahora = (new \DateTime())->format('d-m-Y H:i');
 $fecha_de_ahora_para_archivo = (new \DateTime())->format('d-m-Y');
 
 
-$id_planilla = $_GET['id_planilla'];
+$id_planilla = isset($_GET['id_planilla']) ? intval($_GET['id_planilla']) : 0;
 
-$query_planilla_en_curso = "SELECT * FROM regrad_planilla_diaria_nueva a left join regrad_turnos b on b.id_turnos = a.turno left join regrad_estados_planta c on c.id_estado_planta = a.estado_planta left join regrad_of_rad d on d.id_of_rad = a.of_rad left join regrad_jefes_turno e on e.id_jefes_turno = a.jefe_turno where id_planilla_diaria = $id_planilla and fecha_hora_cerrado is null";
+// Primero buscar sin restringir por fecha_hora_cerrado para permitir imprimir tanto planillas activas como cerradas/históricas
+$query_planilla_en_curso = "SELECT * FROM regrad_planilla_diaria_nueva a 
+    left join regrad_turnos b on b.id_turnos = a.turno 
+    left join regrad_estados_planta c on c.id_estado_planta = a.estado_planta 
+    left join regrad_of_rad d on d.id_of_rad = a.of_rad 
+    left join regrad_jefes_turno e on e.id_jefes_turno = a.jefe_turno 
+    where id_planilla_diaria = $id_planilla LIMIT 1";
 $planilla_en_curso = mysql_query($query_planilla_en_curso, $miconex) or die(mysql_error());
 $row_planilla_en_curso = mysql_fetch_assoc($planilla_en_curso);
 $totalRows_planilla_en_curso = mysql_num_rows($planilla_en_curso);
 
-$id_planilla = $row_planilla_en_curso['id_planilla_diaria'];
+if ($row_planilla_en_curso && !empty($row_planilla_en_curso['id_planilla_diaria'])) {
+    $id_planilla = intval($row_planilla_en_curso['id_planilla_diaria']);
+}
 
 $query_cargar_valores_rutina = "SELECT * FROM regrad_relevamiento_rutina a left join regrad_of_rad b on b.id_of_rad = a.id_oficial left join graf_tritio_recintos c on c.id = a.ubicacion where id_planilla = $id_planilla order by fecha, hora limit 10";
 $cargar_valores_rutina = mysql_query($query_cargar_valores_rutina, $miconex) or die(mysql_error());

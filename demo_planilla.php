@@ -8254,7 +8254,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       pendingMailPlanillaId = null;
     }
 
-    function confirmarYEjecutarEnvioMail() {
+    function confirmarYEjecutarEnvioMail(forzar) {
       const planId = pendingMailPlanillaId || activePlanillaId || <?php echo intval($id_planilla_activa); ?>;
       const btn = document.getElementById('btn-ejecutar-envio-mail');
       const sBox = document.getElementById('modal-mail-status-box');
@@ -8274,7 +8274,9 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
       showToast('⏳ Conectando por socket a Exchange (correo.na-sa.com.ar:25)...', 3500);
 
-      fetch(`procesos_reg_rad.php?accion=enviar_mail_planilla&id_planilla=${planId}`)
+      const url = `procesos_reg_rad.php?accion=enviar_mail_planilla&id_planilla=${planId}` + (forzar ? '&forzar=1' : '');
+
+      fetch(url)
         .then(r => r.json())
         .then(data => {
           if (btn) btn.disabled = false;
@@ -8295,10 +8297,21 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
               sBox.style.background = 'rgba(239, 68, 68, 0.16)';
               sBox.style.border = '1px solid rgba(239, 68, 68, 0.5)';
               sBox.style.color = '#f87171';
-              sBox.innerHTML = '<strong>⚠️ Error al despachar:</strong> ' + data.mensaje;
+              if (data.ya_enviada) {
+                sBox.innerHTML = `
+                  <strong>ℹ️ Control de seguridad:</strong> ${data.mensaje}
+                  <div style="margin-top: 8px;">
+                    <button type="button" onclick="confirmarYEjecutarEnvioMail(true)" style="background: var(--accent-amber); color: #000; font-weight: 800; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                      ⚠️ FORZAR REENVÍO DE TODAS FORMAS
+                    </button>
+                  </div>
+                `;
+              } else {
+                sBox.innerHTML = '<strong>⚠️ Error al despachar:</strong> ' + data.mensaje;
+              }
             }
-            if (btn) btn.innerHTML = 'Reintentar Envío';
-            showToast('⚠️ Error al enviar correo: ' + data.mensaje, 6000);
+            if (btn) btn.innerHTML = data.ya_enviada ? 'Ya enviada' : 'Reintentar Envío';
+            showToast(data.ya_enviada ? ('ℹ️ ' + data.mensaje) : ('⚠️ Error al enviar correo: ' + data.mensaje), 6000);
           }
         })
         .catch(err => {

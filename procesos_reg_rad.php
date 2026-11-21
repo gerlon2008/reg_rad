@@ -139,9 +139,27 @@ if ($accion == "enviar_mail_planilla") {
 	$nombre_archivo_pdf = 'Registro_' . $fecha_nom . ' - ' . $hora_nom . '.pdf';
 	$ruta_archivo_pdf   = $dir_registros . '/' . $nombre_archivo_pdf;
 
-	// Si no existe el archivo PDF específico de esa fecha/horario, buscar el PDF más reciente en Registros_pdfs
+	// Si no existe el archivo PDF en disco, o si se solicita regenerar, invocar al generador TCPDF en memoria
 	$pdf_binario = null;
-	if (!file_exists($ruta_archivo_pdf) || filesize($ruta_archivo_pdf) == 0) {
+	$debe_generar_pdf = !file_exists($ruta_archivo_pdf) || filesize($ruta_archivo_pdf) == 0;
+	if ($debe_generar_pdf && file_exists(__DIR__ . '/pdf_impresion_registro_radiologico_tcpdf.php')) {
+		// Respaldar variables globales y GET
+		$old_get = $_GET;
+		$_GET['id_planilla'] = $id_planilla;
+		$_GET['enviar_mail'] = '0'; // no re-disparar mail recursivo
+		ob_start();
+		@include(__DIR__ . '/pdf_impresion_registro_radiologico_tcpdf.php');
+		$pdf_salida_buffer = ob_get_clean();
+		$_GET = $old_get;
+
+		if (!empty($pdf_salida_buffer) && substr($pdf_salida_buffer, 0, 4) === '%PDF') {
+			$pdf_binario = $pdf_salida_buffer;
+			@file_put_contents($ruta_archivo_pdf, $pdf_binario);
+		}
+	}
+
+	// Si aún no está, buscar el PDF más reciente en Registros_pdfs
+	if (empty($pdf_binario) && (!file_exists($ruta_archivo_pdf) || filesize($ruta_archivo_pdf) == 0)) {
 		$candidatos = glob($dir_registros . '/*.pdf');
 		if (!empty($candidatos)) {
 			$ruta_archivo_pdf = end($candidatos);
@@ -149,7 +167,8 @@ if ($accion == "enviar_mail_planilla") {
 		}
 	}
 
-	$res = enviar_planilla_por_correo($id_planilla, $ruta_archivo_pdf, $nombre_archivo_pdf, $datos_planilla, $miconex, $pdf_binario);
+	$forzar_reenvio = isset($_GET['forzar']) && ($_GET['forzar'] === '1' || $_GET['forzar'] === 'true');
+	$res = enviar_planilla_por_correo($id_planilla, $ruta_archivo_pdf, $nombre_archivo_pdf, $datos_planilla, $miconex, $pdf_binario, $forzar_reenvio);
 	echo json_encode($res);
 	exit;
 }

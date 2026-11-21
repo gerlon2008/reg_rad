@@ -44,7 +44,7 @@ function obtener_configuracion_correo($miconex = null) {
     return $config;
 }
 
-function enviar_planilla_por_correo($id_planilla, $ruta_pdf, $nombre_archivo, $datos_planilla = array(), $miconex = null, $pdf_contenido_directo = null) {
+function enviar_planilla_por_correo($id_planilla, $ruta_pdf, $nombre_archivo, $datos_planilla = array(), $miconex = null, $pdf_contenido_directo = null, $forzar_reenvio = false) {
     // -------------------------------------------------------------
     // 1. CONFIGURACIÓN DINÁMICA DEL SERVIDOR Y DESTINATARIOS
     // -------------------------------------------------------------
@@ -63,30 +63,13 @@ function enviar_planilla_por_correo($id_planilla, $ruta_pdf, $nombre_archivo, $d
     }
 
     // -------------------------------------------------------------
-    // 2. CONTROL DE DUPLICADOS (Evitar reenviar si ya fue enviada)
+    // 2. CONTROL DE DUPLICADOS (Evitar reenviar accidentalmente)
     // -------------------------------------------------------------
     $id_planilla = intval($id_planilla);
     if ($id_planilla <= 0) {
         return array('exito' => false, 'mensaje' => 'ID de planilla inválido');
     }
 
-    // A) Control por base de datos (si la conexión está disponible)
-    if ($miconex) {
-        @mysql_query("CREATE TABLE IF NOT EXISTS `regrad_planillas_enviadas` (
-            `id_planilla` INT(11) NOT NULL PRIMARY KEY,
-            `fecha_envio` DATETIME NOT NULL,
-            `archivo` VARCHAR(255) DEFAULT NULL,
-            `destinatarios` TEXT DEFAULT NULL
-        )", $miconex);
-
-        $res_check = @mysql_query("SELECT id_planilla FROM `regrad_planillas_enviadas` WHERE id_planilla = $id_planilla LIMIT 1", $miconex);
-        if ($res_check && mysql_num_rows($res_check) > 0) {
-            // Ya fue enviada previamente, omitimos el envío silenciosamente
-            return array('exito' => true, 'mensaje' => 'Ya fue enviada anteriormente por correo (DB)');
-        }
-    }
-
-    // B) Control por archivo testigo en disco (doble seguridad)
     $dir_registros = (!empty($ruta_pdf) && is_string($ruta_pdf)) 
         ? dirname($ruta_pdf) 
         : ((isset($_SERVER["DOCUMENT_ROOT"]) && is_dir($_SERVER["DOCUMENT_ROOT"] . '/ptr/registro_rad5/Registros_pdfs')) 
@@ -96,8 +79,27 @@ function enviar_planilla_por_correo($id_planilla, $ruta_pdf, $nombre_archivo, $d
         @mkdir($dir_registros, 0777, true);
     }
     $archivo_lock = $dir_registros . '/.mail_enviado_' . $id_planilla . '.lock';
-    if (file_exists($archivo_lock)) {
-        return array('exito' => true, 'mensaje' => 'Ya fue enviada anteriormente por correo (archivo lock)');
+
+    if (!$forzar_reenvio) {
+        // A) Control por base de datos (si la conexión está disponible)
+        if ($miconex) {
+            @mysql_query("CREATE TABLE IF NOT EXISTS `regrad_planillas_enviadas` (
+                `id_planilla` INT(11) NOT NULL PRIMARY KEY,
+                `fecha_envio` DATETIME NOT NULL,
+                `archivo` VARCHAR(255) DEFAULT NULL,
+                `destinatarios` TEXT DEFAULT NULL
+            )", $miconex);
+
+            $res_check = @mysql_query("SELECT id_planilla FROM `regrad_planillas_enviadas` WHERE id_planilla = $id_planilla LIMIT 1", $miconex);
+            if ($res_check && mysql_num_rows($res_check) > 0) {
+                return array('exito' => false, 'ya_enviada' => true, 'mensaje' => 'Esta planilla ya fue despachada anteriormente por correo a Exchange (DB).');
+            }
+        }
+
+        // B) Control por archivo testigo en disco (doble seguridad)
+        if (file_exists($archivo_lock)) {
+            return array('exito' => false, 'ya_enviada' => true, 'mensaje' => 'Esta planilla ya fue despachada anteriormente por correo (archivo lock).');
+        }
     }
 
     // Obtener el contenido del PDF (directo en memoria o desde disco)
