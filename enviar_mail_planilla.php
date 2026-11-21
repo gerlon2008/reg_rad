@@ -232,27 +232,44 @@ function enviar_planilla_por_correo($id_planilla, $ruta_pdf, $nombre_archivo, $d
     };
 
     // Saludo inicial de Exchange
-    $fn_leer($socket);
+    $saludo_servidor = $fn_leer($socket);
+    if (empty($saludo_servidor) || substr($saludo_servidor, 0, 3) !== '220') {
+        @fclose($socket);
+        $detalle_banner = !empty($saludo_servidor) ? trim($saludo_servidor) : 'Sin respuesta del servidor';
+        return array('exito' => false, 'mensaje' => "El servidor SMTP no respondió con saludo 220 listo: $detalle_banner");
+    }
 
     // Protocolo SMTP
-    $fn_cmd($socket, "EHLO central.nasa");
-    $fn_cmd($socket, "MAIL FROM:<$remitente>");
+    $res_ehlo = $fn_cmd($socket, "EHLO central.nasa");
+    if (strpos($res_ehlo, '250') === false) {
+        $res_helo = $fn_cmd($socket, "HELO central.nasa");
+    }
+
+    $res_from = $fn_cmd($socket, "MAIL FROM:<$remitente>");
+    if (strpos($res_from, '250') === false) {
+        $fn_cmd($socket, "QUIT");
+        @fclose($socket);
+        return array('exito' => false, 'mensaje' => "El servidor SMTP rechazó el remitente <$remitente>: " . trim($res_from));
+    }
 
     $al_menos_uno = false;
+    $detalle_rechazo = '';
     foreach ($destinatarios as $dest) {
         $dest = trim($dest);
         if (!empty($dest)) {
             $rcpt_res = $fn_cmd($socket, "RCPT TO:<$dest>");
             if (strpos($rcpt_res, '250') !== false) {
                 $al_menos_uno = true;
+            } else {
+                $detalle_rechazo .= " [$dest: " . trim($rcpt_res) . "]";
             }
         }
     }
 
     if (!$al_menos_uno) {
         $fn_cmd($socket, "QUIT");
-        fclose($socket);
-        return array('exito' => false, 'mensaje' => 'El servidor Exchange rechazó los destinatarios.');
+        @fclose($socket);
+        return array('exito' => false, 'mensaje' => 'El servidor Exchange rechazó los destinatarios.' . (!empty($detalle_rechazo) ? (' Detalles:' . $detalle_rechazo) : ''));
     }
 
     $fn_cmd($socket, "DATA");
