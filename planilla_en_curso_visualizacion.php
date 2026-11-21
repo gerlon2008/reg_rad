@@ -3289,33 +3289,86 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       if (modal) modal.style.display = 'none';
     }
 
-    function enviarMailPlanillaActual(e) {
-      const planId = <?php echo intval($id_planilla); ?>;
-      if (!confirm(`¿Confirma el envío de la Planilla Diaria #${planId} por correo institucional a Exchange con el PDF adjunto?`)) {
-        return;
+    // ================= MODAL IN-APP: ENVÍO POR CORREO EXCHANGE =================
+    function openEnviarMailModal() {
+      const sBox = document.getElementById('modal-mail-status-box');
+      if (sBox) {
+        sBox.style.display = 'none';
+        sBox.innerHTML = '';
       }
-      const btn = e ? e.currentTarget : null;
+      const btn = document.getElementById('btn-ejecutar-envio-mail');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '✉️ SÍ, ENVIAR AHORA';
+      }
+      const modal = document.getElementById('modal-enviar-mail-confirm');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeEnviarMailModal() {
+      const modal = document.getElementById('modal-enviar-mail-confirm');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function confirmarYEjecutarEnvioMail() {
+      const planId = <?php echo intval($id_planilla); ?>;
+      const btn = document.getElementById('btn-ejecutar-envio-mail');
+      const sBox = document.getElementById('modal-mail-status-box');
+
       if (btn) {
         btn.disabled = true;
-        btn.dataset.oldHtml = btn.innerHTML;
-        btn.innerHTML = '<span>⏳ Enviando...</span>';
+        btn.innerHTML = '<span>⏳ Conectando...</span>';
       }
+
+      if (sBox) {
+        sBox.style.display = 'block';
+        sBox.style.background = 'rgba(6, 182, 212, 0.12)';
+        sBox.style.border = '1px solid rgba(6, 182, 212, 0.4)';
+        sBox.style.color = '#38bdf8';
+        sBox.innerHTML = '⏳ Estableciendo socket con Microsoft Exchange (correo.na-sa.com.ar:25)...';
+      }
+
       fetch(`procesos_reg_rad.php?accion=enviar_mail_planilla&id_planilla=${planId}`)
         .then(r => r.json())
         .then(data => {
-          if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = btn.dataset.oldHtml || '<span>✉️ Enviar Correo</span>';
+          if (btn) btn.disabled = false;
+          if (data.exito) {
+            if (sBox) {
+              sBox.style.background = 'rgba(16, 185, 129, 0.16)';
+              sBox.style.border = '1px solid rgba(16, 185, 129, 0.5)';
+              sBox.style.color = '#34d399';
+              sBox.innerHTML = '<strong>✔️ Éxito:</strong> ' + data.mensaje;
+            }
+            if (btn) btn.innerHTML = '✔️ ENVIADO CON ÉXITO';
+            setTimeout(() => {
+              closeEnviarMailModal();
+            }, 2500);
+          } else {
+            if (sBox) {
+              sBox.style.background = 'rgba(239, 68, 68, 0.16)';
+              sBox.style.border = '1px solid rgba(239, 68, 68, 0.5)';
+              sBox.style.color = '#f87171';
+              sBox.innerHTML = '<strong>⚠️ Error al despachar:</strong> ' + data.mensaje;
+            }
+            if (btn) btn.innerHTML = 'Reintentar Envío';
           }
-          alert(data.exito ? ('✔️ ' + data.mensaje) : ('⚠️ Error al enviar correo:\n' + data.mensaje));
         })
         .catch(err => {
           if (btn) {
             btn.disabled = false;
-            btn.innerHTML = btn.dataset.oldHtml || '<span>✉️ Enviar Correo</span>';
+            btn.innerHTML = 'Reintentar Envío';
           }
-          alert('⚠️ Error de comunicación al conectar con el servidor: ' + err.message);
+          if (sBox) {
+            sBox.style.background = 'rgba(239, 68, 68, 0.16)';
+            sBox.style.border = '1px solid rgba(239, 68, 68, 0.5)';
+            sBox.style.color = '#f87171';
+            sBox.innerHTML = '<strong>⚠️ Error de comunicación:</strong> ' + err.message;
+          }
         });
+    }
+
+    function enviarMailPlanillaActual(e) {
+      openEnviarMailModal();
     }
 
     document.addEventListener('keydown', (e) => {
@@ -3323,6 +3376,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
         closeRecintoHistoryModal();
         closeActaModal();
         cerrarModalRadionucleidosLiquido();
+        closeEnviarMailModal();
       }
     });
 
@@ -3915,6 +3969,49 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
             Cerrar
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL DE LA APP: CONFIRMAR ENVÍO POR CORREO ================= -->
+  <div class="modal-overlay" id="modal-enviar-mail-confirm" style="display: none;" onclick="if(event.target===this) closeEnviarMailModal();">
+    <div class="modal-box" style="width: 520px; max-width: 95vw; border-left: 4px solid var(--accent-cyan); animation: cyber-hologram-assemble 0.25s ease-out;">
+      <div class="modal-header" style="color: var(--accent-cyan); display: flex; justify-content: space-between; align-items: center;">
+        <div class="modal-header-left" style="display: flex; align-items: center; gap: 8px;">
+          <span>✉️</span>
+          <span style="font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Despacho de Planilla por Correo Exchange</span>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeEnviarMailModal()" title="Cerrar (Esc)">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        <p style="font-size: 12.5px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5;">
+          ¿Confirma el envío de la <strong>Planilla Diaria #<span id="modal-mail-plan-id"><?php echo $id_planilla; ?></span></strong> por correo institucional a través del servidor Microsoft Exchange con el reporte PDF adjunto?
+        </p>
+        <div style="background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.28); border-radius: 6px; padding: 12px 14px; font-family: var(--font-mono); font-size: 11.5px; margin-bottom: 14px;">
+          <div style="margin-bottom: 4px; display: flex; justify-content: space-between;">
+            <span style="color: var(--text-dim);">Servidor SMTP:</span>
+            <strong style="color: #ffffff;">correo.na-sa.com.ar:25</strong>
+          </div>
+          <div style="margin-bottom: 4px; display: flex; justify-content: space-between;">
+            <span style="color: var(--text-dim);">Remitente:</span>
+            <strong style="color: var(--accent-cyan);">registro_radiologico@na-sa.com.ar</strong>
+          </div>
+          <div style="margin-bottom: 4px; display: flex; justify-content: space-between;">
+            <span style="color: var(--text-dim);">Destinatario actual:</span>
+            <strong style="color: var(--accent-amber);">gloncar@na-sa.com.ar</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-dim);">Archivo adjunto:</span>
+            <span style="color: #ffffff;">Reporte PDF generado</span>
+          </div>
+        </div>
+        <div id="modal-mail-status-box" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 11.5px; margin-bottom: 12px;"></div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; background: rgba(0,0,0,0.2); border-top: 1px solid var(--border-card);">
+        <button type="button" class="btn-modal-cancel" onclick="closeEnviarMailModal()" id="btn-cancelar-envio-mail">CANCELAR</button>
+        <button type="button" class="btn-modal-confirm" id="btn-ejecutar-envio-mail" onclick="confirmarYEjecutarEnvioMail()" style="background: var(--accent-cyan); color: #000; font-weight: 800;">
+          ✉️ SÍ, ENVIAR AHORA
+        </button>
       </div>
     </div>
   </div>

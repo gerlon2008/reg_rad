@@ -3567,6 +3567,12 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       <button class="menu-btn" data-section="sec-cierre">
         <span>🔒 CIERRE DE TURNO</span>
       </button>
+      <?php if (isset($_SESSION['id_user']) && (string)$_SESSION['id_user'] === '0'): ?>
+      <a href="configuracion_correo.php" class="menu-btn" style="text-decoration: none; color: inherit; border-left: 2px solid var(--accent-amber); background: rgba(245, 158, 11, 0.06);" title="Configuración de Destinatarios de Correo (Usuario 0)">
+        <span>✉️ CONFIG. CORREO</span>
+        <span class="menu-badge" style="background: var(--accent-amber); color: #000; font-weight: 800; font-size: 9px;">U0</span>
+      </a>
+      <?php endif; ?>
     </nav>
 
     <div class="sidebar-user">
@@ -5947,6 +5953,79 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     </div>
   </div>
 
+  <!-- ================= MODAL DE LA APP: CONFIRMAR ENVÍO POR CORREO ================= -->
+  <div class="modal-overlay" id="modal-enviar-mail-confirm" style="display: none;" onclick="if(event.target===this) closeEnviarMailModal();">
+    <div class="modal-box" style="width: 520px; max-width: 95vw; border-left: 4px solid var(--accent-cyan); animation: cyber-hologram-assemble 0.25s ease-out;">
+      <div class="modal-header" style="color: var(--accent-cyan); display: flex; justify-content: space-between; align-items: center;">
+        <div class="modal-header-left" style="display: flex; align-items: center; gap: 8px;">
+          <span>✉️</span>
+          <span style="font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Despacho de Planilla por Correo Exchange</span>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeEnviarMailModal()" title="Cerrar (Esc)">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        <p style="font-size: 12.5px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5;">
+          ¿Confirma el envío de la <strong>Planilla Diaria #<span id="modal-mail-plan-id">--</span></strong> por correo institucional a través del servidor Microsoft Exchange con el reporte PDF adjunto?
+        </p>
+        <div style="background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.28); border-radius: 6px; padding: 12px 14px; font-family: var(--font-mono); font-size: 11.5px; margin-bottom: 14px;">
+          <div style="margin-bottom: 4px; display: flex; justify-content: space-between;">
+            <span style="color: var(--text-dim);">Servidor SMTP:</span>
+            <strong style="color: #ffffff;">correo.na-sa.com.ar:25</strong>
+          </div>
+          <div style="margin-bottom: 4px; display: flex; justify-content: space-between;">
+            <span style="color: var(--text-dim);">Remitente:</span>
+            <strong style="color: var(--accent-cyan);">registro_radiologico@na-sa.com.ar</strong>
+          </div>
+          <div style="margin-bottom: 4px; display: flex; justify-content: space-between;">
+            <span style="color: var(--text-dim);">Destinatario actual:</span>
+            <strong style="color: var(--accent-amber);">gloncar@na-sa.com.ar</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-dim);">Archivo adjunto:</span>
+            <span style="color: #ffffff;">Reporte PDF generado</span>
+          </div>
+        </div>
+        <div id="modal-mail-status-box" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 11.5px; margin-bottom: 12px;"></div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; background: rgba(0,0,0,0.2); border-top: 1px solid var(--border-card);">
+        <button type="button" class="btn-modal-cancel" onclick="closeEnviarMailModal()" id="btn-cancelar-envio-mail">CANCELAR</button>
+        <button type="button" class="btn-modal-confirm" id="btn-ejecutar-envio-mail" onclick="confirmarYEjecutarEnvioMail()" style="background: var(--accent-cyan); color: #000; font-weight: 800;">
+          ✉️ SÍ, ENVIAR AHORA
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL DE LA APP: CONFIRMAR CIERRE FORMAL DE GUARDIA ================= -->
+  <div class="modal-overlay" id="modal-cierre-formal-confirm" style="display: none;" onclick="if(event.target===this) closeCierreFormalModal();">
+    <div class="modal-box" style="width: 520px; max-width: 95vw; border-left: 4px solid var(--accent-amber); animation: cyber-hologram-assemble 0.25s ease-out;">
+      <div class="modal-header" style="color: var(--accent-amber); display: flex; justify-content: space-between; align-items: center;">
+        <div class="modal-header-left" style="display: flex; align-items: center; gap: 8px;">
+          <span>🔒</span>
+          <span style="font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Cierre y Formalización de Guardia</span>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeCierreFormalModal()" title="Cerrar (Esc)">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        <p style="font-size: 12.5px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5;">
+          ¿Está seguro de que desea formalizar el <strong>cierre definitivo de la Planilla Diaria #<span id="modal-cierre-plan-id">--</span></strong>?
+        </p>
+        <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.28); border-radius: 6px; padding: 12px 14px; font-family: var(--font-mono); font-size: 11.5px; margin-bottom: 14px;">
+          <div style="margin-bottom: 4px;">• Se estamparán las firmas del Oficial de Radioprotección y Jefe de Turno.</div>
+          <div style="margin-bottom: 4px;">• Se congelará la edición de mediciones de rutina.</div>
+          <div>• La planilla quedará archivada en modo consulta / auditoría.</div>
+        </div>
+        <div id="modal-cierre-status-box" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 11.5px; margin-bottom: 12px;"></div>
+      </div>
+      <div class="modal-footer" id="modal-cierre-footer-actions" style="display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; background: rgba(0,0,0,0.2); border-top: 1px solid var(--border-card);">
+        <button type="button" class="btn-modal-cancel" onclick="closeCierreFormalModal()">CANCELAR</button>
+        <button type="button" class="btn-modal-confirm" id="btn-ejecutar-cierre-formal" onclick="ejecutarCierreFormalApp()" style="background: var(--accent-amber); color: #000; font-weight: 800;">
+          🔒 SÍ, CERRAR PLANILLA
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let activePlanillaId = <?php echo $id_planilla_activa ? $id_planilla_activa : 'null'; ?>;
     const ACTIVE_USUARIO_ID = <?php echo (int)($id_usuario_actual ? $id_usuario_actual : 1); ?>;
@@ -8069,65 +8148,176 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       showToast('✔️ Novedades guardadas en el Libro de Actas');
     }
 
-    // ================= CIERRE DE TURNO =================
+    // ================= CIERRE DE TURNO (IN-APP MODAL) =================
     function closeShiftFormal() {
       const planId = activePlanillaId || <?php echo intval($id_planilla_activa); ?>;
-      if (!confirm(`¿Confirma la formalización y cierre definitivo de la Planilla Diaria #${planId}?\nEsta acción estampará las firmas oficiales y congelará la edición de mediciones.`)) {
-        return;
+      const elPlan = document.getElementById('modal-cierre-plan-id');
+      if (elPlan) elPlan.textContent = planId;
+
+      const sBox = document.getElementById('modal-cierre-status-box');
+      if (sBox) {
+        sBox.style.display = 'none';
+        sBox.innerHTML = '';
       }
-      showToast('🔒 Formalizando y cerrando planilla en MySQL...', 2000);
+
+      const footer = document.getElementById('modal-cierre-footer-actions');
+      if (footer) {
+        footer.innerHTML = `
+          <button type="button" class="btn-modal-cancel" onclick="closeCierreFormalModal()">CANCELAR</button>
+          <button type="button" class="btn-modal-confirm" id="btn-ejecutar-cierre-formal" onclick="ejecutarCierreFormalApp()" style="background: var(--accent-amber); color: #000; font-weight: 800;">
+            🔒 SÍ, CERRAR PLANILLA
+          </button>
+        `;
+      }
+
+      const modal = document.getElementById('modal-cierre-formal-confirm');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeCierreFormalModal() {
+      const modal = document.getElementById('modal-cierre-formal-confirm');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function ejecutarCierreFormalApp() {
+      const planId = activePlanillaId || <?php echo intval($id_planilla_activa); ?>;
+      const btn = document.getElementById('btn-ejecutar-cierre-formal');
+      const sBox = document.getElementById('modal-cierre-status-box');
+      const footer = document.getElementById('modal-cierre-footer-actions');
+
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>🔒 Cerrando en MySQL...</span>';
+      }
+
+      showToast('🔒 Formalizando y cerrando planilla en MySQL...', 2500);
+
       fetch(`procesos_reg_rad.php?accion=cerrar_planilla&id_planilla=${planId}&id_usuario=1`)
         .then(r => r.text())
         .then(res => {
           showToast('🔒 Turno formalizado y cerrado con éxito.', 4000);
-          setTimeout(() => {
-            if (confirm(`Planilla #${planId} formalizada con éxito.\n\n¿Desea descargar el reporte oficial en formato PDF ahora?`)) {
-              window.open(`pdf_impresion_registro_radiologico_tcpdf.php?id_planilla=${planId}`, '_blank');
-            }
-            if (confirm(`¿Desea enviar la Planilla #${planId} por correo institucional a Exchange?`)) {
-              enviarMailPlanillaDemo();
-            }
-          }, 1200);
+          if (sBox) {
+            sBox.style.display = 'block';
+            sBox.style.background = 'rgba(16, 185, 129, 0.16)';
+            sBox.style.border = '1px solid rgba(16, 185, 129, 0.5)';
+            sBox.style.color = '#34d399';
+            sBox.innerHTML = `<strong>✔️ Planilla #${planId} formalizada y archivada con éxito.</strong><br>Seleccione la siguiente acción que desee realizar:`;
+          }
+          if (footer) {
+            footer.innerHTML = `
+              <a href="pdf_impresion_registro_radiologico_tcpdf.php?id_planilla=${planId}" target="_blank" class="btn-cierre-doc pdf" style="font-size: 11.5px; padding: 6px 14px;">
+                <span>📄 Descargar PDF Oficial</span>
+              </a>
+              <button type="button" class="btn-cierre-doc mail" onclick="closeCierreFormalModal(); openEnviarMailModal(${planId});" style="font-size: 11.5px; padding: 6px 14px;">
+                <span>✉️ Enviar por Correo</span>
+              </button>
+              <button type="button" class="btn-modal-cancel" onclick="closeCierreFormalModal()" style="font-size: 11.5px; padding: 6px 14px;">
+                CERRAR
+              </button>
+            `;
+          }
         })
         .catch(e => {
           console.log('Offline close', e);
           showToast('🔒 Turno formalizado en modo desconectado.', 4000);
+          closeCierreFormalModal();
         });
     }
 
-    function enviarMailPlanillaDemo(e) {
-      const planId = activePlanillaId || <?php echo intval($id_planilla_activa); ?>;
-      if (!confirm(`¿Confirma el envío de la Planilla Diaria #${planId} por correo institucional a Exchange con el PDF adjunto?`)) {
-        return;
+    // ================= ENVÍO POR CORREO EXCHANGE (IN-APP MODAL) =================
+    let pendingMailPlanillaId = null;
+
+    function openEnviarMailModal(idPlanilla) {
+      pendingMailPlanillaId = idPlanilla || activePlanillaId || <?php echo intval($id_planilla_activa); ?>;
+      const elPlan = document.getElementById('modal-mail-plan-id');
+      if (elPlan) elPlan.textContent = pendingMailPlanillaId;
+
+      const sBox = document.getElementById('modal-mail-status-box');
+      if (sBox) {
+        sBox.style.display = 'none';
+        sBox.innerHTML = '';
       }
-      const btn = e ? e.currentTarget : null;
+
+      const btn = document.getElementById('btn-ejecutar-envio-mail');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '✉️ SÍ, ENVIAR AHORA';
+      }
+
+      const modal = document.getElementById('modal-enviar-mail-confirm');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeEnviarMailModal() {
+      const modal = document.getElementById('modal-enviar-mail-confirm');
+      if (modal) modal.style.display = 'none';
+      pendingMailPlanillaId = null;
+    }
+
+    function confirmarYEjecutarEnvioMail() {
+      const planId = pendingMailPlanillaId || activePlanillaId || <?php echo intval($id_planilla_activa); ?>;
+      const btn = document.getElementById('btn-ejecutar-envio-mail');
+      const sBox = document.getElementById('modal-mail-status-box');
+
       if (btn) {
         btn.disabled = true;
-        btn.dataset.oldHtml = btn.innerHTML;
         btn.innerHTML = '<span>⏳ Conectando...</span>';
       }
+
+      if (sBox) {
+        sBox.style.display = 'block';
+        sBox.style.background = 'rgba(6, 182, 212, 0.12)';
+        sBox.style.border = '1px solid rgba(6, 182, 212, 0.4)';
+        sBox.style.color = '#38bdf8';
+        sBox.innerHTML = '⏳ Estableciendo socket con Microsoft Exchange (correo.na-sa.com.ar:25)...';
+      }
+
       showToast('⏳ Conectando por socket a Exchange (correo.na-sa.com.ar:25)...', 3500);
 
       fetch(`procesos_reg_rad.php?accion=enviar_mail_planilla&id_planilla=${planId}`)
         .then(r => r.json())
         .then(data => {
-          if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = btn.dataset.oldHtml || '<span>✉️ Enviar Correo</span>';
-          }
+          if (btn) btn.disabled = false;
           if (data.exito) {
+            if (sBox) {
+              sBox.style.background = 'rgba(16, 185, 129, 0.16)';
+              sBox.style.border = '1px solid rgba(16, 185, 129, 0.5)';
+              sBox.style.color = '#34d399';
+              sBox.innerHTML = '<strong>✔️ Éxito:</strong> ' + data.mensaje;
+            }
+            if (btn) btn.innerHTML = '✔️ ENVIADO CON ÉXITO';
             showToast('✔️ ' + data.mensaje, 5000);
+            setTimeout(() => {
+              closeEnviarMailModal();
+            }, 2500);
           } else {
+            if (sBox) {
+              sBox.style.background = 'rgba(239, 68, 68, 0.16)';
+              sBox.style.border = '1px solid rgba(239, 68, 68, 0.5)';
+              sBox.style.color = '#f87171';
+              sBox.innerHTML = '<strong>⚠️ Error al despachar:</strong> ' + data.mensaje;
+            }
+            if (btn) btn.innerHTML = 'Reintentar Envío';
             showToast('⚠️ Error al enviar correo: ' + data.mensaje, 6000);
           }
         })
         .catch(err => {
           if (btn) {
             btn.disabled = false;
-            btn.innerHTML = btn.dataset.oldHtml || '<span>✉️ Enviar Correo</span>';
+            btn.innerHTML = 'Reintentar Envío';
+          }
+          if (sBox) {
+            sBox.style.background = 'rgba(239, 68, 68, 0.16)';
+            sBox.style.border = '1px solid rgba(239, 68, 68, 0.5)';
+            sBox.style.color = '#f87171';
+            sBox.innerHTML = '<strong>⚠️ Error de comunicación:</strong> ' + err.message;
           }
           showToast('⚠️ Error de comunicación: ' + err.message, 5000);
         });
+    }
+
+    function enviarMailPlanillaDemo() {
+      openEnviarMailModal();
     }
 
     // ================= KEEP-ALIVE HEARTBEAT (ANTI-DESCONEXIÓN) =================

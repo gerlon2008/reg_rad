@@ -1,0 +1,16 @@
+{
+  "modo": "produccion",
+  "destinatarios_produccion": [
+    "oficiales-rp-cne@na-sa.com.ar",
+    "ayudantejefedeturno@na-sa.com.ar"
+  ],
+  "destinatarios_pruebas": [
+    "gloncar@na-sa.com.ar"
+  ],
+  "servidor_smtp": "correo.na-sa.com.ar",
+  "puerto_smtp": 25,
+  "remitente": "registro_radiologico@na-sa.com.ar",
+  "nombre_remitente": "Planilla Registro Radiologico",
+  "actualizado_el": "2026-11-21 17:00:00",
+  "actualizado_por": "0"
+}

@@ -5,21 +5,62 @@
  * Compatible con PHP 5.5+ (no requiere OpenSSL ni librerías externas)
  */
 
+function obtener_configuracion_correo($miconex = null) {
+    // Valores predeterminados
+    $config = array(
+        'modo' => 'produccion',
+        'destinatarios_produccion' => array('oficiales-rp-cne@na-sa.com.ar', 'ayudantejefedeturno@na-sa.com.ar'),
+        'destinatarios_pruebas' => array('gloncar@na-sa.com.ar'),
+        'servidor_smtp' => 'correo.na-sa.com.ar',
+        'puerto_smtp' => 25,
+        'remitente' => 'registro_radiologico@na-sa.com.ar',
+        'nombre_remitente' => 'Planilla Registro Radiologico'
+    );
+
+    // 1. Cargar desde config_correo.json si existe
+    $ruta_json = __DIR__ . '/config_correo.json';
+    if (file_exists($ruta_json)) {
+        $raw = @file_get_contents($ruta_json);
+        if ($raw) {
+            $parsed = @json_decode($raw, true);
+            if (is_array($parsed)) {
+                $config = array_merge($config, $parsed);
+            }
+        }
+    }
+
+    // 2. Si hay conexión a MySQL, intentar cargar de la tabla `regrad_config_correo`
+    if ($miconex) {
+        $res = @mysql_query("SELECT valor_json FROM `regrad_config_correo` WHERE clave = 'correo_exchange' LIMIT 1", $miconex);
+        if ($res && mysql_num_rows($res) > 0) {
+            $row = mysql_fetch_assoc($res);
+            $db_cfg = @json_decode($row['valor_json'], true);
+            if (is_array($db_cfg)) {
+                $config = array_merge($config, $db_cfg);
+            }
+        }
+    }
+
+    return $config;
+}
+
 function enviar_planilla_por_correo($id_planilla, $ruta_pdf, $nombre_archivo, $datos_planilla = array(), $miconex = null, $pdf_contenido_directo = null) {
     // -------------------------------------------------------------
-    // 1. CONFIGURACIÓN DEL SERVIDOR Y DESTINATARIOS
+    // 1. CONFIGURACIÓN DINÁMICA DEL SERVIDOR Y DESTINATARIOS
     // -------------------------------------------------------------
-    $servidor_smtp = 'correo.na-sa.com.ar';
-    $puerto_smtp   = 25;
-    $remitente     = 'registro_radiologico@na-sa.com.ar';
-    $nombre_de     = 'Planilla Registro Radiologico';
+    $cfg = obtener_configuracion_correo($miconex);
 
-    // LISTA DE DESTINATARIOS:
-    // Para PRODUCCIÓN: descomentar la siguiente línea:
-    // $destinatarios = array('ayudantejefedeturno@na-sa.com.ar');
+    $servidor_smtp = !empty($cfg['servidor_smtp']) ? $cfg['servidor_smtp'] : 'correo.na-sa.com.ar';
+    $puerto_smtp   = !empty($cfg['puerto_smtp']) ? intval($cfg['puerto_smtp']) : 25;
+    $remitente     = !empty($cfg['remitente']) ? $cfg['remitente'] : 'registro_radiologico@na-sa.com.ar';
+    $nombre_de     = !empty($cfg['nombre_remitente']) ? $cfg['nombre_remitente'] : 'Planilla Registro Radiologico';
 
-    // Para PRUEBAS (actual):
-    $destinatarios = array('gloncar@na-sa.com.ar');
+    $modo = isset($cfg['modo']) ? $cfg['modo'] : 'produccion';
+    if ($modo === 'pruebas') {
+        $destinatarios = !empty($cfg['destinatarios_pruebas']) ? (array)$cfg['destinatarios_pruebas'] : array('gloncar@na-sa.com.ar');
+    } else {
+        $destinatarios = !empty($cfg['destinatarios_produccion']) ? (array)$cfg['destinatarios_produccion'] : array('oficiales-rp-cne@na-sa.com.ar', 'ayudantejefedeturno@na-sa.com.ar');
+    }
 
     // -------------------------------------------------------------
     // 2. CONTROL DE DUPLICADOS (Evitar reenviar si ya fue enviada)
