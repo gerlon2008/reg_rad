@@ -2242,6 +2242,9 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
             </button>
           </div>
         </div>
+        <a href="pdf_impresion_registro_radiologico_tcpdf.php?id_planilla=<?php echo $id_planilla; ?>" target="_blank" class="btn-topbar" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: #34d399;" title="Generar PDF Oficial con TCPDF y despachar por correo Exchange">
+          <span>📧 PDF Oficial &amp; Correo</span>
+        </a>
         <button type="button" class="btn-topbar btn-print" onclick="window.print()">
           <span>🖨️ Imprimir Planilla</span>
         </button>

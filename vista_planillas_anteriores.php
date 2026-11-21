@@ -1598,6 +1598,9 @@ if (!$db_connected) {
             <button type="button" class="btn-action btn-secondary" onclick='abrirNovedadesActas(${Number(r.id)}, ${jsFecha}, ${jsOficial}, ${jsTurno})' title="Ver Novedades del Libro de Actas">
               <span>📋 Actas</span>
             </button>
+            <a href="pdf_impresion_registro_radiologico_tcpdf.php?id_planilla=${Number(r.id)}" target="_blank" class="btn-action" style="color: #34d399; border-color: rgba(16, 185, 129, 0.4);" title="Descargar PDF Oficial TCPDF y verificar envío por correo">
+              <span>📄 PDF</span>
+            </a>
             <a href="planilla_en_curso_visualizacion.php?id_planilla=${Number(r.id)}&print=1" target="_blank" class="btn-action btn-print" title="Imprimir informe oficial">
               <span>🖨️</span>
             </a>

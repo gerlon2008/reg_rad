@@ -1,0 +1,6 @@
+# PDFs generados y candados de envio
+Registros_pdfs/*.pdf
+Registros_pdfs/*.lock
+Registros_pdfs/.mail_enviado_*
+Graficos/*.jpg
+Graficos/*.png

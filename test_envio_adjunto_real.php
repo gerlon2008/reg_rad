@@ -8,10 +8,13 @@ require_once(__DIR__ . '/enviar_mail_planilla.php');
 
 echo "<h2>Prueba de Envío de Correo con PDF Adjunto a Exchange</h2>";
 
-$carpetas_posibles = array(
-    $_SERVER["DOCUMENT_ROOT"] . '/ptr/TCPDF-master/examples/Registros_pdfs',
-    __DIR__ . '/Registros_pdfs'
-);
+$carpetas_posibles = array();
+if (isset($_SERVER["DOCUMENT_ROOT"])) {
+    $carpetas_posibles[] = $_SERVER["DOCUMENT_ROOT"] . '/ptr/TCPDF-master/examples/Registros_pdfs';
+    $carpetas_posibles[] = $_SERVER["DOCUMENT_ROOT"] . '/ptr/registro_rad5/Registros_pdfs';
+    $carpetas_posibles[] = $_SERVER["DOCUMENT_ROOT"] . '/ptr/registro_rad/Registros_pdfs';
+}
+$carpetas_posibles[] = __DIR__ . '/Registros_pdfs';
 
 $ruta_pdf_prueba = '';
 $nombre_pdf_prueba = '';

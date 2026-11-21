@@ -46,7 +46,14 @@ function enviar_planilla_por_correo($id_planilla, $ruta_pdf, $nombre_archivo, $d
     }
 
     // B) Control por archivo testigo en disco (doble seguridad)
-    $dir_registros = (!empty($ruta_pdf) && is_string($ruta_pdf)) ? dirname($ruta_pdf) : ($_SERVER["DOCUMENT_ROOT"] . '/ptr/registro_rad5/Registros_pdfs');
+    $dir_registros = (!empty($ruta_pdf) && is_string($ruta_pdf)) 
+        ? dirname($ruta_pdf) 
+        : ((isset($_SERVER["DOCUMENT_ROOT"]) && is_dir($_SERVER["DOCUMENT_ROOT"] . '/ptr/registro_rad5/Registros_pdfs')) 
+            ? ($_SERVER["DOCUMENT_ROOT"] . '/ptr/registro_rad5/Registros_pdfs') 
+            : (__DIR__ . '/Registros_pdfs'));
+    if (!is_dir($dir_registros)) {
+        @mkdir($dir_registros, 0777, true);
+    }
     $archivo_lock = $dir_registros . '/.mail_enviado_' . $id_planilla . '.lock';
     if (file_exists($archivo_lock)) {
         return array('exito' => true, 'mensaje' => 'Ya fue enviada anteriormente por correo (archivo lock)');
@@ -171,7 +178,7 @@ function enviar_planilla_por_correo($id_planilla, $ruta_pdf, $nombre_archivo, $d
 
     $fn_leer = function($s) {
         $res = '';
-        while ($linea = fgets($s, 512)) {
+        while ($linea = @fgets($s, 512)) {
             $res .= $linea;
             if (substr($linea, 3, 1) == ' ') break;
         }
@@ -179,7 +186,7 @@ function enviar_planilla_por_correo($id_planilla, $ruta_pdf, $nombre_archivo, $d
     };
 
     $fn_cmd = function($s, $cmd) use ($fn_leer) {
-        fwrite($s, $cmd . "\r\n");
+        @fwrite($s, $cmd . "\r\n");
         return $fn_leer($s);
     };
 
