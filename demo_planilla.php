@@ -3536,7 +3536,6 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       </button>
       <button class="menu-btn" data-section="sec-gaseosos">
         <span>💨 EMISIÓN EFLUENTES GASEOSOS</span>
-        <span class="menu-badge">RO 8.4%</span>
       </button>
       <button class="menu-btn" data-section="sec-espectrometria">
         <span>🔬 ESPECTROMETRÍA DE AIRE (ZC)</span>
