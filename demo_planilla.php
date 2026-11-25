@@ -35,11 +35,19 @@ if ($current_hour >= 0 && $current_hour < 5) {
     $es_madrugada = false;
 }
 
+require_once(__DIR__ . '/auditoria_reg_rad.php');
+
 // Variables por defecto (modo offline o fallback de demostración)
 $id_planilla_activa = 10843;
 $sin_planilla_abierta = false;
 $id_usuario_actual = isset($_SESSION['id_user']) ? $_SESSION['id_user'] : 1;
 $es_usuario_admin_u0 = (isset($_SESSION['id_user']) && (string)$_SESSION['id_user'] === '0');
+$modo_edicion_historica = false;
+$id_planilla_editar_req = isset($_GET['editar_planilla']) ? intval($_GET['editar_planilla']) : 0;
+$perm_ver_auditoria = $es_usuario_admin_u0;
+$perm_corregir_fecha = $es_usuario_admin_u0;
+$perm_editar_cerradas = $es_usuario_admin_u0;
+$auditoria_salud_ok = true;
 // Oficial creador que inició la planilla activa
 $oficial_iniciador_nombre = "ROLHAUSER, MARIANO";
 $oficial_iniciador_id = 2;
@@ -477,15 +485,45 @@ if (file_exists($miconex_path)) {
             }
         }
 
-        // 6. Planilla abierta
-        $q_abierta = "SELECT a.*, b.horarios, c.nombre_estado, d.of_apellido, d.of_nombre, e.jefe_apellido, e.jefe_nombre 
-                      FROM regrad_planilla_diaria_nueva a 
-                      LEFT JOIN regrad_turnos b ON b.id_turnos = a.turno 
-                      LEFT JOIN regrad_estados_planta c ON c.id_estado_planta = a.estado_planta 
-                      LEFT JOIN regrad_of_rad d ON d.id_of_rad = a.of_rad 
-                      LEFT JOIN regrad_jefes_turno e ON e.id_jefes_turno = a.jefe_turno 
-                      WHERE a.fecha_hora_cerrado IS NULL 
-                      ORDER BY a.id_planilla_diaria DESC LIMIT 1";
+        // 5e. Resolver permisos granulares y salud del motor de auditoría
+        $perms_db = auditoria_obtener_permisos_usuario($miconex);
+        $perm_ver_auditoria = !empty($perms_db['ver_auditoria']);
+        $perm_corregir_fecha = !empty($perms_db['corregir_fecha_turno']);
+        $perm_editar_cerradas = !empty($perms_db['editar_planillas_cerradas']);
+        $salud_aud_db = auditoria_verificar_salud($miconex);
+        $auditoria_salud_ok = !empty($salud_aud_db['ok']);
+
+        // 6. Planilla abierta (o planilla histórica en Modo Edición Auditada)
+        if ($id_planilla_editar_req > 0) {
+            if (!$auditoria_salud_ok) {
+                if (function_exists('http_response_code')) http_response_code(503);
+                echo '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Edición Bloqueada</title><style>body{background:#061412;color:#fca5a5;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}</style></head><body><div style="text-align:center;padding:24px;border:1px solid #ef4444;border-radius:8px;background:rgba(239,68,68,0.1);max-width:500px;"><h2>⛔ Edición Histórica Bloqueada (Fail-Closed)</h2><p style="color:#cbd5e1;font-size:13.5px;margin:10px 0 16px;">El log de auditoría no está operativo, por lo que no se permite editar planillas cerradas sin registro.</p><p><a href="vista_planillas_anteriores.php" style="color:#38bdf8;text-decoration:none;font-weight:700;">&larr; Volver al Historial</a></p></div></body></html>';
+                exit;
+            }
+            if (!$perm_editar_cerradas) {
+                if (function_exists('http_response_code')) http_response_code(403);
+                echo '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Acceso Restringido</title><style>body{background:#061412;color:#fca5a5;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}</style></head><body><div style="text-align:center;padding:24px;border:1px solid #ef4444;border-radius:8px;background:rgba(239,68,68,0.1);max-width:500px;"><h2>⛔ Acceso Restringido</h2><p style="color:#cbd5e1;font-size:13.5px;margin:10px 0 16px;">Su usuario no posee permiso para modificar planillas anteriores/cerradas.</p><p><a href="vista_planillas_anteriores.php" style="color:#38bdf8;text-decoration:none;font-weight:700;">&larr; Volver al Historial</a></p></div></body></html>';
+                exit;
+            }
+            $modo_edicion_historica = true;
+            $q_abierta = "SELECT a.*, b.horarios, c.nombre_estado, d.of_apellido, d.of_nombre, e.jefe_apellido, e.jefe_nombre 
+                          FROM regrad_planilla_diaria_nueva a 
+                          LEFT JOIN regrad_turnos b ON b.id_turnos = a.turno 
+                          LEFT JOIN regrad_estados_planta c ON c.id_estado_planta = a.estado_planta 
+                          LEFT JOIN regrad_of_rad d ON d.id_of_rad = a.of_rad 
+                          LEFT JOIN regrad_jefes_turno e ON e.id_jefes_turno = a.jefe_turno 
+                          WHERE a.id_planilla_diaria = $id_planilla_editar_req 
+                          LIMIT 1";
+        } else {
+            $q_abierta = "SELECT a.*, b.horarios, c.nombre_estado, d.of_apellido, d.of_nombre, e.jefe_apellido, e.jefe_nombre 
+                          FROM regrad_planilla_diaria_nueva a 
+                          LEFT JOIN regrad_turnos b ON b.id_turnos = a.turno 
+                          LEFT JOIN regrad_estados_planta c ON c.id_estado_planta = a.estado_planta 
+                          LEFT JOIN regrad_of_rad d ON d.id_of_rad = a.of_rad 
+                          LEFT JOIN regrad_jefes_turno e ON e.id_jefes_turno = a.jefe_turno 
+                          WHERE a.fecha_hora_cerrado IS NULL 
+                          ORDER BY a.id_planilla_diaria DESC LIMIT 1";
+        }
         $res_abierta = mysql_query($q_abierta, $miconex);
         if ($res_abierta && mysql_num_rows($res_abierta) > 0) {
             $row_abierta = mysql_fetch_assoc($res_abierta);
@@ -689,6 +727,10 @@ if (file_exists($miconex_path)) {
             
 // Evaluar si el usuario logueado difiere del oficial que inició la planilla activa
 $hay_discrepancia_guardia = (!empty($oficial_iniciador_nombre) && !empty($oficial_logueado) && $oficial_iniciador_nombre !== $oficial_logueado);
+if (!empty($modo_edicion_historica)) {
+    $hay_discrepancia_guardia = false;
+    $sin_planilla_abierta = false;
+}
 if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET['test'])) {
     $hay_discrepancia_guardia = false;
     $sin_planilla_abierta = true;
@@ -3567,7 +3609,16 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       <button class="menu-btn" data-section="sec-cierre">
         <span>🔒 CIERRE DE TURNO</span>
       </button>
-      <?php if (isset($_SESSION['id_user']) && (string)$_SESSION['id_user'] === '0'): ?>
+      <?php if (!empty($perm_ver_auditoria) || $es_usuario_admin_u0): ?>
+      <a href="auditoria_logs.php" class="menu-btn" style="text-decoration: none; color: inherit; border-left: 2px solid var(--accent-cyan); background: rgba(56, 189, 248, 0.06);" title="Visor de Auditoría y Trazabilidad de Cambios">
+        <span>🧾 AUDITORÍA / LOGS</span>
+      </a>
+      <?php endif; ?>
+      <?php if ($es_usuario_admin_u0): ?>
+      <a href="configuracion_permisos.php" class="menu-btn" style="text-decoration: none; color: inherit; border-left: 2px solid var(--accent-amber); background: rgba(245, 158, 11, 0.06);" title="Permisos Granulares y Seguridad Operativa (Usuario 0)">
+        <span>🛡️ PERMISOS &amp; SEGURIDAD</span>
+        <span class="menu-badge" style="background: var(--accent-amber); color: #000; font-weight: 800; font-size: 9px;">U0</span>
+      </a>
       <a href="configuracion_correo.php" class="menu-btn" style="text-decoration: none; color: inherit; border-left: 2px solid var(--accent-amber); background: rgba(245, 158, 11, 0.06);" title="Configuración de Destinatarios de Correo (Usuario 0)">
         <span>✉️ CONFIG. CORREO</span>
         <span class="menu-badge" style="background: var(--accent-amber); color: #000; font-weight: 800; font-size: 9px;">U0</span>
@@ -3684,6 +3735,28 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         </button>
       </div>
     </div>
+
+    <?php if (!empty($modo_edicion_historica)): ?>
+    <!-- BANNER DE MODO EDICIÓN HISTÓRICA (PLANILLA CERRADA AUDITADA) -->
+    <div id="banner-edicion-historica" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 10px 18px; background: linear-gradient(90deg, rgba(220, 38, 38, 0.22), rgba(245, 158, 11, 0.2)); border-bottom: 2px solid var(--accent-amber); color: #fff;">
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <span style="font-size: 18px;">✏️</span>
+        <div>
+          <div style="font-weight: 800; font-size: 12.5px; color: #fde68a; letter-spacing: 0.4px;">
+            MODO EDICIÓN HISTÓRICA AUDITADA &bull; PLANILLA CERRADA #<?php echo intval($id_planilla_activa); ?>
+          </div>
+          <div style="font-size: 11px; color: #e2e8f0;">
+            Cada alta, cambio o eliminación queda registrada como <strong>POST-CIERRE</strong> en <code>regrad_auditoria_log</code> (Fail-Closed).
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <input type="text" id="input-motivo-edicion-historica" placeholder="Motivo obligatorio de corrección..." style="width: 280px; background: rgba(0,0,0,0.45); border: 1px solid var(--accent-amber); color: #fff; padding: 6px 10px; border-radius: 5px; font-size: 12px;" oninput="actualizarMotivoEdicionHistorica(this.value)">
+        <a href="auditoria_logs.php?id_planilla=<?php echo intval($id_planilla_activa); ?>" target="_blank" class="btn-banner-detalles" style="text-decoration:none;">🧾 Ver Log</a>
+        <a href="vista_planillas_anteriores.php" class="btn-banner-detalles" style="text-decoration:none; border-color: var(--accent-cyan); color: var(--accent-cyan);">&larr; Volver al Historial</a>
+      </div>
+    </div>
+    <?php endif; ?>
 
     <!-- WORKSPACE SCROLLABLE -->
     <div class="workspace" <?php if (!empty($hay_discrepancia_guardia)) echo 'style="filter: blur(5px); pointer-events: none; user-select: none; opacity: 0.25;"'; ?>>
@@ -4729,14 +4802,15 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
   <!-- ================= MODAL INTELIGENTE DE APERTURA DE TURNO (SOLUCIÓN TURNO NOCHE) ================= -->
   <div class="modal-overlay" id="shift-config-modal">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width: 560px;">
       <div class="modal-header">
         <div class="modal-header-left">
-          <span style="color: var(--accent-cyan);">⚙️</span> Configuración y Apertura de Turno
+          <span style="color: var(--accent-cyan);">⚙️</span>
+          <span id="shift-modal-title-text">Configuración y Apertura de Turno</span>
         </div>
         <button type="button" class="btn-modal-close" id="btn-shift-modal-close" onclick="closeShiftModal()" title="<?php echo (!empty($sin_planilla_abierta) && $es_usuario_admin_u0) ? 'Cerrar sin abrir planilla (Solo Usuario 0 / Pruebas)' : 'Cerrar modal (Esc)'; ?>"<?php if (!empty($sin_planilla_abierta) && !$es_usuario_admin_u0) echo ' style="display: none;"'; ?>>✕</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" style="max-height: 76vh; overflow-y: auto;">
 
         <div id="shift-required-notice" style="padding: 10px 12px; border-radius: 6px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.45); font-size: 11.5px; color: #fde68a; margin-bottom: 12px; line-height: 1.45;<?php if (empty($sin_planilla_abierta)) echo ' display: none;'; ?>">
           <strong>⚠️ Apertura Obligatoria de Turno:</strong> No existe una planilla abierta activa. Debe iniciar una nueva planilla para operar en el sistema.<?php if ($es_usuario_admin_u0): ?> <span style="color: var(--accent-cyan); font-weight: 700;">(Usuario 0: cierre habilitado para pruebas)</span><?php endif; ?>
@@ -4758,6 +4832,37 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           <input type="text" id="modal-fecha-operativa" class="field-control mono latam-datepicker-input" style="font-size: 14px; font-weight: 800; color: #ffffff;" value="<?php echo htmlspecialchars($fecha_operativa_default, ENT_QUOTES, 'UTF-8'); ?>">
         </div>
 
+        <!-- Alerta de salto de secuencia respecto a la última planilla registrada -->
+        <div id="shift-jump-alert" style="display: none; padding: 11px 12px; border-radius: 6px; background: rgba(245, 158, 11, 0.14); border: 1px solid rgba(245, 158, 11, 0.55); font-size: 11.5px; color: #fde68a; margin-bottom: 12px; line-height: 1.45;">
+          <div id="shift-jump-alert-msg"></div>
+          <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" id="btn-shift-apply-expected" style="background: var(--accent-amber); border: none; color: #000; font-weight: 800; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">✓ Usar turno correlativo sugerido</button>
+          </div>
+        </div>
+
+        <!-- Alerta dura de colisión (fecha, turno) duplicado + resolución rápida -->
+        <div id="shift-conflict-alert" style="display: none; padding: 12px; border-radius: 6px; background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.55); font-size: 11.5px; color: #fecaca; margin-bottom: 12px; line-height: 1.45;">
+          <div id="shift-conflict-summary"></div>
+          <div id="shift-conflict-resolver" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(248, 113, 113, 0.45);">
+            <div style="font-weight: 800; color: #fde68a; margin-bottom: 6px;">🛠️ Reubicar Planilla en Conflicto para Destrabar este Turno</div>
+            <div class="field-group" style="margin-bottom: 8px;">
+              <label class="field-label" style="color: #fecaca;">Casillero libre destino para mover la planilla ocupante</label>
+              <select id="shift-conflict-target-slot" class="field-control mono" style="font-size: 12px;"></select>
+            </div>
+            <div class="field-group" style="margin-bottom: 8px;">
+              <label class="field-label" style="color: #fecaca;">Motivo obligatorio (queda en Auditoría)</label>
+              <input type="text" id="shift-conflict-motivo" class="field-control" placeholder="Ej: Turno anterior cargó fecha de hoy en vez de ayer">
+            </div>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #e2e8f0; margin-bottom: 8px; cursor: pointer;">
+              <input type="checkbox" id="shift-conflict-sync-hijas" checked>
+              <span id="shift-conflict-sync-lbl">Sincronizar también la fecha en las mediciones cargadas con la fecha errónea</span>
+            </label>
+            <button type="button" id="btn-shift-resolve-conflict" onclick="resolverConflictoFechaTurno()" style="width: 100%; background: var(--accent-amber); color: #000; border: none; font-weight: 800; padding: 7px 12px; border-radius: 5px; cursor: pointer; font-size: 11.5px;">
+              🛠️ REUBICAR PLANILLA Y DESTRABAR TURNO
+            </button>
+          </div>
+        </div>
+
         <!-- Cartel inteligente de detección automática de madrugada (00:00 a 04:59 hs) -->
         <div id="night-shift-alert" style="padding: 12px; border-radius: 6px; background: rgba(6, 182, 212, 0.12); border: 1px solid var(--accent-cyan); font-size: 11.5px; color: var(--accent-cyan); margin-bottom: 14px; <?php if(!$es_madrugada) echo 'display:none;'; ?>">
           <strong>ℹ️ Detección Inteligente de Turno Noche (00:00 a 05:00 hs):</strong>
@@ -4774,7 +4879,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             <label class="field-label">Oficial a Cargo</label>
             <select class="field-control" id="modal-select-oficial">
               <?php foreach ($oficiales_array as $of) { ?>
-                <option value="<?php echo htmlspecialchars($of['nombre'], ENT_QUOTES, 'UTF-8'); ?>" <?php if($of['nombre'] == $oficial_actual) echo "selected"; ?>>
+                <option value="<?php echo htmlspecialchars($of['nombre'], ENT_QUOTES, 'UTF-8'); ?>" data-id="<?php echo (int)$of['id']; ?>" <?php if($of['nombre'] == $oficial_actual) echo "selected"; ?>>
                   <?php echo htmlspecialchars($of['nombre'], ENT_QUOTES, 'UTF-8'); ?>
                 </option>
               <?php } ?>
@@ -4802,6 +4907,19 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
               </option>
             <?php } ?>
           </select>
+        </div>
+
+        <!-- Bloque de corrección de Fecha/Turno cuando ya existe una planilla abierta en curso -->
+        <div id="shift-edit-open-box" style="display: none; margin-top: 12px; padding: 10px 12px; border-radius: 6px; background: rgba(56, 189, 248, 0.09); border: 1px solid rgba(56, 189, 248, 0.35);">
+          <div style="font-size: 11px; font-weight: 800; color: var(--accent-cyan); margin-bottom: 6px;">📅 Corrección de Fecha / Turno de Planilla Activa (Auditada)</div>
+          <div class="field-group" style="margin-bottom: 8px;">
+            <label class="field-label">Motivo de corrección (obligatorio si cambia Fecha o Turno)</label>
+            <input type="text" id="shift-edit-open-motivo" class="field-control" placeholder="Ej: Se abrió con fecha equivocada en turno noche">
+          </div>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); cursor: pointer;">
+            <input type="checkbox" id="shift-edit-open-sync-hijas" checked>
+            <span>Actualizar también la fecha en las mediciones ya cargadas con la fecha errónea anterior</span>
+          </label>
         </div>
 
       </div>
@@ -6034,7 +6152,64 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     let activePlanillaId = <?php echo $id_planilla_activa ? $id_planilla_activa : 'null'; ?>;
     let sinPlanillaAbierta = <?php echo !empty($sin_planilla_abierta) ? 'true' : 'false'; ?>;
     const ES_USUARIO_U0 = <?php echo $es_usuario_admin_u0 ? 'true' : 'false'; ?>;
+    const IS_HISTORICAL_EDIT_MODE = <?php echo !empty($modo_edicion_historica) ? 'true' : 'false'; ?>;
+    const INITIAL_PLANILLA_FECHA_LATAM = <?php echo json_encode($fecha_operativa_default); ?>;
+    const INITIAL_PLANILLA_TURNO_ID = <?php echo json_encode((string)$turno_default); ?>;
     const ACTIVE_USUARIO_ID = <?php echo (int)($id_usuario_actual ? $id_usuario_actual : 1); ?>;
+    let motivoEdicionHistorica = '';
+
+    function actualizarMotivoEdicionHistorica(val) {
+      motivoEdicionHistorica = (val || '').trim();
+      const inp = document.getElementById('input-motivo-edicion-historica');
+      if (inp) {
+        inp.style.borderColor = motivoEdicionHistorica.length >= 4 ? 'var(--accent-green)' : 'var(--accent-amber)';
+      }
+    }
+
+    if (IS_HISTORICAL_EDIT_MODE && typeof window.fetch === 'function') {
+      const _origFetch = window.fetch.bind(window);
+      window.fetch = function(resource, init) {
+        let urlStr = (typeof resource === 'string') ? resource : (resource && resource.url ? resource.url : '');
+        const esBackendMutacion = /(procesos_reg_rad\.php|procesos_reg_rad_post\.php)/i.test(urlStr)
+          && !/accion=(cargar_|recuperar_|listar_|historial_|obtener_|verificar_|resolver_)/i.test(urlStr);
+
+        if (esBackendMutacion) {
+          let mot = (motivoEdicionHistorica || '').trim();
+          if (mot.length < 4) {
+            const prompted = window.prompt('MODO EDICIÓN HISTÓRICA (Planilla Cerrada #' + activePlanillaId + ')\nIngrese el motivo de la corrección (mínimo 4 caracteres, queda registrado en Auditoría):', mot);
+            if (!prompted || prompted.trim().length < 4) {
+              if (typeof showToast === 'function') showToast('⚠️ Operación cancelada: debe indicar un motivo válido para editar una planilla cerrada.', 4000);
+              return Promise.resolve(new Response('error_auditoria: Motivo obligatorio no ingresado.', { status: 400 }));
+            }
+            mot = prompted.trim();
+            actualizarMotivoEdicionHistorica(mot);
+            const inpBanner = document.getElementById('input-motivo-edicion-historica');
+            if (inpBanner) inpBanner.value = mot;
+          }
+
+          if (typeof resource === 'string') {
+            const sep = resource.indexOf('?') === -1 ? '?' : '&';
+            resource = resource + sep + 'motivo_auditoria=' + encodeURIComponent(mot);
+          }
+          if (init && init.body instanceof FormData) {
+            if (!init.body.has('motivo_auditoria')) init.body.append('motivo_auditoria', mot);
+          } else if (init && typeof init.body === 'string' && init.body.indexOf('motivo_auditoria=') === -1) {
+            init.body = init.body + '&motivo_auditoria=' + encodeURIComponent(mot);
+          }
+        }
+
+        return _origFetch(resource, init).then(resp => {
+          if (esBackendMutacion && (resp.status === 403 || resp.status === 503 || resp.status === 400)) {
+            resp.clone().text().then(txt => {
+              if (txt && txt.indexOf('error_auditoria:') !== -1 && typeof showToast === 'function') {
+                showToast('⛔ ' + txt.replace('error_auditoria:', '').trim(), 5000);
+              }
+            }).catch(() => {});
+          }
+          return resp;
+        });
+      };
+    }
     const RADIONUCLEIDOS_LIQ_CATALOG = <?php $j_rl = json_encode($radionucleidos_liq_array); echo $j_rl ? $j_rl : '[]'; ?>;
     const UNIDADES_VOL_LIQ_CATALOG = <?php $j_uv = json_encode($unidades_vol_liq_array); echo $j_uv ? $j_uv : '[]'; ?>;
     const UNIDADES_CONC_LIQ_CATALOG = <?php $j_uc = json_encode($unidades_conc_liq_array); echo $j_uc ? $j_uc : '[]'; ?>;
@@ -6090,8 +6265,19 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     });
 
     // ================= INTELIGENCIA DE TURNO NOCHE & APERTURA =================
+    let lastShiftAvailability = null;
+    let lastShiftConflictId = null;
+
     function isShiftModalLockActive() {
       return Boolean(sinPlanillaAbierta && !ES_USUARIO_U0);
+    }
+
+    function latamToSqlDate(latamStr) {
+      const p = String(latamStr || '').trim().split('/');
+      if (p.length === 3 && p[2].length === 4) {
+        return `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+      }
+      return String(latamStr || '').trim();
     }
 
     function syncShiftModalLockUI() {
@@ -6099,6 +6285,9 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       const btnClose = document.getElementById('btn-shift-modal-close');
       const btnCancel = document.getElementById('btn-shift-modal-cancel');
       const notice = document.getElementById('shift-required-notice');
+      const editOpenBox = document.getElementById('shift-edit-open-box');
+      const titleEl = document.getElementById('shift-modal-title-text');
+      const confirmBtn = document.getElementById('btn-shift-modal-confirm');
 
       if (btnClose) {
         btnClose.style.display = locked ? 'none' : '';
@@ -6113,6 +6302,162 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       if (notice) {
         notice.style.display = sinPlanillaAbierta ? 'block' : 'none';
       }
+      if (editOpenBox) {
+        editOpenBox.style.display = (!sinPlanillaAbierta && activePlanillaId) ? 'block' : 'none';
+      }
+      if (titleEl) {
+        titleEl.textContent = (!sinPlanillaAbierta && activePlanillaId)
+          ? ('Configurar / Corregir Fecha y Turno — Planilla #' + activePlanillaId)
+          : 'Configuración y Apertura de Turno';
+      }
+      if (confirmBtn && !confirmBtn.disabled) {
+        confirmBtn.textContent = (!sinPlanillaAbierta && activePlanillaId)
+          ? 'APLICAR CAMBIOS AL TURNO'
+          : 'INICIAR NUEVA PLANILLA';
+      }
+    }
+
+    function checkShiftAvailability() {
+      const fechaEl = document.getElementById('modal-fecha-operativa');
+      const turnoEl = document.getElementById('modal-select-turno');
+      const jumpBox = document.getElementById('shift-jump-alert');
+      const jumpMsg = document.getElementById('shift-jump-alert-msg');
+      const jumpBtn = document.getElementById('btn-shift-apply-expected');
+      const confBox = document.getElementById('shift-conflict-alert');
+      const confSummary = document.getElementById('shift-conflict-summary');
+      const confResolver = document.getElementById('shift-conflict-resolver');
+      const confSlotSel = document.getElementById('shift-conflict-target-slot');
+      const confSyncLbl = document.getElementById('shift-conflict-sync-lbl');
+      const confirmBtn = document.getElementById('btn-shift-modal-confirm');
+
+      if (!fechaEl || !turnoEl) return Promise.resolve(null);
+      const fechaSql = latamToSqlDate(fechaEl.value);
+      const turnoId = turnoEl.value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaSql) || !turnoId) return Promise.resolve(null);
+
+      const excluirId = (!sinPlanillaAbierta && activePlanillaId) ? activePlanillaId : 0;
+      const url = `procesos_reg_rad.php?accion=verificar_disponibilidad_turno&fecha_planilla=${encodeURIComponent(fechaSql)}&id_turno=${encodeURIComponent(turnoId)}&excluir_id_planilla=${encodeURIComponent(excluirId)}`;
+
+      return fetch(url)
+        .then(r => r.json())
+        .then(data => {
+          if (!data || !data.ok) return null;
+          lastShiftAvailability = data;
+
+          // 1. Alerta de salto de secuencia
+          if (jumpBox && data.alerta_salto && data.disponible) {
+            const s = data.alerta_salto;
+            jumpMsg.innerHTML = `<strong>⚠️ Posible error de fecha/turno:</strong> La última planilla registrada es la <strong>#${s.ultima_id}</strong> (<strong>${s.ultima_fecha_latam}</strong> &bull; ${s.ultima_horarios}). El turno correlativo esperado sería <strong>${s.esperada_fecha_latam} &bull; ${s.esperada_horarios}</strong>.`;
+            jumpBox.style.display = 'block';
+            if (jumpBtn) {
+              jumpBtn.style.display = s.esperada_libre ? 'inline-block' : 'none';
+              jumpBtn.onclick = function() {
+                fechaEl.value = s.esperada_fecha_latam;
+                turnoEl.value = String(s.esperada_turno);
+                checkNightShiftLogic();
+                checkShiftAvailability();
+                showToast('✔️ Aplicado turno correlativo sugerido: ' + s.esperada_fecha_latam);
+              };
+            }
+          } else if (jumpBox) {
+            jumpBox.style.display = 'none';
+          }
+
+          // 2. Colisión dura de (fecha, turno)
+          if (confBox && !data.disponible && data.conflicto) {
+            const c = data.conflicto;
+            lastShiftConflictId = c.id_planilla;
+            const estadoTxt = c.esta_cerrada ? ('CERRADA (' + (c.fecha_hora_cerrado || '') + ')') : 'ABIERTA';
+            confSummary.innerHTML = `<strong>⛔ Ya existe una planilla con esa Fecha y Turno:</strong><br>`
+              + `Planilla <strong>#${c.id_planilla}</strong> &bull; <strong>${c.fecha_latam}</strong> (${c.horarios})<br>`
+              + `Oficial: <strong>${c.oficial}</strong> &bull; Estado: <strong>${estadoTxt}</strong>`;
+            confBox.style.display = 'block';
+
+            if (confirmBtn) {
+              confirmBtn.disabled = true;
+              confirmBtn.style.opacity = '0.5';
+            }
+
+            if (confResolver) {
+              if (c.puede_corregir && Array.isArray(data.casilleros_libres) && data.casilleros_libres.length > 0) {
+                confSlotSel.innerHTML = data.casilleros_libres.map(sl =>
+                  `<option value="${sl.fecha}|${sl.turno}">${sl.fecha_latam} — ${sl.horarios}</option>`
+                ).join('');
+                if (confSyncLbl) {
+                  confSyncLbl.textContent = `Sincronizar también la fecha en los ${c.registros_hijos_con_fecha || 0} registro(s) cargados con la fecha errónea (${c.fecha_latam})`;
+                }
+                confResolver.style.display = 'block';
+              } else {
+                confResolver.style.display = 'none';
+                confSummary.innerHTML += `<div style="margin-top:6px;color:#fde68a;">ℹ️ ${c.motivo_bloqueo || 'Solicite a un supervisor habilitado o al Usuario 0 reubicar la planilla en conflicto.'}</div>`;
+              }
+            }
+          } else {
+            lastShiftConflictId = null;
+            if (confBox) confBox.style.display = 'none';
+            if (confResolver) confResolver.style.display = 'none';
+            if (confirmBtn) {
+              confirmBtn.disabled = false;
+              confirmBtn.style.opacity = '1';
+            }
+          }
+          return data;
+        })
+        .catch(() => null);
+    }
+
+    function resolverConflictoFechaTurno() {
+      if (!lastShiftConflictId) return;
+      const slotVal = (document.getElementById('shift-conflict-target-slot')?.value || '').split('|');
+      const motivo = (document.getElementById('shift-conflict-motivo')?.value || '').trim();
+      const syncHijas = document.getElementById('shift-conflict-sync-hijas')?.checked ? '1' : '0';
+      const btn = document.getElementById('btn-shift-resolve-conflict');
+
+      if (slotVal.length !== 2) {
+        showToast('⚠️ Seleccione un casillero libre de destino.', 3200);
+        return;
+      }
+      if (motivo.length < 4) {
+        showToast('⚠️ Debe ingresar un motivo descriptivo (mínimo 4 caracteres).', 3500);
+        document.getElementById('shift-conflict-motivo')?.focus();
+        return;
+      }
+
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'REUBICANDO PLANILLA...';
+      }
+
+      const fd = new FormData();
+      fd.append('accion', 'corregir_fecha_turno_planilla');
+      fd.append('id_planilla', String(lastShiftConflictId));
+      fd.append('nueva_fecha', slotVal[0]);
+      fd.append('nuevo_turno', slotVal[1]);
+      fd.append('motivo', motivo);
+      fd.append('sincronizar_hijas', syncHijas);
+
+      fetch('procesos_reg_rad.php?accion=corregir_fecha_turno_planilla', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = '🛠️ REUBICAR PLANILLA Y DESTRABAR TURNO';
+          }
+          if (data && data.ok) {
+            showToast('✔️ Planilla #' + data.id_planilla + ' reubicada (Log #' + data.id_log + '). Casillero liberado.', 4500);
+            document.getElementById('shift-conflict-motivo').value = '';
+            checkShiftAvailability();
+          } else {
+            showToast('❌ ' + (data && data.error ? data.error : 'No se pudo reubicar la planilla.'), 4500);
+          }
+        })
+        .catch(() => {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = '🛠️ REUBICAR PLANILLA Y DESTRABAR TURNO';
+          }
+          showToast('❌ Error de conexión al intentar reubicar la planilla.', 4000);
+        });
     }
 
     function openShiftModal(autoSuggestNow = false) {
@@ -6144,6 +6489,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       syncShiftModalLockUI();
       document.getElementById('shift-config-modal').style.display = 'flex';
       checkNightShiftLogic();
+      checkShiftAvailability();
     }
 
     function closeShiftModal(force = false) {
@@ -6180,7 +6526,12 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       }
     }
 
-    document.getElementById('modal-select-turno').addEventListener('change', checkNightShiftLogic);
+    document.getElementById('modal-select-turno').addEventListener('change', () => {
+      checkNightShiftLogic();
+      checkShiftAvailability();
+    });
+    document.getElementById('modal-fecha-operativa').addEventListener('change', checkShiftAvailability);
+    document.getElementById('modal-fecha-operativa').addEventListener('blur', checkShiftAvailability);
 
     function setShiftDate(type) {
       const now = new Date();
@@ -6199,6 +6550,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         document.getElementById('modal-fecha-operativa').value = `${d}/${m}/${a}`;
         showToast('Fecha fijada a HOY (' + `${d}/${m}/${a}` + ')');
       }
+      checkShiftAvailability();
     }
 
     function applyShiftConfig() {
@@ -6206,11 +6558,83 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       const turnoSelect = document.getElementById('modal-select-turno');
       const turnoId = turnoSelect.value;
       const turnoText = turnoSelect.selectedOptions[0].text;
-      const oficial = document.getElementById('modal-select-oficial').value;
-      const jefe = document.getElementById('modal-select-jefe').value;
+      const oficialSel = document.getElementById('modal-select-oficial');
+      const oficial = oficialSel.value;
+      const oficialId = oficialSel.selectedOptions[0]?.getAttribute('data-id') || '1';
+      const jefeSel = document.getElementById('modal-select-jefe');
+      const jefe = jefeSel.value;
+      const jefeId = jefeSel.selectedOptions[0]?.getAttribute('data-id') || '1';
       const planta = document.getElementById('modal-select-planta').value;
       const confirmBtn = document.getElementById('btn-shift-modal-confirm');
 
+      const fechaSql = latamToSqlDate(fecha);
+
+      // Si hay colisión conocida, bloquear antes de enviar
+      if (lastShiftAvailability && lastShiftAvailability.disponible === false) {
+        showToast('⛔ Ya existe una planilla para esa Fecha y Turno. Resuelva el conflicto antes de continuar.', 4000);
+        return;
+      }
+
+      // CASO A: Ya existe una planilla activa abierta -> Corregir fecha/turno en lugar de crear otra
+      if (!sinPlanillaAbierta && activePlanillaId) {
+        const cambioFechaOTurno = (fecha !== INITIAL_PLANILLA_FECHA_LATAM || String(turnoId) !== String(INITIAL_PLANILLA_TURNO_ID));
+        if (cambioFechaOTurno) {
+          const mot = (document.getElementById('shift-edit-open-motivo')?.value || '').trim();
+          const syncH = document.getElementById('shift-edit-open-sync-hijas')?.checked ? '1' : '0';
+          if (mot.length < 4) {
+            showToast('⚠️ Debe indicar un motivo (mínimo 4 caracteres) para cambiar la fecha o el turno de la planilla activa.', 4000);
+            document.getElementById('shift-edit-open-motivo')?.focus();
+            return;
+          }
+          if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'CORRIGIENDO PLANILLA...';
+          }
+          const fd = new FormData();
+          fd.append('accion', 'corregir_fecha_turno_planilla');
+          fd.append('id_planilla', String(activePlanillaId));
+          fd.append('nueva_fecha', fechaSql);
+          fd.append('nuevo_turno', turnoId);
+          fd.append('motivo', mot);
+          fd.append('sincronizar_hijas', syncH);
+
+          fetch('procesos_reg_rad.php?accion=corregir_fecha_turno_planilla', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+              if (data && data.ok) {
+                showToast('✔️ Fecha y turno actualizados (Log #' + data.id_log + '). Recargando...', 3000);
+                closeShiftModal(true);
+                setTimeout(() => { window.location.reload(); }, 550);
+              } else {
+                if (confirmBtn) {
+                  confirmBtn.disabled = false;
+                  confirmBtn.textContent = 'APLICAR CAMBIOS AL TURNO';
+                }
+                showToast('❌ ' + (data && data.error ? data.error : 'No se pudo corregir la planilla.'), 4500);
+              }
+            })
+            .catch(() => {
+              if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'APLICAR CAMBIOS AL TURNO';
+              }
+              showToast('❌ Error de conexión al actualizar fecha/turno.', 4000);
+            });
+          return;
+        }
+
+        // Solo actualización visual local sin cambio de fecha/turno
+        document.getElementById('topbar-jefe-turno').textContent = jefe;
+        const topbarOficial = document.getElementById('topbar-oficial-iniciador');
+        if (topbarOficial) topbarOficial.textContent = oficial;
+        document.getElementById('sidebar-user-name').textContent = oficial;
+        document.getElementById('sidebar-plant-status').textContent = planta;
+        closeShiftModal(true);
+        showToast('✔️ Datos de visualización de turno actualizados');
+        return;
+      }
+
+      // CASO B: No hay planilla abierta -> Crear nueva planilla en MySQL
       document.getElementById('topbar-latam-date').textContent = fecha;
       document.getElementById('q-fecha').value = fecha;
       const shiftTagSidebar = document.getElementById('sidebar-shift-tag');
@@ -6223,20 +6647,24 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       document.getElementById('sidebar-user-name').textContent = oficial;
       document.getElementById('sidebar-plant-status').textContent = planta;
 
-      // Sincronizar vía AJAX si el backend existe
-      const partes = fecha.split('/');
-      const fechaSql = partes.length === 3 ? `${partes[2]}-${partes[1]}-${partes[0]}` : fecha;
-      const debeEsperarApertura = Boolean(sinPlanillaAbierta);
-
-      if (debeEsperarApertura && confirmBtn) {
+      if (confirmBtn) {
         confirmBtn.disabled = true;
         confirmBtn.textContent = 'INICIANDO PLANILLA...';
       }
 
-      fetch(`procesos_reg_rad.php?accion=crear_planilla_nueva&id_user=1&id_oficial=1&id_turno=${turnoId}&fecha_planilla=${fechaSql}&id_jefe_turno=1&estados_planta=${encodeURIComponent(planta)}`)
+      fetch(`procesos_reg_rad.php?accion=crear_planilla_nueva&id_user=${encodeURIComponent(ACTIVE_USUARIO_ID)}&id_oficial=${encodeURIComponent(oficialId)}&id_turno=${encodeURIComponent(turnoId)}&fecha_planilla=${encodeURIComponent(fechaSql)}&id_jefe_turno=${encodeURIComponent(jefeId)}&estados_planta=${encodeURIComponent(planta)}`)
         .then(r => r.text())
         .then(res => {
           const cleanRes = (res || '').trim();
+          if (cleanRes.indexOf('duplicado|') === 0) {
+            if (confirmBtn) {
+              confirmBtn.disabled = false;
+              confirmBtn.textContent = 'INICIAR NUEVA PLANILLA';
+            }
+            showToast('⛔ Bloqueado: ya existe la Planilla #' + cleanRes.split('|')[1] + ' para esa Fecha y Turno.', 4500);
+            checkShiftAvailability();
+            return;
+          }
           const newId = parseInt(cleanRes, 10);
           if (cleanRes && cleanRes !== 'mal' && !isNaN(newId) && newId > 0) {
             activePlanillaId = newId;
@@ -6244,10 +6672,10 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             closeShiftModal(true);
             showToast('✔️ Planilla de guardia #' + newId + ' iniciada correctamente');
             window.location.href = 'demo_planilla.php';
-          } else if (debeEsperarApertura) {
+          } else {
             if (confirmBtn) {
               confirmBtn.disabled = false;
-              confirmBtn.textContent = 'GUARDAR Y APLICAR AL TURNO';
+              confirmBtn.textContent = 'INICIAR NUEVA PLANILLA';
             }
             showToast('❌ No se pudo iniciar la nueva planilla. Intente nuevamente.', 4000);
           }
@@ -6256,20 +6684,15 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           console.log('Standalone mode active');
           if (confirmBtn) {
             confirmBtn.disabled = false;
-            confirmBtn.textContent = 'GUARDAR Y APLICAR AL TURNO';
+            confirmBtn.textContent = 'INICIAR NUEVA PLANILLA';
           }
-          if (!debeEsperarApertura || ES_USUARIO_U0) {
+          if (ES_USUARIO_U0) {
             closeShiftModal(true);
             showToast('✔️ Planilla de guardia configurada en modo pruebas');
           } else {
             showToast('❌ Error de conexión al crear la planilla. Reintente.', 4000);
           }
         });
-
-      if (!debeEsperarApertura) {
-        closeShiftModal(true);
-        showToast('✔️ Planilla de guardia configurada correctamente');
-      }
     }
 
     // ================= RELOJ EN VIVO =================

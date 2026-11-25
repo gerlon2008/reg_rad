@@ -9,7 +9,9 @@ if (file_exists($_SERVER["DOCUMENT_ROOT"]."/ptr/Connections/miconex.php")) {
     @require_once($_SERVER["DOCUMENT_ROOT"]."/ptr/Functions/funciones.php");
     @require_once($_SERVER["DOCUMENT_ROOT"]."/ptr/Connections/niveles.php");
 
-    @session_start();
+    if (session_status() == PHP_SESSION_NONE) {
+        @session_start();
+    }
     if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true) {
         $tipo_user = isset($_SESSION['portal_nivel']) ? $_SESSION['portal_nivel'] : 1;
         $id_user = isset($_SESSION['id_user']) ? $_SESSION['id_user'] : 1;
@@ -29,6 +31,13 @@ if (file_exists($_SERVER["DOCUMENT_ROOT"]."/ptr/Connections/miconex.php")) {
     }
 }
 
+require_once(__DIR__ . '/auditoria_reg_rad.php');
+$perms_hist = auditoria_obtener_permisos_usuario($db_connected ? $miconex : null);
+$es_u0_hist = !empty($perms_hist['es_u0']);
+$perm_ver_aud_hist = !empty($perms_hist['ver_auditoria']);
+$perm_corr_fecha_hist = !empty($perms_hist['corregir_fecha_turno']);
+$perm_edit_cerr_hist = !empty($perms_hist['editar_planillas_cerradas']);
+
 // Funciones auxiliares seguras
 if (!function_exists('formafecha_latam')) {
     function formafecha_latam($f) {
@@ -41,8 +50,19 @@ if (!function_exists('formafecha_latam')) {
 $registros_historicos = array();
 $lista_oficiales = array();
 $lista_turnos = array();
+$mapa_post_cierre = array();
 
 if ($db_connected) {
+    // 0. Contar eventos de auditoría post-cierre por planilla
+    if (auditoria_asegurar_tablas($miconex)) {
+        $res_pc = @mysql_query("SELECT id_planilla, COUNT(*) AS cnt FROM `regrad_auditoria_log` WHERE id_planilla IS NOT NULL AND (planilla_cerrada = 1 OR accion = 'CORREGIR_FECHA_TURNO') GROUP BY id_planilla", $miconex);
+        if ($res_pc && mysql_num_rows($res_pc) > 0) {
+            while ($rpc = mysql_fetch_assoc($res_pc)) {
+                $mapa_post_cierre[intval($rpc['id_planilla'])] = intval($rpc['cnt']);
+            }
+        }
+    }
+
     // 1. Obtener oficiales para filtro
     $res_of = @mysql_query("SELECT id_of_rad, of_apellido, of_nombre FROM regrad_of_rad ORDER BY of_apellido ASC", $miconex);
     if ($res_of) {
@@ -112,9 +132,10 @@ if ($db_connected) {
             $jefe_nom = (!empty($jf_ap) || !empty($jf_no)) ? mb_strtoupper(trim($jf_ap . ", " . $jf_no, ", "), 'UTF-8') : "SIN ASIGNAR";
             $hor_str = !empty($row['horarios']) ? regrad_safe_utf8($row['horarios']) : ('Turno ' . $row['turno']);
             $est_str = !empty($row['nombre_estado']) ? mb_strtoupper(regrad_safe_utf8($row['nombre_estado']), 'UTF-8') : 'POTENCIA 100%';
+            $pid = (int)$row['id_planilla_diaria'];
 
             $registros_historicos[] = array(
-                'id' => (int)$row['id_planilla_diaria'],
+                'id' => $pid,
                 'fecha_sql' => $row['fecha'] ? $row['fecha'] : '',
                 'fecha_latam' => formafecha_latam($row['fecha']),
                 'hora_cierre' => !empty($row['fecha_hora_cerrado']) ? date('H:i', strtotime($row['fecha_hora_cerrado'])) : '',
@@ -122,7 +143,8 @@ if ($db_connected) {
                 'horarios' => $hor_str,
                 'oficial' => $oficial_nom,
                 'jefe' => $jefe_nom,
-                'estado_planta' => $est_str
+                'estado_planta' => $est_str,
+                'post_cierre_edits' => isset($mapa_post_cierre[$pid]) ? $mapa_post_cierre[$pid] : 0
             );
         }
     }
@@ -1325,6 +1347,16 @@ if (!$db_connected) {
       <span style="font-size: 11px; color: var(--text-muted);">
         Sesión: <strong style="color: #ffffff;"><?php echo htmlspecialchars($usuario_nombre, ENT_QUOTES, 'UTF-8'); ?></strong>
       </span>
+      <?php if ($perm_ver_aud_hist || $es_u0_hist): ?>
+      <a href="auditoria_logs.php" class="btn-nav" style="border-color: rgba(56, 189, 248, 0.45); color: var(--accent-cyan);">
+        <span>🧾 Auditoría / Logs</span>
+      </a>
+      <?php endif; ?>
+      <?php if ($es_u0_hist): ?>
+      <a href="configuracion_permisos.php" class="btn-nav" style="border-color: rgba(245, 158, 11, 0.5); color: var(--accent-amber);">
+        <span>🛡️ Permisos (U0)</span>
+      </a>
+      <?php endif; ?>
       <a href="demo_planilla.php" class="btn-nav">
         <span>⬅️ Planilla Activa</span>
       </a>
@@ -1571,6 +1603,10 @@ if (!$db_connected) {
       return null;
     }
 
+    const HIST_PERM_VER_AUD = <?php echo ($perm_ver_aud_hist || $es_u0_hist) ? 'true' : 'false'; ?>;
+    const HIST_PERM_CORR_FECHA = <?php echo ($perm_corr_fecha_hist || $es_u0_hist) ? 'true' : 'false'; ?>;
+    const HIST_PERM_EDIT_CERR = <?php echo ($perm_edit_cerr_hist || $es_u0_hist) ? 'true' : 'false'; ?>;
+
     function buildRowHtml(r) {
       let tClass = 't1';
       if (Number(r.id_turno) === 2) tClass = 't2';
@@ -1579,11 +1615,26 @@ if (!$db_connected) {
         ? `${escHtml(r.hora_cierre)} hs`
         : '<span style="color: var(--accent-amber); font-weight: 700;">Sin cerrar</span>';
       const jsFecha = JSON.stringify(r.fecha_latam || '');
+      const jsFechaSql = JSON.stringify(r.fecha_sql || '');
       const jsOficial = JSON.stringify(r.oficial || '');
       const jsTurno = JSON.stringify(r.horarios || '');
+      const postCnt = Number(r.post_cierre_edits || 0);
+      const postBadge = postCnt > 0
+        ? `<div style="margin-top:3px;"><span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:800;background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.5);color:#fde68a;" title="Esta planilla registra ${postCnt} modificación(es) post-cierre o corrección de fecha/turno en auditoría">✏️ ${postCnt} post-cierre</span></div>`
+        : '';
+
+      const btnLog = HIST_PERM_VER_AUD
+        ? `<a href="auditoria_logs.php?id_planilla=${Number(r.id)}" target="_blank" class="btn-action" style="color: #a78bfa; border-color: rgba(167, 139, 250, 0.4);" title="Ver bitácora completa de auditoría de esta planilla"><span>🧾 Log</span></a>`
+        : '';
+      const btnFecha = HIST_PERM_CORR_FECHA
+        ? `<button type="button" class="btn-action" onclick='abrirModalCorregirFechaHist(${Number(r.id)}, ${jsFechaSql}, ${Number(r.id_turno)}, ${jsFecha}, ${jsTurno})' style="color: #fbbf24; border-color: rgba(245, 158, 11, 0.45);" title="Corregir Fecha o Turno de esta planilla (Auditado)"><span>📅 Fecha/Turno</span></button>`
+        : '';
+      const btnEditar = HIST_PERM_EDIT_CERR
+        ? `<a href="demo_planilla.php?editar_planilla=${Number(r.id)}" class="btn-action" style="color: #fb7185; border-color: rgba(244, 63, 94, 0.45);" title="Abrir esta planilla cerrada en Modo Edición Histórica Auditada"><span>✏️ Editar</span></a>`
+        : '';
 
       return `<tr>
-        <td class="mono" style="font-weight: 700; color: var(--accent-cyan);">#${Number(r.id)}</td>
+        <td class="mono" style="font-weight: 700; color: var(--accent-cyan);">#${Number(r.id)}${postBadge}</td>
         <td class="mono">${escHtml(r.fecha_latam)}</td>
         <td><span class="shift-badge ${tClass}">${escHtml(r.horarios)}</span></td>
         <td style="font-weight: 600; text-transform: uppercase;">${escHtml(r.oficial)}</td>
@@ -1607,6 +1658,9 @@ if (!$db_connected) {
             <a href="planilla_en_curso_visualizacion.php?id_planilla=${Number(r.id)}&print=1" target="_blank" class="btn-action btn-print" title="Imprimir informe oficial">
               <span>🖨️</span>
             </a>
+            ${btnLog}
+            ${btnFecha}
+            ${btnEditar}
           </div>
         </td>
       </tr>`;
@@ -2262,6 +2316,135 @@ if (!$db_connected) {
       </div>
     </div>
   </div>
+
+  <!-- MODAL AUDITADO DE CORRECCIÓN DE FECHA / TURNO (PLANILLAS HISTÓRICAS) -->
+  <div class="modal-overlay" id="modal-corregir-fecha-hist" style="display: none;" onclick="if(event.target===this) cerrarModalCorregirFechaHist();">
+    <div class="modal-box" style="width: 520px; max-width: 95vw; border-left: 4px solid var(--accent-amber);">
+      <div class="modal-header" style="color: var(--accent-amber); display: flex; justify-content: space-between; align-items: center;">
+        <div class="modal-header-left" style="display: flex; align-items: center; gap: 8px;">
+          <span>📅</span>
+          <span style="font-size: 13px; font-weight: 800; text-transform: uppercase;">Corregir Fecha / Turno — Planilla #<span id="hist-corr-id">--</span></span>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="cerrarModalCorregirFechaHist()" title="Cerrar">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+          Actual: <strong id="hist-corr-actual" style="color: #fff;">--</strong>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div>
+            <label style="display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Nueva Fecha</label>
+            <input type="date" id="hist-corr-fecha" class="filter-ctrl mono" style="width:100%;">
+          </div>
+          <div>
+            <label style="display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Nuevo Turno</label>
+            <select id="hist-corr-turno" class="filter-ctrl" style="width:100%;">
+              <?php foreach ($lista_turnos as $lt): ?>
+                <option value="<?php echo intval($lt['id_turnos']); ?>"><?php echo htmlspecialchars($lt['horarios'], ENT_QUOTES, 'UTF-8'); ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom: 12px;">
+          <label style="display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Motivo obligatorio (queda en Auditoría + Alerta por Correo)</label>
+          <input type="text" id="hist-corr-motivo" class="filter-ctrl" style="width:100%;" placeholder="Ej: Turno noche abierto con fecha del día siguiente">
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text-muted);margin-bottom:12px;cursor:pointer;">
+          <input type="checkbox" id="hist-corr-sync-hijas" checked>
+          <span>Sincronizar también la fecha en las mediciones hijas cargadas con la fecha errónea anterior</span>
+        </label>
+        <div id="hist-corr-status" style="display:none;padding:9px 12px;border-radius:6px;font-size:11.5px;margin-bottom:8px;"></div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; background: rgba(0,0,0,0.2); border-top: 1px solid var(--border-card);">
+        <button type="button" class="btn-modal-cancel" onclick="cerrarModalCorregirFechaHist()">CANCELAR</button>
+        <button type="button" class="btn-modal-confirm" id="btn-guardar-corr-hist" onclick="guardarCorreccionFechaHist()" style="background: var(--accent-amber); color: #000; font-weight: 800;">
+          💾 APLICAR CORRECCIÓN AUDITADA
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let histCorrPlanillaId = 0;
+
+    function abrirModalCorregirFechaHist(idPlanilla, fechaSql, idTurno, fechaLat, horarios) {
+      histCorrPlanillaId = idPlanilla;
+      document.getElementById('hist-corr-id').textContent = String(idPlanilla);
+      document.getElementById('hist-corr-actual').textContent = fechaLat + ' • ' + horarios;
+      document.getElementById('hist-corr-fecha').value = fechaSql || '';
+      document.getElementById('hist-corr-turno').value = String(idTurno || 1);
+      document.getElementById('hist-corr-motivo').value = '';
+      document.getElementById('hist-corr-sync-hijas').checked = true;
+      const st = document.getElementById('hist-corr-status');
+      if (st) { st.style.display = 'none'; st.textContent = ''; }
+      document.getElementById('modal-corregir-fecha-hist').style.display = 'flex';
+    }
+
+    function cerrarModalCorregirFechaHist() {
+      document.getElementById('modal-corregir-fecha-hist').style.display = 'none';
+    }
+
+    function guardarCorreccionFechaHist() {
+      const nuevaFecha = (document.getElementById('hist-corr-fecha').value || '').trim();
+      const nuevoTurno = document.getElementById('hist-corr-turno').value;
+      const motivo = (document.getElementById('hist-corr-motivo').value || '').trim();
+      const syncH = document.getElementById('hist-corr-sync-hijas').checked ? '1' : '0';
+      const st = document.getElementById('hist-corr-status');
+      const btn = document.getElementById('btn-guardar-corr-hist');
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(nuevaFecha)) {
+        st.style.display = 'block';
+        st.style.background = 'rgba(239,68,68,0.16)';
+        st.style.color = '#fca5a5';
+        st.textContent = '⚠️ Seleccione una fecha válida.';
+        return;
+      }
+      if (motivo.length < 4) {
+        st.style.display = 'block';
+        st.style.background = 'rgba(239,68,68,0.16)';
+        st.style.color = '#fca5a5';
+        st.textContent = '⚠️ Debe ingresar un motivo de al menos 4 caracteres.';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'GUARDANDO...';
+      const fd = new FormData();
+      fd.append('accion', 'corregir_fecha_turno_planilla');
+      fd.append('id_planilla', String(histCorrPlanillaId));
+      fd.append('nueva_fecha', nuevaFecha);
+      fd.append('nuevo_turno', nuevoTurno);
+      fd.append('motivo', motivo);
+      fd.append('sincronizar_hijas', syncH);
+
+      fetch('procesos_reg_rad.php?accion=corregir_fecha_turno_planilla', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+          btn.disabled = false;
+          btn.textContent = '💾 APLICAR CORRECCIÓN AUDITADA';
+          if (data && data.ok) {
+            st.style.display = 'block';
+            st.style.background = 'rgba(16,185,129,0.16)';
+            st.style.color = '#6ee7b7';
+            st.textContent = '✔️ ' + data.mensaje + ' (Log #' + data.id_log + ' • Registros hijos sincronizados: ' + data.hijas_actualizadas + '). Recargando...';
+            setTimeout(() => { window.location.reload(); }, 900);
+          } else {
+            st.style.display = 'block';
+            st.style.background = 'rgba(239,68,68,0.16)';
+            st.style.color = '#fca5a5';
+            st.textContent = '❌ ' + (data && data.error ? data.error : 'No se pudo completar la corrección.');
+          }
+        })
+        .catch(() => {
+          btn.disabled = false;
+          btn.textContent = '💾 APLICAR CORRECCIÓN AUDITADA';
+          st.style.display = 'block';
+          st.style.background = 'rgba(239,68,68,0.16)';
+          st.style.color = '#fca5a5';
+          st.textContent = '❌ Error de conexión al comunicarse con procesos_reg_rad.php.';
+        });
+    }
+  </script>
 
 </body>
 </html>

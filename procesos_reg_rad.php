@@ -2,20 +2,67 @@
 require_once($_SERVER["DOCUMENT_ROOT"] . "/ptr/Connections/miconex.php");
 require_once($_SERVER["DOCUMENT_ROOT"] . "/ptr/Functions/funciones.php");
 require_once($_SERVER["DOCUMENT_ROOT"] . "/ptr/Connections/niveles.php");
+require_once(__DIR__ . "/auditoria_reg_rad.php");
 
-$dbh2 = mysql_connect('GTI-DC-V77', 'ccyrem', 'Roma2020', true);
-
-mysql_select_db('ccyrem_online', $dbh2);
+$dbh2 = @mysql_connect('GTI-DC-V77', 'ccyrem', 'Roma2020', true);
+if ($dbh2) {
+	@mysql_select_db('ccyrem_online', $dbh2);
+}
 
 mysql_select_db($database_miconex, $miconex);
 mysql_query("SET NAMES 'utf8'", $miconex);
 
 $fecha_de_ahora = date_create();
+$ctx_aud = auditoria_obtener_contexto($miconex);
+$motivo_aud_req = auditoria_obtener_motivo_request();
 
+function proc_validar_guard($guard, $formato_json = false) {
+	if (!$guard['ok']) {
+		if (!empty($guard['codigo']) && function_exists('http_response_code')) {
+			http_response_code($guard['codigo']);
+		}
+		if ($formato_json) {
+			header('Content-Type: application/json; charset=utf-8');
+			echo json_encode(array('ok' => false, 'exito' => false, 'error' => $guard['error'], 'mensaje' => $guard['error']));
+		} else {
+			echo "error_auditoria: " . $guard['error'];
+		}
+		exit;
+	}
+}
 
-$accion = $_GET['accion'];
+$accion = isset($_GET['accion']) ? $_GET['accion'] : (isset($_POST['accion']) ? $_POST['accion'] : '');
 
 if ($accion == "crear_planilla_nueva") {
+	$id_user = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : (isset($_GET['id_user']) ? $_GET['id_user'] : '1');
+	$id_oficial = isset($_GET['id_oficial']) ? mysql_real_escape_string($_GET['id_oficial'], $miconex) : '1';
+	$id_turno = isset($_GET['id_turno']) ? intval($_GET['id_turno']) : 1;
+	$fecha_planilla = isset($_GET['fecha_planilla']) ? mysql_real_escape_string(trim($_GET['fecha_planilla']), $miconex) : date('Y-m-d');
+	$id_jefe_turno = isset($_GET['id_jefe_turno']) ? mysql_real_escape_string($_GET['id_jefe_turno'], $miconex) : '1';
+	$estados_planta_raw = isset($_GET['estados_planta']) ? trim($_GET['estados_planta']) : '1';
+
+	// Si llega el nombre del estado de planta en lugar de su ID numérico, resolver su ID real
+	if (!is_numeric($estados_planta_raw) && $estados_planta_raw !== '') {
+		$est_esc = mysql_real_escape_string($estados_planta_raw, $miconex);
+		$q_est = @mysql_query("SELECT id_estado_planta FROM `regrad_estados_planta` WHERE nombre_estado = '$est_esc' LIMIT 1", $miconex);
+		if ($q_est && mysql_num_rows($q_est) > 0) {
+			$r_est = mysql_fetch_assoc($q_est);
+			$estados_planta = $r_est['id_estado_planta'];
+		} else {
+			$estados_planta = mysql_real_escape_string($estados_planta_raw, $miconex);
+		}
+	} else {
+		$estados_planta = mysql_real_escape_string($estados_planta_raw, $miconex);
+	}
+
+	// Validación dura contra duplicados de (fecha, turno)
+	$q_dup = "SELECT id_planilla_diaria FROM `regrad_planilla_diaria_nueva` WHERE fecha = '$fecha_planilla' AND turno = '$id_turno' LIMIT 1";
+	$res_dup = @mysql_query($q_dup, $miconex);
+	if ($res_dup && mysql_num_rows($res_dup) > 0) {
+		$row_dup = mysql_fetch_assoc($res_dup);
+		echo "duplicado|" . intval($row_dup['id_planilla_diaria']);
+		exit;
+	}
 
 	$query_planilla_diaria = "SELECT id_planilla_diaria FROM `regrad_planilla_diaria_nueva` order by id_planilla_diaria desc limit 1";
 	$planilla_diaria = mysql_query($query_planilla_diaria, $miconex) or die(mysql_error());
@@ -27,36 +74,61 @@ if ($accion == "crear_planilla_nueva") {
 		$id_nueva_planilla = $row_planilla_diaria['id_planilla_diaria'] + 1;
 	}
 
-	$id_user = $_GET['id_user'];
-	$id_oficial = $_GET['id_oficial'];
-	$id_turno = $_GET['id_turno'];
-	$fecha_planilla = $_GET['fecha_planilla'];
-	$id_jefe_turno = $_GET['id_jefe_turno'];
-	$estados_planta = $_GET['estados_planta'];
-
-	$query_crear_planilla_diaria = "INSERT INTO `regrad_planilla_diaria_nueva`(`id_planilla_diaria`, `fecha`, `turno`, `of_rad`, `jefe_turno`, `estado_planta`, `usuario_portal_abierto`) VALUES ('$id_nueva_planilla','$fecha_planilla', '$id_turno', '$id_oficial', '$id_jefe_turno', '$estados_planta', '$id_user')";
+	$id_user_esc = mysql_real_escape_string($id_user, $miconex);
+	$query_crear_planilla_diaria = "INSERT INTO `regrad_planilla_diaria_nueva`(`id_planilla_diaria`, `fecha`, `turno`, `of_rad`, `jefe_turno`, `estado_planta`, `usuario_portal_abierto`) VALUES ('$id_nueva_planilla','$fecha_planilla', '$id_turno', '$id_oficial', '$id_jefe_turno', '$estados_planta', '$id_user_esc')";
 	$crear_planilla_diaria = mysql_query($query_crear_planilla_diaria, $miconex);
 	if ($crear_planilla_diaria) {
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_nueva_planilla,
+			'planilla_cerrada' => 0,
+			'modulo' => 'PLANILLA',
+			'accion' => 'CREAR_PLANILLA',
+			'tabla_afectada' => 'regrad_planilla_diaria_nueva',
+			'id_registro' => $id_nueva_planilla,
+			'datos_despues' => array(
+				'id_planilla_diaria' => $id_nueva_planilla,
+				'fecha' => $fecha_planilla,
+				'turno' => $id_turno,
+				'of_rad' => $id_oficial,
+				'jefe_turno' => $id_jefe_turno,
+				'estado_planta' => $estados_planta
+			),
+			'fallback_uid' => $id_user
+		));
 		echo $id_nueva_planilla;
 	} else {
 		echo "mal";
 	}
 }
 if ($accion == "guardar_valores_rutina") {
-	$id_user = $_GET['id_user'];
-	$fecha = $_GET['fecha'];
-	$hora = $_GET['hora'];
-	$ubicacion = $_GET['ubicacion'];
-	$gases_nobles = $_GET['gases_nobles'];
-	$tritio = $_GET['tritio'];
-	$tasa_dosis = $_GET['tasa_dosis'];
-	$observaciones = $_GET['observaciones'];
-	$relevado_por = $_GET['relevado_por'];
-	$id_planilla = $_GET['id_planilla'];
+	$id_user = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_user'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$hora = mysql_real_escape_string($_GET['hora'], $miconex);
+	$ubicacion = mysql_real_escape_string($_GET['ubicacion'], $miconex);
+	$gases_nobles = floatval($_GET['gases_nobles']);
+	$tritio = floatval($_GET['tritio']);
+	$tasa_dosis = floatval($_GET['tasa_dosis']);
+	$observaciones = mysql_real_escape_string($_GET['observaciones'], $miconex);
+	$relevado_por = mysql_real_escape_string($_GET['relevado_por'], $miconex);
+	$id_planilla = intval($_GET['id_planilla']);
 
-	$query_guardar_valores_rutina = "INSERT INTO `regrad_relevamiento_rutina`(`id_planilla`, `fecha`, `hora`, `ubicacion`, `gases_nobles`, `tritio`, `tasa_dosis`, `observaciones`, `id_oficial`, `usuario_portal`) VALUES ('$id_planilla','$fecha','$hora','$ubicacion',$gases_nobles,$tritio,$tasa_dosis,'$observaciones','$relevado_por','$id_user')";
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
+
+	$id_user_esc = mysql_real_escape_string($id_user, $miconex);
+	$query_guardar_valores_rutina = "INSERT INTO `regrad_relevamiento_rutina`(`id_planilla`, `fecha`, `hora`, `ubicacion`, `gases_nobles`, `tritio`, `tasa_dosis`, `observaciones`, `id_oficial`, `usuario_portal`) VALUES ('$id_planilla','$fecha','$hora','$ubicacion',$gases_nobles,$tritio,$tasa_dosis,'$observaciones','$relevado_por','$id_user_esc')";
 	$guardar_valores_rutina = mysql_query($query_guardar_valores_rutina, $miconex) or die(mysql_error());
 	if ($guardar_valores_rutina) {
+		$new_id = mysql_insert_id($miconex);
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_relevamiento_rutina', 'id_relev_rutina', $new_id);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'RUTINA',
+			'accion' => 'CREAR',
+			'tabla_afectada' => 'regrad_relevamiento_rutina',
+			'id_registro' => $new_id,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_user
+		));
 		echo "ok";
 	} else {
 		echo "mal";
@@ -87,14 +159,27 @@ if ($accion == "obtener_hora_actual") {
 	echo $hora_actual;
 }
 if ($accion == "cerrar_planilla") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
 	$timestamp = (new \DateTime())->format('Y-m-d H:i:s');
+	$antes = auditoria_snapshot_fila($miconex, 'regrad_planilla_diaria_nueva', 'id_planilla_diaria', $id_planilla);
 
-	$query_cargar_valores_rutina = "UPDATE `regrad_planilla_diaria_nueva` SET `fecha_hora_cerrado` = '$timestamp', `usuario_portal_cerrado` = '$id_usuario' where id_planilla_diaria = $id_planilla";
+	$id_usuario_esc = mysql_real_escape_string($id_usuario, $miconex);
+	$query_cargar_valores_rutina = "UPDATE `regrad_planilla_diaria_nueva` SET `fecha_hora_cerrado` = '$timestamp', `usuario_portal_cerrado` = '$id_usuario_esc' where id_planilla_diaria = $id_planilla";
 	$cargar_valores_rutina = mysql_query($query_cargar_valores_rutina, $miconex) or die(mysql_error());
 
 	if ($cargar_valores_rutina) {
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'planilla_cerrada' => 0,
+			'modulo' => 'PLANILLA',
+			'accion' => 'CERRAR_PLANILLA',
+			'tabla_afectada' => 'regrad_planilla_diaria_nueva',
+			'id_registro' => $id_planilla,
+			'datos_antes' => $antes ? array('fecha_hora_cerrado' => $antes['fecha_hora_cerrado'], 'usuario_portal_cerrado' => $antes['usuario_portal_cerrado']) : null,
+			'datos_despues' => array('fecha_hora_cerrado' => $timestamp, 'usuario_portal_cerrado' => $id_usuario),
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
@@ -169,21 +254,36 @@ if ($accion == "enviar_mail_planilla") {
 
 	$forzar_reenvio = isset($_GET['forzar']) && ($_GET['forzar'] === '1' || $_GET['forzar'] === 'true');
 	$res = enviar_planilla_por_correo($id_planilla, $ruta_archivo_pdf, $nombre_archivo_pdf, $datos_planilla, $miconex, $pdf_binario, $forzar_reenvio);
+	auditoria_registrar($miconex, array(
+		'id_planilla' => $id_planilla,
+		'modulo' => 'CORREO',
+		'accion' => $forzar_reenvio ? 'REENVIAR_MAIL' : 'ENVIAR_MAIL',
+		'tabla_afectada' => 'regrad_planillas_enviadas',
+		'id_registro' => $id_planilla,
+		'datos_despues' => array(
+			'exito' => !empty($res['exito']),
+			'forzar' => $forzar_reenvio,
+			'archivo' => $nombre_archivo_pdf,
+			'mensaje' => isset($res['mensaje']) ? $res['mensaje'] : ''
+		)
+	));
 	echo json_encode($res);
 	exit;
 }
 if ($accion == "guardar_valores_gases_nobles") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$desde = $_GET['desde'];
-	$hasta = $_GET['hasta'];
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$desde = mysql_real_escape_string($_GET['desde'], $miconex);
+	$hasta = mysql_real_escape_string($_GET['hasta'], $miconex);
 	$ar41 = vacio5(conversion_actividad('5', '1', $_GET['ar41']));
 	$kr85 = vacio5(conversion_actividad('5', '1', $_GET['kr85']));
 	$kr85m = vacio5(conversion_actividad('5', '1', $_GET['kr85m']));
 	$xe133 = vacio5(conversion_actividad('5', '1', $_GET['xe133']));
 	$xe135 = vacio5(conversion_actividad('5', '1', $_GET['xe135']));
 	$xe135m = vacio5(conversion_actividad('5', '1', $_GET['xe135m']));
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
 
 	$datos_log = "Creación:" . date_format($fecha_de_ahora, 'd-m-Y H:i:s') . " usuario:" . nombre_usuario_web($id_usuario) . "///" . $fecha . "///" . $desde . "///" . $hasta . "///" . $ar41 . "///" . $kr85 . "///" . $kr85m . "///" . $xe133 . "///" . $xe135 . "///" . $xe135m;
 
@@ -191,23 +291,36 @@ if ($accion == "guardar_valores_gases_nobles") {
 	$cargar_valores_gases_nobles = mysql_query($query_cargar_valores_gases_nobles, $miconex) or die(mysql_error());
 
 	if ($cargar_valores_gases_nobles) {
+		$new_id = mysql_insert_id($miconex);
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_gases_nobles', 'id_gases_nobles', $new_id);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'GASES_NOBLES',
+			'accion' => 'CREAR',
+			'tabla_afectada' => 'regrad_gases_nobles',
+			'id_registro' => $new_id,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
 	}
 }
 if ($accion == "editar_valores_gases_nobles") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$desde = $_GET['desde'];
-	$hasta = $_GET['hasta'];
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$desde = mysql_real_escape_string($_GET['desde'], $miconex);
+	$hasta = mysql_real_escape_string($_GET['hasta'], $miconex);
 	$ar41 = vacio5(conversion_actividad('5', '1', $_GET['ar41']));
 	$kr85 = vacio5(conversion_actividad('5', '1', $_GET['kr85']));
 	$kr85m = vacio5(conversion_actividad('5', '1', $_GET['kr85m']));
 	$xe133 = vacio5(conversion_actividad('5', '1', $_GET['xe133']));
 	$xe135 = vacio5(conversion_actividad('5', '1', $_GET['xe135']));
 	$xe135m = vacio5(conversion_actividad('5', '1', $_GET['xe135m']));
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
 
 	$query_recuperar_datos_gases_nobles = "SELECT * FROM `regrad_gases_nobles` where id_planilla = $id_planilla";
 	$recuperar_datos_gases_nobles = mysql_query($query_recuperar_datos_gases_nobles, $miconex) or die(mysql_error());
@@ -219,6 +332,17 @@ if ($accion == "editar_valores_gases_nobles") {
 	$editar_valores_gases_nobles = mysql_query($query_editar_valores_gases_nobles, $miconex) or die(mysql_error());
 
 	if ($editar_valores_gases_nobles) {
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_gases_nobles', 'id_planilla', $id_planilla);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'GASES_NOBLES',
+			'accion' => 'EDITAR',
+			'tabla_afectada' => 'regrad_gases_nobles',
+			'id_registro' => $row_recuperar_datos_gases_nobles ? $row_recuperar_datos_gases_nobles['id_gases_nobles'] : $id_planilla,
+			'datos_antes' => $row_recuperar_datos_gases_nobles,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
@@ -241,30 +365,47 @@ if ($accion == "recuperar_valores_gases_nobles") {
 	}
 }
 if ($accion == "guardar_valores_emision_tritio") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$desde = $_GET['desde'];
-	$hasta = $_GET['hasta'];
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$desde = mysql_real_escape_string($_GET['desde'], $miconex);
+	$hasta = mysql_real_escape_string($_GET['hasta'], $miconex);
 	$vent_gral_unidad_actividad = $_GET['vent_gral_unidad_actividad'];
 	$vent_reactor_unidad_actividad = $_GET['vent_reactor_unidad_actividad'];
 	$vent_gral = vacio5(conversion_actividad($vent_gral_unidad_actividad, '1', $_GET['vent_gral']));
 	$vent_reactor = vacio5(conversion_actividad($vent_reactor_unidad_actividad, '1', $_GET['vent_reactor']));
 
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
+
 	$query_guardar_valores_emision_tritio = "INSERT INTO `regrad_tritio`(`id_planilla`, `fecha`, `hora_desde`, `hora_hasta`, `vent_gral`, `vent_reactor`, `usuario_portal`) VALUES ('$id_planilla','$fecha','$desde','$hasta','$vent_gral','$vent_reactor','$id_usuario')";
 	$guardar_valores_emision_tritio = mysql_query($query_guardar_valores_emision_tritio, $miconex) or die(mysql_error());
 
 	if ($guardar_valores_emision_tritio) {
+		$new_id = mysql_insert_id($miconex);
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_tritio', 'id_tritio', $new_id);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'TRITIO',
+			'accion' => 'CREAR',
+			'tabla_afectada' => 'regrad_tritio',
+			'id_registro' => $new_id,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
 	}
 }
 if ($accion == "actualizar_valores_emision_tritio_edicion") {
-	$id_emision_tritio = $_GET['id_emision_tritio'];
-	$fecha = $_GET['fecha'];
-	$desde = $_GET['desde'];
-	$hasta = $_GET['hasta'];
+	$id_emision_tritio = intval($_GET['id_emision_tritio']);
+	$antes = auditoria_snapshot_fila($miconex, 'regrad_tritio', 'id_tritio', $id_emision_tritio);
+	$id_planilla_tri = ($antes && isset($antes['id_planilla'])) ? intval($antes['id_planilla']) : 0;
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla_tri, $motivo_aud_req));
+
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$desde = mysql_real_escape_string($_GET['desde'], $miconex);
+	$hasta = mysql_real_escape_string($_GET['hasta'], $miconex);
 	$vent_gral_unidad_actividad = $_GET['vent_gral_unidad_actividad'];
 	$vent_reactor_unidad_actividad = $_GET['vent_reactor_unidad_actividad'];
 	$vent_gral = vacio5(conversion_actividad($vent_gral_unidad_actividad, '1', $_GET['vent_gral']));
@@ -274,6 +415,16 @@ if ($accion == "actualizar_valores_emision_tritio_edicion") {
 	$guardar_valores_emision_tritio = mysql_query($query_guardar_valores_emision_tritio, $miconex) or die(mysql_error());
 
 	if ($guardar_valores_emision_tritio) {
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_tritio', 'id_tritio', $id_emision_tritio);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla_tri,
+			'modulo' => 'TRITIO',
+			'accion' => 'EDITAR',
+			'tabla_afectada' => 'regrad_tritio',
+			'id_registro' => $id_emision_tritio,
+			'datos_antes' => $antes,
+			'datos_despues' => $despues
+		));
 		echo "ok";
 	} else {
 		echo "mal";
@@ -305,12 +456,14 @@ if ($accion == "recuperar_valores_emision_tritio_para_edicion") {
 	echo ($row_recuperar_datos_emision_tritio['fecha']) . "@" . ($row_recuperar_datos_emision_tritio['hora_desde']) . "@" . ($row_recuperar_datos_emision_tritio['hora_hasta']) . "@" . coma_punto(decimales(conversion_actividad('1', '5', $row_recuperar_datos_emision_tritio['vent_gral']), 1)) . "@" . coma_punto(decimales(conversion_actividad('1', '5', $row_recuperar_datos_emision_tritio['vent_reactor']), 1));
 }
 if ($accion == "guardar_valores_carbono14") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$hora = $_GET['hora'];
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$hora = mysql_real_escape_string($_GET['hora'], $miconex);
 	$actividad_unidad_ingresada = $_GET['actividad_unidad_ingresada'];
 	$actividad = vacio5(conversion_actividad($actividad_unidad_ingresada, '1', $_GET['actividad']));
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
 
 	$datos_log = "Creación:" . date_format($fecha_de_ahora, 'd-m-Y H:i:s') . " usuario:" . nombre_usuario_web($id_usuario) . "///" . $fecha . "///" . $hora . "///" . $actividad;
 
@@ -318,18 +471,31 @@ if ($accion == "guardar_valores_carbono14") {
 	$guardar_valores_carbono14 = mysql_query($query_guardar_valores_carbono14, $miconex) or die(mysql_error());
 
 	if ($guardar_valores_carbono14) {
+		$new_id = mysql_insert_id($miconex);
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_carbono14', 'id_carbono14', $new_id);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'C14',
+			'accion' => 'CREAR',
+			'tabla_afectada' => 'regrad_carbono14',
+			'id_registro' => $new_id,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
 	}
 }
 if ($accion == "editar_valores_carbono14") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$hora = $_GET['hora'];
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$hora = mysql_real_escape_string($_GET['hora'], $miconex);
 	$actividad_unidad_ingresada = $_GET['actividad_unidad_ingresada'];
 	$actividad = vacio5(conversion_actividad($actividad_unidad_ingresada, '1', $_GET['actividad']));
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
 
 	$query_recuperar_datos_carbono14 = "SELECT * FROM `regrad_carbono14` where id_planilla = $id_planilla";
 	$recuperar_datos_carbono14 = mysql_query($query_recuperar_datos_carbono14, $miconex) or die(mysql_error());
@@ -341,6 +507,17 @@ if ($accion == "editar_valores_carbono14") {
 	$editar_valores_carbono14 = mysql_query($query_editar_valores_carbono14, $miconex) or die(mysql_error());
 
 	if ($editar_valores_carbono14) {
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_carbono14', 'id_planilla', $id_planilla);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'C14',
+			'accion' => 'EDITAR',
+			'tabla_afectada' => 'regrad_carbono14',
+			'id_registro' => $row_recuperar_datos_carbono14 ? $row_recuperar_datos_carbono14['id_carbono14'] : $id_planilla,
+			'datos_antes' => $row_recuperar_datos_carbono14,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
@@ -363,12 +540,14 @@ if ($accion == "recuperar_valores_carbono14") {
 	}
 }
 if ($accion == "guardar_valores_dedo_frio") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$hora = $_GET['hora'];
-	$ppm = ($_GET['ppm']);
-	$menor_que = $_GET['menor_que'];
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$hora = mysql_real_escape_string($_GET['hora'], $miconex);
+	$ppm = mysql_real_escape_string($_GET['ppm'], $miconex);
+	$menor_que = intval($_GET['menor_que']);
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
 
 	$datos_log = "Creación:" . date_format($fecha_de_ahora, 'd-m-Y H:i:s') . " usuario:" . nombre_usuario_web($id_usuario) . "///" . $fecha . "///" . $hora . "///" . $ppm . "///" . $menor_que;
 
@@ -376,18 +555,31 @@ if ($accion == "guardar_valores_dedo_frio") {
 	$guardar_valores_dedo_frio = mysql_query($query_guardar_valores_dedo_frio, $miconex) or die(mysql_error());
 
 	if ($guardar_valores_dedo_frio) {
+		$new_id = mysql_insert_id($miconex);
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_dedo_frio', 'id_dedo_frio', $new_id);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'DEDO_FRIO',
+			'accion' => 'CREAR',
+			'tabla_afectada' => 'regrad_dedo_frio',
+			'id_registro' => $new_id,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
 	}
 }
 if ($accion == "editar_valores_dedo_frio") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$hora = $_GET['hora'];
-	$ppm = ($_GET['ppm']);
-	$menor_que = $_GET['menor_que'];
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$hora = mysql_real_escape_string($_GET['hora'], $miconex);
+	$ppm = mysql_real_escape_string($_GET['ppm'], $miconex);
+	$menor_que = intval($_GET['menor_que']);
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
 
 	$query_recuperar_datos_dedo_frio = "SELECT * FROM `regrad_dedo_frio` where id_planilla = $id_planilla";
 	$recuperar_datos_dedo_frio = mysql_query($query_recuperar_datos_dedo_frio, $miconex) or die(mysql_error());
@@ -399,6 +591,17 @@ if ($accion == "editar_valores_dedo_frio") {
 	$editar_valores_dedo_frio = mysql_query($query_editar_valores_dedo_frio, $miconex) or die(mysql_error());
 
 	if ($editar_valores_dedo_frio) {
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_dedo_frio', 'id_planilla', $id_planilla);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'DEDO_FRIO',
+			'accion' => 'EDITAR',
+			'tabla_afectada' => 'regrad_dedo_frio',
+			'id_registro' => $row_recuperar_datos_dedo_frio ? $row_recuperar_datos_dedo_frio['id_dedo_frio'] : $id_planilla,
+			'datos_antes' => $row_recuperar_datos_dedo_frio,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
@@ -427,15 +630,17 @@ if ($accion == "recuperar_valores_dedo_frio") {
 	}
 }
 if ($accion == "guardar_valores_concentrador7923") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$procedencia = $_GET['procedencia'];
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$procedencia = mysql_real_escape_string($_GET['procedencia'], $miconex);
 	$actividad_unidad_ingresada = $_GET['actividad_unidad_ingresada'];
 	$actividad = conversion_actividad($actividad_unidad_ingresada, '1', $_GET['actividad']);
 	$volumen_unidad_ingresada = $_GET['volumen_unidad_ingresada'];
 	$volumen = conversion_volumen($volumen_unidad_ingresada, '1', $_GET['volumen']);
-	$ldd = $_GET['ldd'];
+	$ldd = mysql_real_escape_string($_GET['ldd'], $miconex);
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
 
 	$datos_log = "Creación:" . date_format($fecha_de_ahora, 'd-m-Y H:i:s') . " usuario:" . nombre_usuario_web($id_usuario) . "///" . $fecha . "///" . $procedencia . "///" . $actividad . "///" . $volumen . "///" . $ldd;
 
@@ -443,6 +648,17 @@ if ($accion == "guardar_valores_concentrador7923") {
 	$guardar_valores_concentrador7923 = mysql_query($query_guardar_valores_concentrador7923, $miconex) or die(mysql_error());
 
 	if ($guardar_valores_concentrador7923) {
+		$new_id = mysql_insert_id($miconex);
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_tritio_concentrador', 'id_tritio_conc', $new_id);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'CONCENTRADOR_7923',
+			'accion' => 'CREAR',
+			'tabla_afectada' => 'regrad_tritio_concentrador',
+			'id_registro' => $new_id,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
@@ -543,14 +759,16 @@ if ($accion == "guardar_emision_7923_prueba") {
 
 if ($accion == "guardar_emision_7923") {
 	// 1) Leer parámetros que sí llegan
-	$id_planilla      = mysql_real_escape_string($_GET['id_planilla']);
-	$id_usuario       = mysql_real_escape_string($_GET['id_usuario']);
-	$fecha            = mysql_real_escape_string($_GET['fecha']);
-	$procedencia      = mysql_real_escape_string($_GET['procedencia']);
+	$id_planilla      = intval($_GET['id_planilla']);
+	$id_usuario       = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : mysql_real_escape_string($_GET['id_usuario'], $miconex);
+	$fecha            = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$procedencia      = mysql_real_escape_string($_GET['procedencia'], $miconex);
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
 
 	// 2) Leer volumen (unidad y valor) y convertir
-	$volumen_unidad_ingresada = mysql_real_escape_string($_GET['unidad_vol']);
-	$volumen_input            = mysql_real_escape_string($_GET['volumen']);
+	$volumen_unidad_ingresada = mysql_real_escape_string($_GET['unidad_vol'], $miconex);
+	$volumen_input            = mysql_real_escape_string($_GET['volumen'], $miconex);
 	$volumen = conversion_volumen($volumen_unidad_ingresada, '1', $volumen_input);
 
 	// 3) Como no envías actividad ni ldd, las dejamos en NULL
@@ -581,11 +799,25 @@ if ($accion == "guardar_emision_7923") {
                 '$volumen',
                 NULL,                       -- ldd%
                 '$id_usuario',
-                '" . mysql_real_escape_string($datos_log) . "'
+                '" . mysql_real_escape_string($datos_log, $miconex) . "'
             )
     ";
 	$guardar_valores_concentrador7923 = mysql_query($query_guardar_valores_concentrador7923, $miconex)
 		or die(mysql_error());
+
+	if ($guardar_valores_concentrador7923) {
+		$new_id = mysql_insert_id($miconex);
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_tritio_concentrador', 'id_tritio_conc', $new_id);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'CONCENTRADOR_7923',
+			'accion' => 'CREAR',
+			'tabla_afectada' => 'regrad_tritio_concentrador',
+			'id_registro' => $new_id,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
+	}
 
 	// 6) Devolver respuesta
 	echo $guardar_valores_concentrador7923 ? "ok" : "mal";
@@ -640,7 +872,7 @@ if ($accion == "radionucleidos_de_emision") {
     ";
 
 	$resultado = mysql_query($query, $miconex);
-	$datos = [];
+	$datos = array();
 
 	while ($row = mysql_fetch_assoc($resultado)) {
 		// $row['simbolo'] = $row['parte_letra'] . '-' . $row['parte_numero'];
@@ -648,10 +880,10 @@ if ($accion == "radionucleidos_de_emision") {
 	}
 
 	header('Content-Type: application/json');
-	echo json_encode([
+	echo json_encode(array(
 		"estado" => "ok",
 		"datos" => $datos
-	]);
+	));
 	exit;
 }
 
@@ -660,12 +892,16 @@ if ($accion == "radionucleidos_de_emision") {
 
 
 if ($accion == "eliminar_emision_7923") {
-	$id_emision_7923 = isset($_GET['id_emision_7923']) ? mysql_real_escape_string($_GET['id_emision_7923']) : '';
+	$id_emision_7923 = isset($_GET['id_emision_7923']) ? intval($_GET['id_emision_7923']) : 0;
 
-	if ($id_emision_7923 == '') {
+	if ($id_emision_7923 <= 0) {
 		echo "error_id";
 		exit;
 	}
+
+	$antes = auditoria_snapshot_fila($miconex, 'regrad_tritio_concentrador', 'id_tritio_conc', $id_emision_7923);
+	$id_planilla_79 = ($antes && isset($antes['id_planilla'])) ? intval($antes['id_planilla']) : 0;
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla_79, $motivo_aud_req));
 
 	// Eliminar primero los radionucleídos asociados
 	$query_borrar_radionucleidos = "DELETE FROM regrad_tritio_concentrador_radionucleidos WHERE id_tritio_conc = '$id_emision_7923'";
@@ -676,6 +912,14 @@ if ($accion == "eliminar_emision_7923") {
 	$resultado = mysql_query($query_borrar, $miconex);
 
 	if ($resultado) {
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla_79,
+			'modulo' => 'CONCENTRADOR_7923',
+			'accion' => 'ELIMINAR',
+			'tabla_afectada' => 'regrad_tritio_concentrador',
+			'id_registro' => $id_emision_7923,
+			'datos_antes' => $antes
+		));
 		echo "ok";
 	} else {
 		echo "error";
@@ -705,19 +949,21 @@ if ($accion == "listar_radionucleidos_con_ro") {
 	exit;
 }
 if ($accion == "guardar_radionucleidos_emision_7923") {
-	$id_planilla     = isset($_GET['id_planilla'])     ? mysql_real_escape_string($_GET['id_planilla'])     : '';
-	$id_tritio_conc  = isset($_GET['id_tritio_conc'])  ? mysql_real_escape_string($_GET['id_tritio_conc'])  : '';
+	$id_planilla     = isset($_GET['id_planilla'])     ? intval($_GET['id_planilla'])     : 0;
+	$id_tritio_conc  = isset($_GET['id_tritio_conc'])  ? intval($_GET['id_tritio_conc'])  : 0;
 	$datos_json      = isset($_GET['radios'])          ? $_GET['radios'] : '';
 
-	if ($id_planilla == '' || $id_tritio_conc == '' || $datos_json == '') {
-		echo json_encode(["estado" => "error", "mensaje" => "Faltan datos"]);
+	if ($id_planilla <= 0 || $id_tritio_conc <= 0 || $datos_json == '') {
+		echo json_encode(array("estado" => "error", "mensaje" => "Faltan datos"));
 		exit;
 	}
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req), true);
 
 	$radionucleidos = json_decode($datos_json, true);
 
 	if (!is_array($radionucleidos)) {
-		echo json_encode(["estado" => "error", "mensaje" => "Datos mal formateados"]);
+		echo json_encode(array("estado" => "error", "mensaje" => "Datos mal formateados"));
 		exit;
 	}
 
@@ -727,8 +973,8 @@ if ($accion == "guardar_radionucleidos_emision_7923") {
 
 	// 🟢 Ahora insertamos los nuevos datos
 	foreach ($radionucleidos as $r) {
-		$id_radionucleido = mysql_real_escape_string($r['id']);
-		$actividad_Bq_l   = mysql_real_escape_string($r['actividad_Bq_l']);
+		$id_radionucleido = mysql_real_escape_string($r['id'], $miconex);
+		$actividad_Bq_l   = mysql_real_escape_string($r['actividad_Bq_l'], $miconex);
 
 		$query = "INSERT INTO regrad_tritio_concentrador_radionucleidos
 				  (id_planilla, id_tritio_conc, radionucleido, actividad_Bq_l)
@@ -738,27 +984,49 @@ if ($accion == "guardar_radionucleidos_emision_7923") {
 		$insertar = mysql_query($query, $miconex);
 
 		if (!$insertar) {
-			echo json_encode(["estado" => "error", "mensaje" => mysql_error()]);
+			echo json_encode(array("estado" => "error", "mensaje" => mysql_error()));
 			exit;
 		}
 	}
 
-	echo json_encode(["estado" => "ok", "mensaje" => "Radionucleidos guardados"]);
+	auditoria_registrar($miconex, array(
+		'id_planilla' => $id_planilla,
+		'modulo' => 'CONCENTRADOR_7923',
+		'accion' => 'EDITAR_RADIONUCLEIDOS',
+		'tabla_afectada' => 'regrad_tritio_concentrador_radionucleidos',
+		'id_registro' => $id_tritio_conc,
+		'datos_despues' => $radionucleidos
+	));
+
+	echo json_encode(array("estado" => "ok", "mensaje" => "Radionucleidos guardados"));
 	exit;
 }
 if ($accion == "guardar_observaciones_emision") {
-	$id_tritio_conc = isset($_GET['id_tritio_conc']) ? mysql_real_escape_string($_GET['id_tritio_conc']) : '';
-	$observaciones  = isset($_GET['observaciones']) ? mysql_real_escape_string($_GET['observaciones']) : '';
+	$id_tritio_conc = isset($_GET['id_tritio_conc']) ? intval($_GET['id_tritio_conc']) : 0;
+	$observaciones  = isset($_GET['observaciones']) ? mysql_real_escape_string($_GET['observaciones'], $miconex) : '';
 
-	if ($id_tritio_conc == '') {
+	if ($id_tritio_conc <= 0) {
 		echo "error_id";
 		exit;
 	}
+
+	$antes = auditoria_snapshot_fila($miconex, 'regrad_tritio_concentrador', 'id_tritio_conc', $id_tritio_conc);
+	$id_planilla_79 = ($antes && isset($antes['id_planilla'])) ? intval($antes['id_planilla']) : 0;
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla_79, $motivo_aud_req));
 
 	$query = "UPDATE regrad_tritio_concentrador SET observaciones = '$observaciones' WHERE id_tritio_conc = '$id_tritio_conc'";
 	$resultado = mysql_query($query, $miconex);
 
 	if ($resultado) {
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla_79,
+			'modulo' => 'CONCENTRADOR_7923',
+			'accion' => 'EDITAR_OBSERVACIONES',
+			'tabla_afectada' => 'regrad_tritio_concentrador',
+			'id_registro' => $id_tritio_conc,
+			'datos_antes' => $antes ? array('observaciones' => $antes['observaciones']) : null,
+			'datos_despues' => array('observaciones' => $_GET['observaciones'])
+		));
 		echo "ok";
 	} else {
 		echo "error: " . mysql_error();
@@ -773,15 +1041,17 @@ if ($accion == "guardar_observaciones_emision") {
 
 
 if ($accion == "editar_valores_concentrador7923") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$procedencia = $_GET['procedencia'];
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$procedencia = mysql_real_escape_string($_GET['procedencia'], $miconex);
 	$actividad_unidad_ingresada = $_GET['actividad_unidad_ingresada'];
 	$actividad = conversion_actividad($actividad_unidad_ingresada, '1', $_GET['actividad']);
 	$volumen_unidad_ingresada = $_GET['volumen_unidad_ingresada'];
 	$volumen = conversion_volumen($volumen_unidad_ingresada, '1', $_GET['volumen']);
-	$ldd = $_GET['ldd'];
+	$ldd = mysql_real_escape_string($_GET['ldd'], $miconex);
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
 
 	$query_recuperar_datos_concentrador7923 = "SELECT * FROM `regrad_tritio_concentrador` where id_planilla = $id_planilla";
 	$recuperar_datos_concentrador7923 = mysql_query($query_recuperar_datos_concentrador7923, $miconex) or die(mysql_error());
@@ -793,6 +1063,17 @@ if ($accion == "editar_valores_concentrador7923") {
 	$editar_valores_concentrador7923 = mysql_query($query_editar_valores_concentrador7923, $miconex) or die(mysql_error());
 
 	if ($editar_valores_concentrador7923) {
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_tritio_concentrador', 'id_planilla', $id_planilla);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'CONCENTRADOR_7923',
+			'accion' => 'EDITAR',
+			'tabla_afectada' => 'regrad_tritio_concentrador',
+			'id_registro' => $row_recuperar_datos_concentrador7923 ? $row_recuperar_datos_concentrador7923['id_tritio_conc'] : $id_planilla,
+			'datos_antes' => $row_recuperar_datos_concentrador7923,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
@@ -815,13 +1096,15 @@ if ($accion == "recuperar_valores_concentrador7923") {
 	}
 }
 if ($accion == "guardar_valores_control_precintos") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$hora = $_GET['hora'];
-	$puerta_s_123b = ucwords($_GET['puerta_s_123b']);
-	$puerta_s_008 = ucwords($_GET['puerta_s_008']);
-	$puerta_s_144 = ucwords($_GET['puerta_s_144']);
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$hora = mysql_real_escape_string($_GET['hora'], $miconex);
+	$puerta_s_123b = mysql_real_escape_string(ucwords($_GET['puerta_s_123b']), $miconex);
+	$puerta_s_008 = mysql_real_escape_string(ucwords($_GET['puerta_s_008']), $miconex);
+	$puerta_s_144 = mysql_real_escape_string(ucwords($_GET['puerta_s_144']), $miconex);
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
 
 	$datos_log = "Creación:" . date_format($fecha_de_ahora, 'd-m-Y H:i:s') . " usuario:" . nombre_usuario_web($id_usuario) . "///" . $fecha . "///" . $hora . "///" . $puerta_s_123b . "///" . $puerta_s_008 . "///" . $puerta_s_144;
 
@@ -829,19 +1112,32 @@ if ($accion == "guardar_valores_control_precintos") {
 	$guardar_valores_control_precintos = mysql_query($query_guardar_valores_control_precintos, $miconex) or die(mysql_error());
 
 	if ($guardar_valores_control_precintos) {
+		$new_id = mysql_insert_id($miconex);
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_control_precintos', 'id_control_precintos', $new_id);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'PRECINTOS',
+			'accion' => 'CREAR',
+			'tabla_afectada' => 'regrad_control_precintos',
+			'id_registro' => $new_id,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
 	}
 }
 if ($accion == "editar_valores_control_precintos") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$hora = $_GET['hora'];
-	$puerta_s_123b = ucwords($_GET['puerta_s_123b']);
-	$puerta_s_008 = ucwords($_GET['puerta_s_008']);
-	$puerta_s_144 = ucwords($_GET['puerta_s_144']);
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$hora = mysql_real_escape_string($_GET['hora'], $miconex);
+	$puerta_s_123b = mysql_real_escape_string(ucwords($_GET['puerta_s_123b']), $miconex);
+	$puerta_s_008 = mysql_real_escape_string(ucwords($_GET['puerta_s_008']), $miconex);
+	$puerta_s_144 = mysql_real_escape_string(ucwords($_GET['puerta_s_144']), $miconex);
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
 
 	$query_recuperar_datos_control_precintos = "SELECT * FROM `regrad_control_precintos` where id_planilla = $id_planilla";
 	$recuperar_datos_control_precintos = mysql_query($query_recuperar_datos_control_precintos, $miconex) or die(mysql_error());
@@ -854,6 +1150,17 @@ if ($accion == "editar_valores_control_precintos") {
 	$editar_valores_control_precintos = mysql_query($query_editar_valores_control_precintos, $miconex) or die(mysql_error());
 
 	if ($editar_valores_control_precintos) {
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_control_precintos', 'id_planilla', $id_planilla);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'PRECINTOS',
+			'accion' => 'EDITAR',
+			'tabla_afectada' => 'regrad_control_precintos',
+			'id_registro' => $row_recuperar_datos_control_precintos ? $row_recuperar_datos_control_precintos['id_control_precintos'] : $id_planilla,
+			'datos_antes' => $row_recuperar_datos_control_precintos,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
@@ -876,13 +1183,15 @@ if ($accion == "recuperar_valores_control_precintos") {
 	}
 }
 if ($accion == "guardar_valores_condicion_meteorologica") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$hora = $_GET['hora'];
-	$velocidad_viento = ucwords($_GET['velocidad_viento']);
-	$direccion_viento = ucwords($_GET['direccion_viento']);
-	$condicion_pasquill = ucwords($_GET['condicion_pasquill']);
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$hora = mysql_real_escape_string($_GET['hora'], $miconex);
+	$velocidad_viento = mysql_real_escape_string(ucwords($_GET['velocidad_viento']), $miconex);
+	$direccion_viento = mysql_real_escape_string(ucwords($_GET['direccion_viento']), $miconex);
+	$condicion_pasquill = mysql_real_escape_string(ucwords($_GET['condicion_pasquill']), $miconex);
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
 
 	$datos_log = "Creación:" . date_format($fecha_de_ahora, 'd-m-Y H:i:s') . " usuario:" . nombre_usuario_web($id_usuario) . "///" . $fecha . "///" . $hora . "///" . $velocidad_viento . "///" . $direccion_viento . "///" . $condicion_pasquill;
 
@@ -890,19 +1199,32 @@ if ($accion == "guardar_valores_condicion_meteorologica") {
 	$guardar_valores_condicion_meteorologica = mysql_query($query_guardar_valores_condicion_meteorologica, $miconex) or die(mysql_error());
 
 	if ($guardar_valores_condicion_meteorologica) {
+		$new_id = mysql_insert_id($miconex);
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_cond_meteorologica', 'id_cond_meteorologica', $new_id);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'METEOROLOGIA',
+			'accion' => 'CREAR',
+			'tabla_afectada' => 'regrad_cond_meteorologica',
+			'id_registro' => $new_id,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
 	}
 }
 if ($accion == "editar_valores_condicion_meteorologica") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$hora = $_GET['hora'];
-	$velocidad_viento = ucwords($_GET['velocidad_viento']);
-	$direccion_viento = ucwords($_GET['direccion_viento']);
-	$condicion_pasquill = ucwords($_GET['condicion_pasquill']);
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$hora = mysql_real_escape_string($_GET['hora'], $miconex);
+	$velocidad_viento = mysql_real_escape_string(ucwords($_GET['velocidad_viento']), $miconex);
+	$direccion_viento = mysql_real_escape_string(ucwords($_GET['direccion_viento']), $miconex);
+	$condicion_pasquill = mysql_real_escape_string(ucwords($_GET['condicion_pasquill']), $miconex);
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
 
 	$query_recuperar_datos_condicion_meteorologica = "SELECT * FROM `regrad_cond_meteorologica` where id_planilla = $id_planilla";
 	$recuperar_datos_condicion_meteorologica = mysql_query($query_recuperar_datos_condicion_meteorologica, $miconex) or die(mysql_error());
@@ -914,6 +1236,17 @@ if ($accion == "editar_valores_condicion_meteorologica") {
 	$editar_valores_condicion_meteorologica = mysql_query($query_editar_valores_condicion_meteorologica, $miconex) or die(mysql_error());
 
 	if ($editar_valores_condicion_meteorologica) {
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_cond_meteorologica', 'id_planilla', $id_planilla);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'METEOROLOGIA',
+			'accion' => 'EDITAR',
+			'tabla_afectada' => 'regrad_cond_meteorologica',
+			'id_registro' => $row_recuperar_datos_condicion_meteorologica ? $row_recuperar_datos_condicion_meteorologica['id_cond_meteorologica'] : $id_planilla,
+			'datos_antes' => $row_recuperar_datos_condicion_meteorologica,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
@@ -996,56 +1329,120 @@ if ($accion == "recuperar_datos_planilla_diaria") {
 	echo ($row_planilla['dedo_frio_ppm']);
 }
 if ($accion == "actualizar_observaciones") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$observaciones = nl2br($_GET['observaciones']);
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$observaciones_norm = nl2br($_GET['observaciones']);
+	$observaciones = mysql_real_escape_string($observaciones_norm, $miconex);
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
+	$antes = auditoria_snapshot_fila($miconex, 'regrad_planilla_diaria_nueva', 'id_planilla_diaria', $id_planilla);
 
 	$query_actualizar_observaciones = "UPDATE `regrad_planilla_diaria_nueva` SET `observaciones`='$observaciones' WHERE id_planilla_diaria = '$id_planilla'";
 	$actualizar_observaciones = mysql_query($query_actualizar_observaciones, $miconex) or die(mysql_error());
 
 	if ($actualizar_observaciones) {
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'PLANILLA',
+			'accion' => 'EDITAR_OBSERVACIONES',
+			'tabla_afectada' => 'regrad_planilla_diaria_nueva',
+			'id_registro' => $id_planilla,
+			'datos_antes' => $antes ? array('observaciones' => $antes['observaciones']) : null,
+			'datos_despues' => array('observaciones' => $observaciones_norm),
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
 	}
 }
 if ($accion == "eliminar_registro_generico") {
-	$nombre_tabla = $_GET['nombre_tabla'];
-	$nombre_campo_id = $_GET['nombre_campo_id'];
-	$id_registro = $_GET['id_registro'];
+	$nombre_tabla = isset($_GET['nombre_tabla']) ? trim($_GET['nombre_tabla']) : '';
+	$nombre_campo_id = isset($_GET['nombre_campo_id']) ? trim($_GET['nombre_campo_id']) : '';
+	$id_registro = isset($_GET['id_registro']) ? intval($_GET['id_registro']) : 0;
 
-	$query_eliminar_registro_generico = "DELETE FROM $nombre_tabla WHERE $nombre_campo_id = $id_registro";
+	$meta = auditoria_tabla_generica_info($nombre_tabla, $nombre_campo_id);
+	if (!$meta || $id_registro <= 0) {
+		if (function_exists('http_response_code')) http_response_code(400);
+		echo "error_auditoria: Tabla o identificador no permitido para eliminación genérica.";
+		exit;
+	}
+
+	$antes = auditoria_snapshot_fila($miconex, $nombre_tabla, $nombre_campo_id, $id_registro);
+	$id_planilla_del = 0;
+	if ($antes) {
+		if (!empty($meta['col_planilla']) && isset($antes[$meta['col_planilla']])) {
+			$id_planilla_del = intval($antes[$meta['col_planilla']]);
+		} elseif ($nombre_tabla === 'regrad_efluentes_liquidos_radionucleidos' && !empty($antes['id_regrad_efluentes_liquidos'])) {
+			$ef_row = auditoria_snapshot_fila($miconex, 'regrad_efluentes_liquidos_nueva', 'id_efluentes', intval($antes['id_regrad_efluentes_liquidos']));
+			if ($ef_row && isset($ef_row['id_planilla'])) {
+				$id_planilla_del = intval($ef_row['id_planilla']);
+			}
+		}
+	}
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla_del, $motivo_aud_req));
+
+	$query_eliminar_registro_generico = "DELETE FROM `$nombre_tabla` WHERE `$nombre_campo_id` = $id_registro";
 	$eliminar_registro_generico = mysql_query($query_eliminar_registro_generico, $miconex) or die(mysql_error());
+
+	if ($eliminar_registro_generico) {
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla_del > 0 ? $id_planilla_del : null,
+			'modulo' => $meta['modulo'],
+			'accion' => 'ELIMINAR',
+			'tabla_afectada' => $nombre_tabla,
+			'id_registro' => $id_registro,
+			'datos_antes' => $antes
+		));
+	}
 
 	echo $query_eliminar_registro_generico;
 }
 if ($accion == "guardar_valores_espectrometria_aire") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$hora = $_GET['hora'];
-	$recinto = $_GET['recinto'];
-	$tipo = strtoupper($_GET['tipo']);
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$hora = mysql_real_escape_string($_GET['hora'], $miconex);
+	$recinto = mysql_real_escape_string($_GET['recinto'], $miconex);
+	$tipo = mysql_real_escape_string(strtoupper($_GET['tipo']), $miconex);
 	$ar41 = vacio5($_GET['ar41']);
 	$xe133 = vacio5($_GET['xe133']);
 	$xe135 = vacio5($_GET['xe135']);
 	$kr88 = vacio5($_GET['kr88']);
 
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
+
 	$query_guardar_valores_espectrometria_aire = "INSERT INTO `regrad_espectr_conc_radionuclei`(`id_planilla`, `fecha`, `tipo`, `recinto`, `hora`, `ar41`, `xe133`, `xe135`, `kr88`, `usuario`) VALUES ('$id_planilla','$fecha','$tipo','$recinto','$hora','$ar41','$xe133','$xe135','$kr88','$id_usuario')";
 	$guardar_valores_espectrometria_aire = mysql_query($query_guardar_valores_espectrometria_aire, $miconex) or die(mysql_error());
 
 	if ($guardar_valores_espectrometria_aire) {
+		$new_id = mysql_insert_id($miconex);
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_espectr_conc_radionuclei', 'id_conc_rad', $new_id);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'ESPECTROMETRIA',
+			'accion' => 'CREAR',
+			'tabla_afectada' => 'regrad_espectr_conc_radionuclei',
+			'id_registro' => $new_id,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
 	}
 }
 if ($accion == "actualizar_valores_espectrometria_aire_edicion") {
-	$id_espectrometria_aire = $_GET['id_espectrometria_aire'];
-	$fecha = $_GET['fecha'];
-	$hora = $_GET['hora'];
-	$recinto = $_GET['recinto'];
-	$tipo = strtoupper($_GET['tipo']);
+	$id_espectrometria_aire = intval($_GET['id_espectrometria_aire']);
+	$antes = auditoria_snapshot_fila($miconex, 'regrad_espectr_conc_radionuclei', 'id_conc_rad', $id_espectrometria_aire);
+	$id_planilla_esp = ($antes && isset($antes['id_planilla'])) ? intval($antes['id_planilla']) : 0;
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla_esp, $motivo_aud_req));
+
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$hora = mysql_real_escape_string($_GET['hora'], $miconex);
+	$recinto = mysql_real_escape_string($_GET['recinto'], $miconex);
+	$tipo = mysql_real_escape_string(strtoupper($_GET['tipo']), $miconex);
 	$ar41 = vacio5($_GET['ar41']);
 	$xe133 = vacio5($_GET['xe133']);
 	$xe135 = vacio5($_GET['xe135']);
@@ -1055,6 +1452,16 @@ if ($accion == "actualizar_valores_espectrometria_aire_edicion") {
 	$guardar_valores_espectrometria_aire = mysql_query($query_guardar_valores_espectrometria_aire, $miconex) or die(mysql_error());
 
 	if ($guardar_valores_espectrometria_aire) {
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_espectr_conc_radionuclei', 'id_conc_rad', $id_espectrometria_aire);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla_esp,
+			'modulo' => 'ESPECTROMETRIA',
+			'accion' => 'EDITAR',
+			'tabla_afectada' => 'regrad_espectr_conc_radionuclei',
+			'id_registro' => $id_espectrometria_aire,
+			'datos_antes' => $antes,
+			'datos_despues' => $despues
+		));
 		echo "ok";
 	} else {
 		echo "mal";
@@ -1086,13 +1493,15 @@ if ($accion == "recuperar_valores_espectrometria_aire_para_edicion") {
 	echo strtoupper($row_recuperar_datos_espectrometria_aire['tipo']) . "@" . ($row_recuperar_datos_espectrometria_aire['recinto']) . "@" . formato_hora_personalizado($row_recuperar_datos_espectrometria_aire['hora']) . "@" . coma_punto(nulo(decimales($row_recuperar_datos_espectrometria_aire['ar41'], 1))) . "@" . coma_punto(nulo(decimales($row_recuperar_datos_espectrometria_aire['xe133'], 1))) . "@" . coma_punto(nulo(decimales($row_recuperar_datos_espectrometria_aire['xe135'], 1))) . "@" . coma_punto(nulo(decimales($row_recuperar_datos_espectrometria_aire['kr88'], 1))) . "@" . $row_recuperar_datos_espectrometria_aire['id_conc_rad'] . "@" . $row_recuperar_datos_espectrometria_aire['fecha'] . "@@";
 }
 if ($accion == "guardar_valores_efluentes_liquidos") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$hora = $_GET['hora'];
-	$tanque = $_GET['tanque'];
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$hora = mysql_real_escape_string($_GET['hora'], $miconex);
+	$tanque = mysql_real_escape_string($_GET['tanque'], $miconex);
 	$unidad_ingresada = $_GET['unidad_ingresada'];
 	$volumen = conversion_volumen($unidad_ingresada, '1', $_GET['volumen']);
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
 
 	$query_guardar_valores_efluentes_liquidos = "INSERT INTO `regrad_efluentes_liquidos_nueva`(`id_planilla`,`tanque`, `fecha`, `hora`, `volumen_litro`, `usuario`) VALUES ('$id_planilla','$tanque','$fecha','$hora','$volumen','$id_usuario')";
 	$guardar_valores_efluentes_liquidos = mysql_query($query_guardar_valores_efluentes_liquidos, $miconex) or die(mysql_error());
@@ -1105,6 +1514,16 @@ if ($accion == "guardar_valores_efluentes_liquidos") {
 	$actualizar_valores_en_tabla_archivo = mysql_query($query_actualizar_valores_en_tabla_archivo, $miconex) or die(mysql_error());
 
 	if ($guardar_valores_efluentes_liquidos) {
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_efluentes_liquidos_nueva', 'id_efluentes', $id_efluentes_insertado);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'LIQUIDOS',
+			'accion' => 'CREAR',
+			'tabla_afectada' => 'regrad_efluentes_liquidos_nueva',
+			'id_registro' => $id_efluentes_insertado,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		if (isset($_GET['retornar_id']) && $_GET['retornar_id'] == '1') {
 			echo "ok|" . $id_efluentes_insertado;
 		} else {
@@ -1147,13 +1566,18 @@ if ($accion == "recuperar_valores_radionucleidos_efluentes_liquidos") {
 	}
 }
 if ($accion == "guardar_valores_radionucleidos_efluentes_liquidos") {
-	$id_efluentes = $_GET['id_efluentes'];
-	$radionucleido = $_GET['radionucleido'];
+	$id_efluentes = intval($_GET['id_efluentes']);
+	$ef_padre = auditoria_snapshot_fila($miconex, 'regrad_efluentes_liquidos_nueva', 'id_efluentes', $id_efluentes);
+	$id_planilla_ef = ($ef_padre && isset($ef_padre['id_planilla'])) ? intval($ef_padre['id_planilla']) : 0;
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla_ef, $motivo_aud_req));
+
+	$radionucleido = mysql_real_escape_string($_GET['radionucleido'], $miconex);
 	$unidad_concentracion_ingresada = $_GET['unidad_concentracion_ingresada'];
 	$concentracion = conversion_concentracion($unidad_concentracion_ingresada, '2', $_GET['concentracion']);
 
 	$query_guardar_valores_radionucleidos_efluentes_liquidos = "INSERT INTO `regrad_efluentes_liquidos_radionucleidos`(`id_regrad_efluentes_liquidos`, `id_radionucleido_efluentes_liquidos`, `conc_Bq_litro`) VALUES ('$id_efluentes','$radionucleido','$concentracion')";
 	$guardar_valores_radionucleidos_efluentes_liquidos = mysql_query($query_guardar_valores_radionucleidos_efluentes_liquidos, $miconex) or die(mysql_error());
+	$id_rad_ins = mysql_insert_id($miconex);
 
 	$query_eliminar_valores_en_tabla_archivo = "DELETE FROM `reg_rad_efluentes_liquidos_radionucleidos_calculos_archivo` WHERE id_efluentes = $id_efluentes";
 	$eliminar_valores_en_tabla_archivo = mysql_query($query_eliminar_valores_en_tabla_archivo, $miconex) or die(mysql_error());
@@ -1163,19 +1587,45 @@ if ($accion == "guardar_valores_radionucleidos_efluentes_liquidos") {
 
 
 	if ($guardar_valores_radionucleidos_efluentes_liquidos) {
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla_ef,
+			'modulo' => 'LIQUIDOS',
+			'accion' => 'AGREGAR_RADIONUCLEIDO',
+			'tabla_afectada' => 'regrad_efluentes_liquidos_radionucleidos',
+			'id_registro' => $id_rad_ins,
+			'datos_despues' => array(
+				'id_efluentes' => $id_efluentes,
+				'id_radionucleido' => $radionucleido,
+				'conc_Bq_litro' => $concentracion
+			)
+		));
 		echo "ok";
 	} else {
 		echo "mal";
 	}
 }
 if ($accion == "actualizar_observaciones_efluentes") {
-	$id_efluentes = $_GET['id_efluentes'];
-	$observaciones = acentos_mayus_todo_return(($_GET['observaciones']));
+	$id_efluentes = intval($_GET['id_efluentes']);
+	$antes = auditoria_snapshot_fila($miconex, 'regrad_efluentes_liquidos_nueva', 'id_efluentes', $id_efluentes);
+	$id_planilla_ef = ($antes && isset($antes['id_planilla'])) ? intval($antes['id_planilla']) : 0;
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla_ef, $motivo_aud_req));
+
+	$obs_norm = acentos_mayus_todo_return(($_GET['observaciones']));
+	$observaciones = mysql_real_escape_string($obs_norm, $miconex);
 
 	$query_actualizar_observaciones_efluentes = "UPDATE `regrad_efluentes_liquidos_nueva` SET `observaciones`='$observaciones' WHERE id_efluentes = $id_efluentes";
 	$actualizar_observaciones_efluentes = mysql_query($query_actualizar_observaciones_efluentes, $miconex) or die(mysql_error());
 
 	if ($actualizar_observaciones_efluentes) {
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla_ef,
+			'modulo' => 'LIQUIDOS',
+			'accion' => 'EDITAR_OBSERVACIONES',
+			'tabla_afectada' => 'regrad_efluentes_liquidos_nueva',
+			'id_registro' => $id_efluentes,
+			'datos_antes' => $antes ? array('observaciones' => $antes['observaciones']) : null,
+			'datos_despues' => array('observaciones' => $obs_norm)
+		));
 		echo "ok";
 	} else {
 		echo "mal";
@@ -1192,11 +1642,11 @@ if ($accion == "recuperar_observaciones_efluentes") {
 	echo $row_actualizar_observaciones_efluentes['observaciones'] . "@" . formafecha6($row_actualizar_observaciones_efluentes['fecha']) . "@" . formato_hora_personalizado($row_actualizar_observaciones_efluentes['hora']) . "@" . $row_actualizar_observaciones_efluentes['tanque'] . "@" . coma_cambio2(conversion_volumen('1', '2', $row_actualizar_observaciones_efluentes['volumen_litro']));
 }
 if ($accion == "guardar_valores_contaminacion_superficial") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$hora = $_GET['hora'];
-	$recinto = $_GET['recinto'];
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$hora = mysql_real_escape_string($_GET['hora'], $miconex);
+	$recinto = mysql_real_escape_string($_GET['recinto'], $miconex);
 	$tasa_dosis_unidad_ingresada = $_GET['tasa_dosis_unidad_ingresada'];
 	$beta_gamma_unidad_ingresada = $_GET['beta_gamma_unidad_ingresada'];
 	$alfa_unidad_ingresada = $_GET['alfa_unidad_ingresada'];
@@ -1204,15 +1654,28 @@ if ($accion == "guardar_valores_contaminacion_superficial") {
 	$alfa = conversion_concentracion_superficial($alfa_unidad_ingresada, '1', $_GET['alfa']);
 	$tasa_dosis = conversion_tasa_dosis($tasa_dosis_unidad_ingresada, '1', $_GET['tasa_dosis']);
 
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
+
 	$query_guardar_valores_contaminacion_superficial = "INSERT INTO `regrad_contaminacion_superficial`(`id_planilla`, `fecha`, `hora`, `recinto`, `beta_gamma_Bq_cm2`, `alfa_Bq_cm2`, `tasa_dosis_equivalente_µsv_h`, `usuario_portal`) VALUES ('$id_planilla','$fecha','$hora','$recinto','$beta_gamma','$alfa','$tasa_dosis','$id_usuario')";
 	$guardar_valores_contaminacion_superficial = mysql_query($query_guardar_valores_contaminacion_superficial, $miconex) or die(mysql_error());
 
 	if ($guardar_valores_contaminacion_superficial) {
+		$new_id = mysql_insert_id($miconex);
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_contaminacion_superficial', 'id_contaminacion_superficial', $new_id);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'CONT_SUPERFICIAL',
+			'accion' => 'CREAR',
+			'tabla_afectada' => 'regrad_contaminacion_superficial',
+			'id_registro' => $new_id,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		//-------- conexion con servidor de jose martinez -----------
-		$select = "INSERT INTO `cont_sup_reg_radiologico`(id_recinto, fecha, hora, beta_gamma_Bq_cm2, alfa_Bq_cm2, tasa_dosis_equivalente_microsv_h) VALUES ( '$recinto', '$fecha', '$hora', '$beta_gamma', '$alfa', '$tasa_dosis') ON DUPLICATE KEY UPDATE fecha = '$fecha' , hora = '$hora' , beta_gamma_Bq_cm2 = '$beta_gamma' , alfa_Bq_cm2 = '$alfa' , tasa_dosis_equivalente_microsv_h = '$tasa_dosis' ;";
-
-		$query = mysql_query($select, $dbh2) or die(mysql_error());
-
+		if ($dbh2) {
+			$select = "INSERT INTO `cont_sup_reg_radiologico`(id_recinto, fecha, hora, beta_gamma_Bq_cm2, alfa_Bq_cm2, tasa_dosis_equivalente_microsv_h) VALUES ( '$recinto', '$fecha', '$hora', '$beta_gamma', '$alfa', '$tasa_dosis') ON DUPLICATE KEY UPDATE fecha = '$fecha' , hora = '$hora' , beta_gamma_Bq_cm2 = '$beta_gamma' , alfa_Bq_cm2 = '$alfa' , tasa_dosis_equivalente_microsv_h = '$tasa_dosis' ;";
+			@mysql_query($select, $dbh2);
+		}
 		//-------- FIN conexion con servidor de jose martinez -----------
 		echo "ok";
 	} else {
@@ -1236,18 +1699,31 @@ if ($accion == "recuperar_valores_contaminacion_superficial") {
 	}
 }
 if ($accion == "guardar_valores_eficiencia_dryers") {
-	$id_planilla = $_GET['id_planilla'];
-	$id_usuario = $_GET['id_usuario'];
-	$fecha = $_GET['fecha'];
-	$hora = $_GET['hora'];
-	$dryers = $_GET['dryers'];
-	$entrada = $_GET['entrada'];
-	$salida = $_GET['salida'];
+	$id_planilla = intval($_GET['id_planilla']);
+	$id_usuario = $ctx_aud['desde_sesion'] ? $ctx_aud['usuario_id'] : $_GET['id_usuario'];
+	$fecha = mysql_real_escape_string($_GET['fecha'], $miconex);
+	$hora = mysql_real_escape_string($_GET['hora'], $miconex);
+	$dryers = mysql_real_escape_string($_GET['dryers'], $miconex);
+	$entrada = mysql_real_escape_string($_GET['entrada'], $miconex);
+	$salida = mysql_real_escape_string($_GET['salida'], $miconex);
+
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla, $motivo_aud_req));
 
 	$query_guardar_valores_eficiencia_dryers = "INSERT INTO `regrad_eficiencia_dryers`(`id_planilla`, `fecha`, `hora`, `dryers`, `entrada_dac`, `salida_dac`, `usuario`) VALUES ('$id_planilla','$fecha','$hora','$dryers','$entrada','$salida','$id_usuario')";
 	$guardar_valores_eficiencia_dryers = mysql_query($query_guardar_valores_eficiencia_dryers, $miconex) or die(mysql_error());
 
 	if ($guardar_valores_eficiencia_dryers) {
+		$new_id = mysql_insert_id($miconex);
+		$despues = auditoria_snapshot_fila($miconex, 'regrad_eficiencia_dryers', 'id_eficiencia_dryers', $new_id);
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla,
+			'modulo' => 'DRYERS',
+			'accion' => 'CREAR',
+			'tabla_afectada' => 'regrad_eficiencia_dryers',
+			'id_registro' => $new_id,
+			'datos_despues' => $despues,
+			'fallback_uid' => $id_usuario
+		));
 		echo "ok";
 	} else {
 		echo "mal";
@@ -1627,9 +2103,34 @@ if ($accion == "listar_efluentes_liquidos_json") {
 }
 if ($accion == "eliminar_efluente_liquido") {
 	$id_efluentes = intval($_GET['id_efluentes']);
+	$antes = auditoria_snapshot_fila($miconex, 'regrad_efluentes_liquidos_nueva', 'id_efluentes', $id_efluentes);
+	$id_planilla_ef = ($antes && isset($antes['id_planilla'])) ? intval($antes['id_planilla']) : 0;
+	proc_validar_guard(auditoria_exigir_permiso_escritura_planilla($miconex, $id_planilla_ef, $motivo_aud_req));
+
+	$rads_antes = array();
+	$q_ra = @mysql_query("SELECT * FROM `regrad_efluentes_liquidos_radionucleidos` WHERE id_regrad_efluentes_liquidos = $id_efluentes", $miconex);
+	if ($q_ra && mysql_num_rows($q_ra) > 0) {
+		while ($rr = mysql_fetch_assoc($q_ra)) {
+			$rads_antes[] = $rr;
+		}
+	}
+
 	mysql_query("DELETE FROM `regrad_efluentes_liquidos_radionucleidos` WHERE id_regrad_efluentes_liquidos = $id_efluentes", $miconex);
 	mysql_query("DELETE FROM `reg_rad_efluentes_liquidos_radionucleidos_calculos_archivo` WHERE id_efluentes = $id_efluentes", $miconex);
 	$res_del = mysql_query("DELETE FROM `regrad_efluentes_liquidos_nueva` WHERE id_efluentes = $id_efluentes", $miconex);
+	if ($res_del) {
+		if ($antes) {
+			$antes['radionucleidos'] = $rads_antes;
+		}
+		auditoria_registrar($miconex, array(
+			'id_planilla' => $id_planilla_ef,
+			'modulo' => 'LIQUIDOS',
+			'accion' => 'ELIMINAR',
+			'tabla_afectada' => 'regrad_efluentes_liquidos_nueva',
+			'id_registro' => $id_efluentes,
+			'datos_antes' => $antes
+		));
+	}
 	echo ($res_del) ? "ok" : "mal";
 	exit;
 }
@@ -1685,5 +2186,337 @@ if ($accion == "historial_recinto") {
 	echo json_encode(array('ok' => true, 'id_recinto' => $id_recinto, 'items' => $items));
 	exit;
 }
-Mysql_close();
+
+if ($accion == "verificar_disponibilidad_turno") {
+	header('Content-Type: application/json; charset=utf-8');
+	$fecha_sql = isset($_GET['fecha_planilla']) ? trim($_GET['fecha_planilla']) : '';
+	$id_turno = isset($_GET['id_turno']) ? intval($_GET['id_turno']) : 0;
+	$excluir_id = isset($_GET['excluir_id_planilla']) ? intval($_GET['excluir_id_planilla']) : 0;
+
+	if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_sql) || $id_turno <= 0) {
+		echo json_encode(array('ok' => false, 'error' => 'Fecha o turno inválidos.'));
+		exit;
+	}
+
+	$f_esc = mysql_real_escape_string($fecha_sql, $miconex);
+	$and_exc = ($excluir_id > 0) ? (" AND a.id_planilla_diaria <> " . $excluir_id) : "";
+
+	$q_conf = "SELECT a.*, b.horarios, d.of_apellido, d.of_nombre
+	           FROM `regrad_planilla_diaria_nueva` a
+	           LEFT JOIN `regrad_turnos` b ON b.id_turnos = a.turno
+	           LEFT JOIN `regrad_of_rad` d ON d.id_of_rad = a.of_rad
+	           WHERE a.fecha = '$f_esc' AND a.turno = $id_turno $and_exc
+	           LIMIT 1";
+	$res_conf = @mysql_query($q_conf, $miconex);
+	$disponible = true;
+	$conflicto = null;
+	$casilleros_libres = array();
+
+	if ($res_conf && mysql_num_rows($res_conf) > 0) {
+		$disponible = false;
+		$row_c = mysql_fetch_assoc($res_conf);
+		$perm_corr = auditoria_puede_corregir_fecha_turno($miconex, $row_c);
+		$pf = explode('-', $row_c['fecha']);
+		$f_lat = (count($pf) == 3) ? ($pf[2] . '/' . $pf[1] . '/' . $pf[0]) : $row_c['fecha'];
+		$of_nom = trim((isset($row_c['of_apellido']) ? $row_c['of_apellido'] : '') . ', ' . (isset($row_c['of_nombre']) ? $row_c['of_nombre'] : ''));
+
+		// Contar registros hijos con esa fecha en la planilla en conflicto
+		$cid = intval($row_c['id_planilla_diaria']);
+		$tablas_hijas = array('regrad_relevamiento_rutina', 'regrad_tritio', 'regrad_gases_nobles', 'regrad_carbono14', 'regrad_dedo_frio', 'regrad_control_precintos', 'regrad_cond_meteorologica', 'regrad_espectr_conc_radionuclei', 'regrad_efluentes_liquidos_nueva', 'regrad_contaminacion_superficial', 'regrad_eficiencia_dryers');
+		$total_hijas = 0;
+		foreach ($tablas_hijas as $th) {
+			$rh = @mysql_query("SELECT COUNT(*) as c FROM `$th` WHERE id_planilla = $cid AND fecha = '$f_esc'", $miconex);
+			if ($rh) {
+				$rw_h = mysql_fetch_assoc($rh);
+				$total_hijas += intval($rw_h['c']);
+			}
+		}
+
+		$conflicto = array(
+			'id_planilla' => $cid,
+			'fecha' => $row_c['fecha'],
+			'fecha_latam' => $f_lat,
+			'turno' => intval($row_c['turno']),
+			'horarios' => isset($row_c['horarios']) ? $row_c['horarios'] : ('Turno #' . $row_c['turno']),
+			'oficial' => $of_nom !== ',' ? $of_nom : 'Sin especificar',
+			'fecha_hora_abierto' => isset($row_c['fecha_hora_abierto']) ? $row_c['fecha_hora_abierto'] : null,
+			'fecha_hora_cerrado' => isset($row_c['fecha_hora_cerrado']) ? $row_c['fecha_hora_cerrado'] : null,
+			'esta_cerrada' => (!empty($row_c['fecha_hora_cerrado']) && $row_c['fecha_hora_cerrado'] !== '0000-00-00 00:00:00'),
+			'puede_corregir' => !empty($perm_corr['permitido']),
+			'modo_correccion' => $perm_corr['modo'],
+			'motivo_bloqueo' => $perm_corr['motivo_bloqueo'],
+			'registros_hijos_con_fecha' => $total_hijas
+		);
+
+		// Sugerir casilleros adyacentes libres (-1 día, +1 día, otros turnos del mismo día y día anterior)
+		$ts_base = strtotime($row_c['fecha']);
+		$fechas_cand = array(
+			date('Y-m-d', strtotime('-1 day', $ts_base)),
+			$row_c['fecha'],
+			date('Y-m-d', strtotime('+1 day', $ts_base))
+		);
+		$turnos_disp = array();
+		$rt = @mysql_query("SELECT id_turnos, horarios FROM `regrad_turnos` ORDER BY id_turnos ASC", $miconex);
+		if ($rt && mysql_num_rows($rt) > 0) {
+			while ($tw = mysql_fetch_assoc($rt)) {
+				$turnos_disp[] = array('id' => intval($tw['id_turnos']), 'horarios' => $tw['horarios']);
+			}
+		}
+		foreach ($fechas_cand as $fc) {
+			$fc_esc = mysql_real_escape_string($fc, $miconex);
+			$pfc = explode('-', $fc);
+			$fc_lat = $pfc[2] . '/' . $pfc[1] . '/' . $pfc[0];
+			foreach ($turnos_disp as $td) {
+				$tid = $td['id'];
+				if ($fc === $row_c['fecha'] && $tid === intval($row_c['turno'])) continue;
+				$r_chk = @mysql_query("SELECT id_planilla_diaria FROM `regrad_planilla_diaria_nueva` WHERE fecha = '$fc_esc' AND turno = $tid LIMIT 1", $miconex);
+				if (!$r_chk || mysql_num_rows($r_chk) === 0) {
+					$casilleros_libres[] = array(
+						'fecha' => $fc,
+						'fecha_latam' => $fc_lat,
+						'turno' => $tid,
+						'horarios' => $td['horarios']
+					);
+				}
+			}
+		}
+	}
+
+	// Verificar secuencia respecto a la última planilla registrada (para alertar saltos)
+	$alerta_salto = null;
+	$q_ult = "SELECT a.id_planilla_diaria, a.fecha, a.turno, b.horarios
+	          FROM `regrad_planilla_diaria_nueva` a
+	          LEFT JOIN `regrad_turnos` b ON b.id_turnos = a.turno
+	          WHERE 1=1 $and_exc
+	          ORDER BY a.fecha DESC, a.turno DESC, a.id_planilla_diaria DESC LIMIT 1";
+	$res_ult = @mysql_query($q_ult, $miconex);
+	if ($res_ult && mysql_num_rows($res_ult) > 0) {
+		$ru = mysql_fetch_assoc($res_ult);
+		$esp = auditoria_calcular_turno_siguiente($miconex, $ru['fecha'], $ru['turno']);
+		if ($esp) {
+			$ts_sel = strtotime($fecha_sql);
+			$ts_esp = strtotime($esp['fecha']);
+			$diff_dias = ($ts_sel !== false && $ts_esp !== false) ? intval(round(($ts_sel - $ts_esp) / 86400)) : 0;
+			$es_misma_esperada = ($fecha_sql === $esp['fecha'] && $id_turno === intval($esp['turno']));
+			// Alertar si saltea al menos 1 día hacia adelante, o si va hacia atrás respecto a la última planilla
+			if (!$es_misma_esperada && ($diff_dias >= 1 || $diff_dias <= -1 || ($fecha_sql === $esp['fecha'] && $id_turno > intval($esp['turno']) + 1))) {
+				$pu = explode('-', $ru['fecha']);
+				$u_lat = (count($pu) == 3) ? ($pu[2] . '/' . $pu[1] . '/' . $pu[0]) : $ru['fecha'];
+				$pe = explode('-', $esp['fecha']);
+				$e_lat = (count($pe) == 3) ? ($pe[2] . '/' . $pe[1] . '/' . $pe[0]) : $esp['fecha'];
+
+				// Verificar que el turno esperado esté libre
+				$ef_esc = mysql_real_escape_string($esp['fecha'], $miconex);
+				$et_id = intval($esp['turno']);
+				$r_esp_libre = @mysql_query("SELECT id_planilla_diaria FROM `regrad_planilla_diaria_nueva` WHERE fecha = '$ef_esc' AND turno = $et_id $and_exc LIMIT 1", $miconex);
+				$esp_libre = (!$r_esp_libre || mysql_num_rows($r_esp_libre) === 0);
+
+				$alerta_salto = array(
+					'ultima_id' => intval($ru['id_planilla_diaria']),
+					'ultima_fecha' => $ru['fecha'],
+					'ultima_fecha_latam' => $u_lat,
+					'ultima_turno' => intval($ru['turno']),
+					'ultima_horarios' => isset($ru['horarios']) ? $ru['horarios'] : ('Turno #' . $ru['turno']),
+					'esperada_fecha' => $esp['fecha'],
+					'esperada_fecha_latam' => $e_lat,
+					'esperada_turno' => $et_id,
+					'esperada_horarios' => $esp['horarios'],
+					'esperada_libre' => $esp_libre,
+					'diff_dias' => $diff_dias
+				);
+			}
+		}
+	}
+
+	echo json_encode(array(
+		'ok' => true,
+		'disponible' => $disponible,
+		'conflicto' => $conflicto,
+		'casilleros_libres' => $casilleros_libres,
+		'alerta_salto' => $alerta_salto
+	));
+	exit;
+}
+
+if ($accion == "corregir_fecha_turno_planilla") {
+	header('Content-Type: application/json; charset=utf-8');
+	$id_planilla = isset($_POST['id_planilla']) ? intval($_POST['id_planilla']) : (isset($_GET['id_planilla']) ? intval($_GET['id_planilla']) : 0);
+	$nueva_fecha = isset($_POST['nueva_fecha']) ? trim($_POST['nueva_fecha']) : (isset($_GET['nueva_fecha']) ? trim($_GET['nueva_fecha']) : '');
+	$nuevo_turno = isset($_POST['nuevo_turno']) ? intval($_POST['nuevo_turno']) : (isset($_GET['nuevo_turno']) ? intval($_GET['nuevo_turno']) : 0);
+	$motivo = isset($_POST['motivo']) ? trim($_POST['motivo']) : (isset($_GET['motivo']) ? trim($_GET['motivo']) : '');
+	$sincronizar_hijas = isset($_POST['sincronizar_hijas']) ? ($_POST['sincronizar_hijas'] == '1' || $_POST['sincronizar_hijas'] === 'true') : (isset($_GET['sincronizar_hijas']) ? ($_GET['sincronizar_hijas'] == '1' || $_GET['sincronizar_hijas'] === 'true') : true);
+
+	if ($id_planilla <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $nueva_fecha) || $nuevo_turno <= 0) {
+		echo json_encode(array('ok' => false, 'error' => 'Parámetros inválidos (planilla, fecha YYYY-MM-DD o turno).'));
+		exit;
+	}
+	if (strlen($motivo) < 4) {
+		echo json_encode(array('ok' => false, 'error' => 'Debe ingresar un motivo descriptivo (mínimo 4 caracteres).'));
+		exit;
+	}
+
+	// 1. Fail-closed: verificar salud del log antes de tocar nada
+	$salud = auditoria_verificar_salud($miconex);
+	if (!$salud['ok']) {
+		if (function_exists('http_response_code')) http_response_code(503);
+		echo json_encode(array('ok' => false, 'error' => 'Operación abortada: el log de auditoría no está operativo (' . $salud['mensaje'] . ').'));
+		exit;
+	}
+
+	// 2. Obtener planilla actual y validar permisos
+	$antes = auditoria_obtener_planilla($miconex, $id_planilla);
+	if (!$antes) {
+		echo json_encode(array('ok' => false, 'error' => 'No se encontró la planilla #' . $id_planilla . '.'));
+		exit;
+	}
+
+	$perm = auditoria_puede_corregir_fecha_turno($miconex, $antes);
+	if (!$perm['permitido']) {
+		if (function_exists('http_response_code')) http_response_code(403);
+		echo json_encode(array('ok' => false, 'error' => $perm['motivo_bloqueo']));
+		exit;
+	}
+
+	// En modo auto-destrabe de emergencia, restringir el destino a ±1 día respecto a la fecha original
+	if ($perm['modo'] === 'autodestrabe_emergencia') {
+		$diff_emerg = abs(round((strtotime($nueva_fecha) - strtotime($antes['fecha'])) / 86400));
+		if ($diff_emerg > 1) {
+			if (function_exists('http_response_code')) http_response_code(400);
+			echo json_encode(array('ok' => false, 'error' => 'El auto-destrabe de emergencia solo permite mover la planilla a una fecha adyacente (±1 día).'));
+			exit;
+		}
+	}
+
+	// 3. Verificar que no exista otra planilla con (nueva_fecha, nuevo_turno)
+	$nf_esc = mysql_real_escape_string($nueva_fecha, $miconex);
+	$q_chk = "SELECT id_planilla_diaria FROM `regrad_planilla_diaria_nueva` WHERE fecha = '$nf_esc' AND turno = $nuevo_turno AND id_planilla_diaria <> $id_planilla LIMIT 1";
+	$res_chk = @mysql_query($q_chk, $miconex);
+	if ($res_chk && mysql_num_rows($res_chk) > 0) {
+		$r_dup = mysql_fetch_assoc($res_chk);
+		echo json_encode(array('ok' => false, 'error' => 'El casillero destino ya está ocupado por la Planilla #' . intval($r_dup['id_planilla_diaria']) . '.'));
+		exit;
+	}
+
+	$fecha_anterior = $antes['fecha'];
+	$turno_anterior = intval($antes['turno']);
+
+	// 4. Actualizar cabecera de planilla
+	$ok_upd = @mysql_query("UPDATE `regrad_planilla_diaria_nueva` SET `fecha` = '$nf_esc', `turno` = $nuevo_turno WHERE id_planilla_diaria = $id_planilla", $miconex);
+	if (!$ok_upd) {
+		echo json_encode(array('ok' => false, 'error' => 'Error SQL al actualizar planilla: ' . mysql_error($miconex)));
+		exit;
+	}
+
+	// 5. Opcionalmente sincronizar fecha en tablas hijas donde fecha == fecha_anterior
+	$detalle_hijas = array();
+	$total_hijas_actualizadas = 0;
+	if ($sincronizar_hijas && $fecha_anterior !== $nueva_fecha) {
+		$fa_esc = mysql_real_escape_string($fecha_anterior, $miconex);
+		$tablas_hijas = array(
+			'regrad_relevamiento_rutina',
+			'regrad_tritio',
+			'regrad_gases_nobles',
+			'regrad_carbono14',
+			'regrad_dedo_frio',
+			'regrad_tritio_concentrador',
+			'regrad_control_precintos',
+			'regrad_cond_meteorologica',
+			'regrad_espectr_conc_radionuclei',
+			'regrad_efluentes_liquidos_nueva',
+			'reg_rad_efluentes_liquidos_radionucleidos_calculos_archivo',
+			'regrad_contaminacion_superficial',
+			'regrad_eficiencia_dryers'
+		);
+		foreach ($tablas_hijas as $th) {
+			$u_h = @mysql_query("UPDATE `$th` SET `fecha` = '$nf_esc' WHERE id_planilla = $id_planilla AND fecha = '$fa_esc'", $miconex);
+			if ($u_h) {
+				$aff = @mysql_affected_rows($miconex);
+				if ($aff > 0) {
+					$detalle_hijas[$th] = $aff;
+					$total_hijas_actualizadas += $aff;
+				}
+			}
+		}
+	}
+
+	$despues = auditoria_obtener_planilla($miconex, $id_planilla);
+	$cerrada = (!empty($antes['fecha_hora_cerrado']) && $antes['fecha_hora_cerrado'] !== '0000-00-00 00:00:00');
+
+	$id_log = auditoria_registrar($miconex, array(
+		'id_planilla' => $id_planilla,
+		'planilla_cerrada' => $cerrada ? 1 : 0,
+		'modulo' => 'PLANILLA',
+		'accion' => 'CORREGIR_FECHA_TURNO',
+		'tabla_afectada' => 'regrad_planilla_diaria_nueva',
+		'id_registro' => $id_planilla,
+		'datos_antes' => array(
+			'fecha' => $fecha_anterior,
+			'turno' => $turno_anterior,
+			'horarios' => isset($antes['horarios']) ? $antes['horarios'] : ''
+		),
+		'datos_despues' => array(
+			'fecha' => $nueva_fecha,
+			'turno' => $nuevo_turno,
+			'horarios' => isset($despues['horarios']) ? $despues['horarios'] : '',
+			'modo_autorizacion' => $perm['modo'],
+			'sincronizar_hijas' => $sincronizar_hijas,
+			'hijas_actualizadas' => $total_hijas_actualizadas,
+			'detalle_hijas' => $detalle_hijas
+		),
+		'motivo' => $motivo
+	));
+
+	// 6. Enviar alerta por correo al administrador (U0) si la planilla estaba cerrada o fue auto-destrabe
+	$mail_alerta = null;
+	if ($cerrada || $perm['modo'] === 'autodestrabe_emergencia') {
+		$asunto_al = "[SyR Auditoría] Corrección de Fecha/Turno — Planilla #$id_planilla";
+		$cuerpo_al = "<div style='font-family:Arial,sans-serif;font-size:13px;color:#111;'>"
+			. "<h3 style='color:#b45309;'>Corrección de Fecha / Turno Registrada</h3>"
+			. "<p><strong>Planilla:</strong> #$id_planilla (" . ($cerrada ? 'CERRADA / POST-CIERRE' : 'ABIERTA') . ")</p>"
+			. "<p><strong>Realizado por:</strong> " . htmlspecialchars($ctx_aud['usuario_nombre'], ENT_QUOTES, 'UTF-8') . " (ID: " . htmlspecialchars($ctx_aud['usuario_id'], ENT_QUOTES, 'UTF-8') . " — Modo: " . htmlspecialchars($perm['modo'], ENT_QUOTES, 'UTF-8') . ")</p>"
+			. "<p><strong>Antes:</strong> Fecha <code>$fecha_anterior</code> | Turno <code>$turno_anterior</code> (" . htmlspecialchars(isset($antes['horarios']) ? $antes['horarios'] : '', ENT_QUOTES, 'UTF-8') . ")</p>"
+			. "<p><strong>Después:</strong> Fecha <code>$nueva_fecha</code> | Turno <code>$nuevo_turno</code> (" . htmlspecialchars(isset($despues['horarios']) ? $despues['horarios'] : '', ENT_QUOTES, 'UTF-8') . ")</p>"
+			. "<p><strong>Registros hijos sincronizados:</strong> $total_hijas_actualizadas</p>"
+			. "<p><strong>Motivo informado:</strong> " . htmlspecialchars($motivo, ENT_QUOTES, 'UTF-8') . "</p>"
+			. "<p style='color:#555;font-size:11px;'>ID de Log de Auditoría: #$id_log | IP: " . htmlspecialchars($ctx_aud['ip_origen'], ENT_QUOTES, 'UTF-8') . " | Fecha: " . date('d/m/Y H:i:s') . "</p>"
+			. "</div>";
+		$mail_alerta = auditoria_enviar_alerta_correo($miconex, $asunto_al, $cuerpo_al);
+	}
+
+	echo json_encode(array(
+		'ok' => true,
+		'id_planilla' => $id_planilla,
+		'id_log' => $id_log,
+		'hijas_actualizadas' => $total_hijas_actualizadas,
+		'mail_alerta' => $mail_alerta,
+		'mensaje' => 'Fecha y turno de la Planilla #' . $id_planilla . ' actualizados correctamente.'
+	));
+	exit;
+}
+
+if ($accion == "resolver_nombre_usuario") {
+	header('Content-Type: application/json; charset=utf-8');
+	if (!$ctx_aud['es_u0']) {
+		if (function_exists('http_response_code')) http_response_code(403);
+		echo json_encode(array('ok' => false, 'error' => 'Solo el Usuario 0 puede consultar usuarios.'));
+		exit;
+	}
+	$uid = isset($_GET['uid']) ? trim($_GET['uid']) : '';
+	if ($uid === '') {
+		echo json_encode(array('ok' => false, 'error' => 'ID vacío.'));
+		exit;
+	}
+	$nom = '';
+	if (function_exists('nombre_usuario_web')) {
+		$nom = trim((string)@nombre_usuario_web($uid));
+	}
+	echo json_encode(array(
+		'ok' => true,
+		'uid' => $uid,
+		'nombre' => $nom !== '' ? (function_exists('mb_strtoupper') ? mb_strtoupper($nom, 'UTF-8') : strtoupper($nom)) : ''
+	));
+	exit;
+}
+
+@mysql_close();
 ?>
