@@ -39,6 +39,7 @@ if ($current_hour >= 0 && $current_hour < 5) {
 $id_planilla_activa = 10843;
 $sin_planilla_abierta = false;
 $id_usuario_actual = isset($_SESSION['id_user']) ? $_SESSION['id_user'] : 1;
+$es_usuario_admin_u0 = (isset($_SESSION['id_user']) && (string)$_SESSION['id_user'] === '0');
 // Oficial creador que inició la planilla activa
 $oficial_iniciador_nombre = "ROLHAUSER, MARIANO";
 $oficial_iniciador_id = 2;
@@ -4733,9 +4734,13 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         <div class="modal-header-left">
           <span style="color: var(--accent-cyan);">⚙️</span> Configuración y Apertura de Turno
         </div>
-        <button type="button" class="btn-modal-close" onclick="closeShiftModal()" title="Cerrar modal (Esc)">✕</button>
+        <button type="button" class="btn-modal-close" id="btn-shift-modal-close" onclick="closeShiftModal()" title="<?php echo (!empty($sin_planilla_abierta) && $es_usuario_admin_u0) ? 'Cerrar sin abrir planilla (Solo Usuario 0 / Pruebas)' : 'Cerrar modal (Esc)'; ?>"<?php if (!empty($sin_planilla_abierta) && !$es_usuario_admin_u0) echo ' style="display: none;"'; ?>>✕</button>
       </div>
       <div class="modal-body">
+
+        <div id="shift-required-notice" style="padding: 10px 12px; border-radius: 6px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.45); font-size: 11.5px; color: #fde68a; margin-bottom: 12px; line-height: 1.45;<?php if (empty($sin_planilla_abierta)) echo ' display: none;'; ?>">
+          <strong>⚠️ Apertura Obligatoria de Turno:</strong> No existe una planilla abierta activa. Debe iniciar una nueva planilla para operar en el sistema.<?php if ($es_usuario_admin_u0): ?> <span style="color: var(--accent-cyan); font-weight: 700;">(Usuario 0: cierre habilitado para pruebas)</span><?php endif; ?>
+        </div>
         
         <div class="field-group" style="margin-bottom: 12px;">
           <label class="field-label">Seleccione Turno de Trabajo</label>
@@ -4801,8 +4806,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
       </div>
       <div class="modal-footer">
-        <button class="btn-modal-cancel" onclick="closeShiftModal()">CANCELAR</button>
-        <button class="btn-modal-confirm" onclick="applyShiftConfig()">GUARDAR Y APLICAR AL TURNO</button>
+        <button type="button" class="btn-modal-cancel" id="btn-shift-modal-cancel" onclick="closeShiftModal()"<?php if (!empty($sin_planilla_abierta) && !$es_usuario_admin_u0) echo ' style="display: none;"'; ?>><?php echo (!empty($sin_planilla_abierta) && $es_usuario_admin_u0) ? 'CANCELAR (U0)' : 'CANCELAR'; ?></button>
+        <button type="button" class="btn-modal-confirm" id="btn-shift-modal-confirm" onclick="applyShiftConfig()">GUARDAR Y APLICAR AL TURNO</button>
       </div>
     </div>
   </div>
@@ -6027,6 +6032,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
   <script>
     let activePlanillaId = <?php echo $id_planilla_activa ? $id_planilla_activa : 'null'; ?>;
+    let sinPlanillaAbierta = <?php echo !empty($sin_planilla_abierta) ? 'true' : 'false'; ?>;
+    const ES_USUARIO_U0 = <?php echo $es_usuario_admin_u0 ? 'true' : 'false'; ?>;
     const ACTIVE_USUARIO_ID = <?php echo (int)($id_usuario_actual ? $id_usuario_actual : 1); ?>;
     const RADIONUCLEIDOS_LIQ_CATALOG = <?php $j_rl = json_encode($radionucleidos_liq_array); echo $j_rl ? $j_rl : '[]'; ?>;
     const UNIDADES_VOL_LIQ_CATALOG = <?php $j_uv = json_encode($unidades_vol_liq_array); echo $j_uv ? $j_uv : '[]'; ?>;
@@ -6083,6 +6090,31 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     });
 
     // ================= INTELIGENCIA DE TURNO NOCHE & APERTURA =================
+    function isShiftModalLockActive() {
+      return Boolean(sinPlanillaAbierta && !ES_USUARIO_U0);
+    }
+
+    function syncShiftModalLockUI() {
+      const locked = isShiftModalLockActive();
+      const btnClose = document.getElementById('btn-shift-modal-close');
+      const btnCancel = document.getElementById('btn-shift-modal-cancel');
+      const notice = document.getElementById('shift-required-notice');
+
+      if (btnClose) {
+        btnClose.style.display = locked ? 'none' : '';
+        btnClose.title = (sinPlanillaAbierta && ES_USUARIO_U0)
+          ? 'Cerrar sin abrir planilla (Solo Usuario 0 / Pruebas)'
+          : 'Cerrar modal (Esc)';
+      }
+      if (btnCancel) {
+        btnCancel.style.display = locked ? 'none' : '';
+        btnCancel.textContent = (sinPlanillaAbierta && ES_USUARIO_U0) ? 'CANCELAR (U0)' : 'CANCELAR';
+      }
+      if (notice) {
+        notice.style.display = sinPlanillaAbierta ? 'block' : 'none';
+      }
+    }
+
     function openShiftModal(autoSuggestNow = false) {
       const turnoSel = document.getElementById('modal-select-turno');
       const fechaInp = document.getElementById('modal-fecha-operativa');
@@ -6109,11 +6141,16 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         const a = targetDate.getFullYear();
         fechaInp.value = `${d}/${m}/${a}`;
       }
+      syncShiftModalLockUI();
       document.getElementById('shift-config-modal').style.display = 'flex';
       checkNightShiftLogic();
     }
 
-    function closeShiftModal() {
+    function closeShiftModal(force = false) {
+      if (!force && isShiftModalLockActive()) {
+        showToast('⚠️ Debe iniciar una nueva planilla de turno para continuar.', 3200);
+        return;
+      }
       document.getElementById('shift-config-modal').style.display = 'none';
     }
 
@@ -6172,6 +6209,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       const oficial = document.getElementById('modal-select-oficial').value;
       const jefe = document.getElementById('modal-select-jefe').value;
       const planta = document.getElementById('modal-select-planta').value;
+      const confirmBtn = document.getElementById('btn-shift-modal-confirm');
 
       document.getElementById('topbar-latam-date').textContent = fecha;
       document.getElementById('q-fecha').value = fecha;
@@ -6188,19 +6226,50 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       // Sincronizar vía AJAX si el backend existe
       const partes = fecha.split('/');
       const fechaSql = partes.length === 3 ? `${partes[2]}-${partes[1]}-${partes[0]}` : fecha;
+      const debeEsperarApertura = Boolean(sinPlanillaAbierta);
+
+      if (debeEsperarApertura && confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'INICIANDO PLANILLA...';
+      }
 
       fetch(`procesos_reg_rad.php?accion=crear_planilla_nueva&id_user=1&id_oficial=1&id_turno=${turnoId}&fecha_planilla=${fechaSql}&id_jefe_turno=1&estados_planta=${encodeURIComponent(planta)}`)
         .then(r => r.text())
         .then(res => {
-          if (res && res !== 'mal') {
-            activePlanillaId = parseInt(res);
+          const cleanRes = (res || '').trim();
+          const newId = parseInt(cleanRes, 10);
+          if (cleanRes && cleanRes !== 'mal' && !isNaN(newId) && newId > 0) {
+            activePlanillaId = newId;
+            sinPlanillaAbierta = false;
+            closeShiftModal(true);
+            showToast('✔️ Planilla de guardia #' + newId + ' iniciada correctamente');
             window.location.href = 'demo_planilla.php';
+          } else if (debeEsperarApertura) {
+            if (confirmBtn) {
+              confirmBtn.disabled = false;
+              confirmBtn.textContent = 'GUARDAR Y APLICAR AL TURNO';
+            }
+            showToast('❌ No se pudo iniciar la nueva planilla. Intente nuevamente.', 4000);
           }
         })
-        .catch(e => console.log('Standalone mode active'));
+        .catch(e => {
+          console.log('Standalone mode active');
+          if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'GUARDAR Y APLICAR AL TURNO';
+          }
+          if (!debeEsperarApertura || ES_USUARIO_U0) {
+            closeShiftModal(true);
+            showToast('✔️ Planilla de guardia configurada en modo pruebas');
+          } else {
+            showToast('❌ Error de conexión al crear la planilla. Reintente.', 4000);
+          }
+        });
 
-      closeShiftModal();
-      showToast('✔️ Planilla de guardia configurada correctamente');
+      if (!debeEsperarApertura) {
+        closeShiftModal(true);
+        showToast('✔️ Planilla de guardia configurada correctamente');
+      }
     }
 
     // ================= RELOJ EN VIVO =================
@@ -8368,6 +8437,10 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           if (e.target === overlay) closeHandoverModal(true);
           return;
         }
+        if (overlay.id === 'shift-config-modal') {
+          if (e.target === overlay) closeShiftModal();
+          return;
+        }
         if (e.target === overlay) {
           overlay.style.display = 'none';
           if (overlay.id === 'confirm-modal') {
@@ -8383,6 +8456,12 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
           if (overlay.id === 'modal-traspaso-guardia') {
             closeHandoverModal(true);
+            return;
+          }
+          if (overlay.id === 'shift-config-modal') {
+            if (overlay.style.display === 'flex' || overlay.style.display === 'block') {
+              closeShiftModal();
+            }
             return;
           }
           if (overlay.style.display === 'flex' || overlay.style.display === 'block') {
@@ -9962,8 +10041,6 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       }
     }
 
-    let sinPlanillaAbierta = <?php echo !empty($sin_planilla_abierta) ? 'true' : 'false'; ?>;
-
     function mostrarPasoAdvertenciaCierre() {
       const modal = document.getElementById('modal-traspaso-guardia');
       if (modal) modal.style.display = 'flex';
@@ -11019,8 +11096,8 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
           if (p2) p2.style.display = 'none';
         }
       } else if (sinPlanillaAbierta) {
+        openShiftModal();
         setTimeout(() => {
-          openShiftModal();
           showToast('✨ No hay planilla abierta activa. Configure su nuevo turno.');
         }, 400);
       }
