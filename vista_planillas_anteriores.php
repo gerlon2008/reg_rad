@@ -1017,6 +1017,90 @@ if (!$db_connected) {
       color: #ffffff;
     }
 
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(2, 8, 7, 0.85);
+      backdrop-filter: blur(4px);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 10px;
+      width: 100%;
+      max-width: 560px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 22px 48px rgba(0, 0, 0, 0.72);
+      position: relative;
+      overflow: hidden;
+      animation: modalSlide 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .btn-modal-close {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      font-size: 20px;
+      line-height: 1;
+      padding: 3px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    .btn-modal-close:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--border-card);
+      color: #ffffff;
+    }
+
+    .btn-modal-cancel {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-card);
+      color: var(--text-main);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    .btn-modal-cancel:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+
+    .btn-modal-confirm {
+      background: var(--accent-cyan);
+      border: none;
+      color: #04120e;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    .btn-modal-confirm:hover {
+      filter: brightness(1.08);
+    }
+
+    .btn-modal-confirm:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
     .modal-body {
       padding: 16px;
       overflow-y: auto;
@@ -2444,6 +2528,15 @@ if (!$db_connected) {
           st.textContent = '❌ Error de conexión al comunicarse con procesos_reg_rad.php.';
         });
     }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        const mCorr = document.getElementById('modal-corregir-fecha-hist');
+        if (mCorr && mCorr.style.display === 'flex') cerrarModalCorregirFechaHist();
+        const mMail = document.getElementById('modal-enviar-mail-confirm');
+        if (mMail && mMail.style.display === 'flex' && typeof closeEnviarMailModal === 'function') closeEnviarMailModal();
+      }
+    });
   </script>
 
 </body>
