@@ -6,7 +6,8 @@
 // =========================================================================================
 
 $db_connected = false;
-$id_planilla = isset($_GET['id_planilla']) ? (int)$_GET['id_planilla'] : 1482;
+$id_planilla_param = isset($_GET['id_planilla']) ? (int)$_GET['id_planilla'] : 0;
+$id_planilla = $id_planilla_param > 0 ? $id_planilla_param : 1482;
 $usuario_nombre = "OFICIAL DE GUARDIA";
 $usuario_rol = "Oficial de Radioprotección";
 
@@ -27,6 +28,18 @@ if (file_exists($_SERVER["DOCUMENT_ROOT"]."/ptr/Connections/miconex.php")) {
         @mysql_set_charset('utf8', $miconex);
         @mysql_select_db($database_miconex, $miconex);
         $db_connected = true;
+
+        if ($id_planilla_param <= 0) {
+            $r_cur = @mysql_query("SELECT id_planilla_diaria FROM regrad_planilla_diaria_nueva WHERE fecha_hora_cerrado IS NULL ORDER BY id_planilla_diaria DESC LIMIT 1", $miconex);
+            if ($r_cur && ($rw_cur = mysql_fetch_assoc($r_cur))) {
+                $id_planilla = (int)$rw_cur['id_planilla_diaria'];
+            } else {
+                $r_ult = @mysql_query("SELECT id_planilla_diaria FROM regrad_planilla_diaria_nueva ORDER BY id_planilla_diaria DESC LIMIT 1", $miconex);
+                if ($r_ult && ($rw_ult = mysql_fetch_assoc($r_ult))) {
+                    $id_planilla = (int)$rw_ult['id_planilla_diaria'];
+                }
+            }
+        }
     }
 }
 

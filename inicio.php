@@ -192,6 +192,13 @@ $puede_cargar = ($rol_regrad === '1');
 $puede_ver_curso = ($rol_regrad === '1' || $rol_regrad === '2');
 $puede_ver_actas = ($rol_regrad === '1' || $rol_regrad === '2');
 $cant_modulos_op = 1 + ($puede_cargar ? 1 : 0) + ($puede_ver_curso ? 1 : 0);
+
+$url_planilla_curso = 'planilla_en_curso_visualizacion.php';
+if ($planilla_abierta !== null) {
+    $url_planilla_curso .= '?id_planilla=' . (int)$planilla_abierta['id'];
+} elseif ($ultima_cerrada !== null) {
+    $url_planilla_curso .= '?id_planilla=' . (int)$ultima_cerrada['id'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="es" data-theme="petrol">
@@ -758,7 +765,7 @@ $cant_modulos_op = 1 + ($puede_cargar ? 1 : 0) + ($puede_ver_curso ? 1 : 0);
         <a href="demo_planilla.php" class="btn-primary">⚡ CONTINUAR CARGA DIARIA</a>
         <?php } ?>
         <?php if ($puede_ver_curso) { ?>
-        <a href="planilla_en_curso.php" class="btn-ghost">👁️ Ver en Curso</a>
+        <a href="<?php echo inicio_h($url_planilla_curso); ?>" class="btn-ghost">👁️ Ver en Curso</a>
         <?php } ?>
       </div>
     </section>
@@ -864,7 +871,7 @@ $cant_modulos_op = 1 + ($puede_cargar ? 1 : 0) + ($puede_ver_curso ? 1 : 0);
       </a>
 
       <?php if ($puede_ver_curso) { ?>
-      <a href="planilla_en_curso.php" class="mod-card" style="--card-accent: var(--accent-cyan);">
+      <a href="<?php echo inicio_h($url_planilla_curso); ?>" class="mod-card" style="--card-accent: var(--accent-cyan);">
         <div class="mod-top">
           <div class="mod-ico">📊</div>
           <div>
