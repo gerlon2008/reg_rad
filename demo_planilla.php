@@ -6148,7 +6148,170 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     </div>
   </div>
 
+  <!-- ================= MODAL GENÉRICO DE CONFIRMACIÓN DE LA APP (REEMPLAZO DE confirm()) ================= -->
+  <div class="modal-overlay" id="modal-app-confirm" style="display: none; z-index: 10050;">
+    <div class="modal-box" id="app-confirm-box" style="width: 480px; max-width: 94vw; border-left: 4px solid var(--accent-red); animation: cyber-hologram-assemble 0.2s ease-out;">
+      <div class="modal-header" id="app-confirm-header" style="color: #f87171; display: flex; justify-content: space-between; align-items: center;">
+        <div class="modal-header-left" style="display: flex; align-items: center; gap: 8px;">
+          <span id="app-confirm-icon">⚠️</span>
+          <span id="app-confirm-title" style="font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Confirmar Acción</span>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeAppConfirmModal(false)" title="Cerrar (Esc)">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        <p id="app-confirm-message" style="font-size: 13px; color: var(--text-main); margin: 0 0 10px 0; line-height: 1.5;"></p>
+        <div id="app-confirm-detail" style="display: none; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; padding: 10px 12px; font-size: 11.5px; color: var(--text-muted); line-height: 1.45;"></div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; background: rgba(0,0,0,0.2); border-top: 1px solid var(--border-card);">
+        <button type="button" class="btn-modal-cancel" id="app-confirm-cancel-btn" onclick="closeAppConfirmModal(false)">CANCELAR</button>
+        <button type="button" class="btn-modal-confirm" id="app-confirm-ok-btn" onclick="closeAppConfirmModal(true)" style="background: #dc2626; color: #fff; font-weight: 800;">CONFIRMAR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL DE MOTIVO OBLIGATORIO PARA EDICIÓN HISTÓRICA (REEMPLAZO DE prompt()) ================= -->
+  <div class="modal-overlay" id="modal-motivo-historico" style="display: none; z-index: 10060;">
+    <div class="modal-box" style="width: 520px; max-width: 94vw; border-left: 4px solid var(--accent-amber); animation: cyber-hologram-assemble 0.2s ease-out;">
+      <div class="modal-header" style="color: var(--accent-amber); display: flex; justify-content: space-between; align-items: center;">
+        <div class="modal-header-left" style="display: flex; align-items: center; gap: 8px;">
+          <span>🛠️</span>
+          <span style="font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Modo Edición Histórica — Motivo Obligatorio</span>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeMotivoHistoricoModal(null)" title="Cerrar (Esc)">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        <p style="font-size: 12.5px; color: var(--text-main); margin: 0 0 10px 0; line-height: 1.5;">
+          Está por modificar datos de la <strong>Planilla Cerrada #<span id="motivo-hist-plan-id">--</span></strong>. Indique el motivo de la corrección (mínimo 4 caracteres; quedará registrado en el Log de Auditoría):
+        </p>
+        <input type="text" id="motivo-hist-input" maxlength="250" placeholder="Ej: Corrección de error de carga en medición de las 08:00 hs..."
+          style="width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.5); background: rgba(15, 23, 42, 0.85); color: #fff; font-size: 12.5px; outline: none;"
+          onkeydown="if(event.key==='Enter'){ event.preventDefault(); confirmarMotivoHistoricoModal(); }">
+        <div id="motivo-hist-error" style="display: none; margin-top: 8px; padding: 8px 10px; border-radius: 5px; background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; font-size: 11.5px; font-weight: 600;"></div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; background: rgba(0,0,0,0.2); border-top: 1px solid var(--border-card);">
+        <button type="button" class="btn-modal-cancel" onclick="closeMotivoHistoricoModal(null)">CANCELAR</button>
+        <button type="button" class="btn-modal-confirm" onclick="confirmarMotivoHistoricoModal()" style="background: var(--accent-amber); color: #000; font-weight: 800;">
+          ✅ CONTINUAR Y GUARDAR
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    let _appConfirmResolver = null;
+    function appConfirmModal(opts) {
+      const cfg = opts || {};
+      if (_appConfirmResolver) {
+        const prev = _appConfirmResolver;
+        _appConfirmResolver = null;
+        prev(false);
+      }
+      const overlay = document.getElementById('modal-app-confirm');
+      const box = document.getElementById('app-confirm-box');
+      const header = document.getElementById('app-confirm-header');
+      const iconEl = document.getElementById('app-confirm-icon');
+      const titleEl = document.getElementById('app-confirm-title');
+      const msgEl = document.getElementById('app-confirm-message');
+      const detEl = document.getElementById('app-confirm-detail');
+      const cancelBtn = document.getElementById('app-confirm-cancel-btn');
+      const okBtn = document.getElementById('app-confirm-ok-btn');
+
+      const variant = cfg.variant || 'danger';
+      if (variant === 'warning') {
+        if (box) box.style.borderLeftColor = 'var(--accent-amber)';
+        if (header) header.style.color = 'var(--accent-amber)';
+        if (iconEl) iconEl.textContent = cfg.icon || '⚠️';
+        if (okBtn) { okBtn.style.background = 'var(--accent-amber)'; okBtn.style.color = '#000'; }
+      } else if (variant === 'info') {
+        if (box) box.style.borderLeftColor = 'var(--accent-cyan)';
+        if (header) header.style.color = 'var(--accent-cyan)';
+        if (iconEl) iconEl.textContent = cfg.icon || 'ℹ️';
+        if (okBtn) { okBtn.style.background = 'var(--accent-cyan)'; okBtn.style.color = '#000'; }
+      } else {
+        if (box) box.style.borderLeftColor = 'var(--accent-red)';
+        if (header) header.style.color = '#f87171';
+        if (iconEl) iconEl.textContent = cfg.icon || '⚠️';
+        if (okBtn) { okBtn.style.background = '#dc2626'; okBtn.style.color = '#fff'; }
+      }
+
+      if (titleEl) titleEl.textContent = cfg.title || 'Confirmar Acción';
+      if (msgEl) msgEl.textContent = cfg.message || '¿Está seguro de continuar?';
+      if (detEl) {
+        if (cfg.detail) {
+          detEl.textContent = cfg.detail;
+          detEl.style.display = 'block';
+        } else {
+          detEl.textContent = '';
+          detEl.style.display = 'none';
+        }
+      }
+      if (cancelBtn) cancelBtn.textContent = cfg.cancelLabel || 'CANCELAR';
+      if (okBtn) okBtn.textContent = cfg.confirmLabel || 'CONFIRMAR';
+      if (overlay) overlay.style.display = 'flex';
+      if (okBtn) setTimeout(() => okBtn.focus(), 30);
+
+      return new Promise(resolve => {
+        _appConfirmResolver = resolve;
+      });
+    }
+
+    function closeAppConfirmModal(confirmed) {
+      const overlay = document.getElementById('modal-app-confirm');
+      if (overlay) overlay.style.display = 'none';
+      if (_appConfirmResolver) {
+        const res = _appConfirmResolver;
+        _appConfirmResolver = null;
+        res(!!confirmed);
+      }
+    }
+
+    let _motivoHistResolver = null;
+    function appPromptMotivoHistoricoModal(initialVal) {
+      if (_motivoHistResolver) {
+        const prev = _motivoHistResolver;
+        _motivoHistResolver = null;
+        prev(null);
+      }
+      const overlay = document.getElementById('modal-motivo-historico');
+      const planEl = document.getElementById('motivo-hist-plan-id');
+      const inp = document.getElementById('motivo-hist-input');
+      const err = document.getElementById('motivo-hist-error');
+      if (planEl) planEl.textContent = activePlanillaId || '--';
+      if (inp) inp.value = initialVal || '';
+      if (err) { err.style.display = 'none'; err.textContent = ''; }
+      if (overlay) overlay.style.display = 'flex';
+      if (inp) setTimeout(() => { inp.focus(); inp.select(); }, 30);
+
+      return new Promise(resolve => {
+        _motivoHistResolver = resolve;
+      });
+    }
+
+    function closeMotivoHistoricoModal(val) {
+      const overlay = document.getElementById('modal-motivo-historico');
+      if (overlay) overlay.style.display = 'none';
+      if (_motivoHistResolver) {
+        const res = _motivoHistResolver;
+        _motivoHistResolver = null;
+        res(val);
+      }
+    }
+
+    function confirmarMotivoHistoricoModal() {
+      const inp = document.getElementById('motivo-hist-input');
+      const err = document.getElementById('motivo-hist-error');
+      const val = inp ? inp.value.trim() : '';
+      if (val.length < 4) {
+        if (err) {
+          err.textContent = '⚠️ Debe ingresar un motivo de al menos 4 caracteres para registrar el cambio en Auditoría.';
+          err.style.display = 'block';
+        }
+        if (inp) inp.focus();
+        return;
+      }
+      closeMotivoHistoricoModal(val);
+    }
+
     let activePlanillaId = <?php echo $id_planilla_activa ? $id_planilla_activa : 'null'; ?>;
     let sinPlanillaAbierta = <?php echo !empty($sin_planilla_abierta) ? 'true' : 'false'; ?>;
     const ES_USUARIO_U0 = <?php echo $es_usuario_admin_u0 ? 'true' : 'false'; ?>;
@@ -6173,41 +6336,50 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         const esBackendMutacion = /(procesos_reg_rad\.php|procesos_reg_rad_post\.php)/i.test(urlStr)
           && !/accion=(cargar_|recuperar_|listar_|historial_|obtener_|verificar_|resolver_)/i.test(urlStr);
 
-        if (esBackendMutacion) {
-          let mot = (motivoEdicionHistorica || '').trim();
-          if (mot.length < 4) {
-            const prompted = window.prompt('MODO EDICIÓN HISTÓRICA (Planilla Cerrada #' + activePlanillaId + ')\nIngrese el motivo de la corrección (mínimo 4 caracteres, queda registrado en Auditoría):', mot);
-            if (!prompted || prompted.trim().length < 4) {
-              if (typeof showToast === 'function') showToast('⚠️ Operación cancelada: debe indicar un motivo válido para editar una planilla cerrada.', 4000);
-              return Promise.resolve(new Response('error_auditoria: Motivo obligatorio no ingresado.', { status: 400 }));
+        const ejecutarFetchConMotivo = (mot) => {
+          let reqRes = resource;
+          if (esBackendMutacion && mot) {
+            if (typeof reqRes === 'string') {
+              const sep = reqRes.indexOf('?') === -1 ? '?' : '&';
+              reqRes = reqRes + sep + 'motivo_auditoria=' + encodeURIComponent(mot);
             }
-            mot = prompted.trim();
-            actualizarMotivoEdicionHistorica(mot);
-            const inpBanner = document.getElementById('input-motivo-edicion-historica');
-            if (inpBanner) inpBanner.value = mot;
+            if (init && init.body instanceof FormData) {
+              if (!init.body.has('motivo_auditoria')) init.body.append('motivo_auditoria', mot);
+            } else if (init && typeof init.body === 'string' && init.body.indexOf('motivo_auditoria=') === -1) {
+              init.body = init.body + '&motivo_auditoria=' + encodeURIComponent(mot);
+            }
           }
+          return _origFetch(reqRes, init).then(resp => {
+            if (esBackendMutacion && (resp.status === 403 || resp.status === 503 || resp.status === 400)) {
+              resp.clone().text().then(txt => {
+                if (txt && txt.indexOf('error_auditoria:') !== -1 && typeof showToast === 'function') {
+                  showToast('⛔ ' + txt.replace('error_auditoria:', '').trim(), 5000);
+                }
+              }).catch(() => {});
+            }
+            return resp;
+          });
+        };
 
-          if (typeof resource === 'string') {
-            const sep = resource.indexOf('?') === -1 ? '?' : '&';
-            resource = resource + sep + 'motivo_auditoria=' + encodeURIComponent(mot);
+        if (esBackendMutacion) {
+          const mot = (motivoEdicionHistorica || '').trim();
+          if (mot.length < 4) {
+            return appPromptMotivoHistoricoModal(mot).then(entered => {
+              if (!entered || entered.trim().length < 4) {
+                if (typeof showToast === 'function') showToast('⚠️ Operación cancelada: debe indicar un motivo válido para editar una planilla cerrada.', 4000);
+                return new Response('error_auditoria: Motivo obligatorio no ingresado.', { status: 400 });
+              }
+              const cleanMot = entered.trim();
+              actualizarMotivoEdicionHistorica(cleanMot);
+              const inpBanner = document.getElementById('input-motivo-edicion-historica');
+              if (inpBanner) inpBanner.value = cleanMot;
+              return ejecutarFetchConMotivo(cleanMot);
+            });
           }
-          if (init && init.body instanceof FormData) {
-            if (!init.body.has('motivo_auditoria')) init.body.append('motivo_auditoria', mot);
-          } else if (init && typeof init.body === 'string' && init.body.indexOf('motivo_auditoria=') === -1) {
-            init.body = init.body + '&motivo_auditoria=' + encodeURIComponent(mot);
-          }
+          return ejecutarFetchConMotivo(mot);
         }
 
-        return _origFetch(resource, init).then(resp => {
-          if (esBackendMutacion && (resp.status === 403 || resp.status === 503 || resp.status === 400)) {
-            resp.clone().text().then(txt => {
-              if (txt && txt.indexOf('error_auditoria:') !== -1 && typeof showToast === 'function') {
-                showToast('⛔ ' + txt.replace('error_auditoria:', '').trim(), 5000);
-              }
-            }).catch(() => {});
-          }
-          return resp;
-        });
+        return ejecutarFetchConMotivo('');
       };
     }
     const RADIONUCLEIDOS_LIQ_CATALOG = <?php $j_rl = json_encode($radionucleidos_liq_array); echo $j_rl ? $j_rl : '[]'; ?>;
@@ -8316,7 +8488,9 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       const kr88 = (document.getElementById('esp-in-kr88')?.value || '0').trim();
 
       if (!hora) {
-        alert('Debe especificar la hora de la medición de espectrometría.');
+        showToast('⚠️ Debe especificar la hora de la medición de espectrometría.', 3500);
+        const horaEl = document.getElementById('esp-in-hora');
+        if (horaEl) horaEl.focus();
         return;
       }
 
@@ -8403,8 +8577,15 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       showToast('✅ Registro de Espectrometría guardado correctamente');
     }
 
-    function deleteEspectrometria(id) {
-      if (!confirm('¿Está seguro de que desea eliminar este registro de espectrometría?')) return;
+    async function deleteEspectrometria(id) {
+      const confirmed = await appConfirmModal({
+        title: 'Eliminar Registro de Espectrometría',
+        message: '¿Está seguro de que desea eliminar este registro de espectrometría de aire?',
+        detail: 'Esta acción eliminará el registro de la planilla actual y quedará asentada en auditoría.',
+        confirmLabel: '🗑️ SÍ, ELIMINAR',
+        variant: 'danger'
+      });
+      if (!confirmed) return;
 
       if (id && !String(id).startsWith('temp_')) {
         const url = `procesos_reg_rad.php?accion=eliminar_registro_generico&nombre_tabla=regrad_espectr_conc_radionuclei&nombre_campo_id=id_conc_rad&id_registro=${id}`;
@@ -8467,9 +8648,16 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       showToast('✅ Gases Nobles asentados y sincronizados correctamente');
     }
 
-    function deleteGasesNobles() {
+    async function deleteGasesNobles() {
       const idGn = (document.getElementById('input-gn-id')?.value || '').trim();
-      if (!confirm('¿Está seguro de que desea eliminar los datos de Gases Nobles de esta guardia?')) {
+      const confirmed = await appConfirmModal({
+        title: 'Eliminar Datos de Gases Nobles',
+        message: '¿Está seguro de que desea eliminar los datos de Gases Nobles de esta guardia?',
+        detail: 'Los valores de chimenea volverán a 0.0 y la baja quedará registrada en auditoría.',
+        confirmLabel: '🗑️ SÍ, ELIMINAR',
+        variant: 'danger'
+      });
+      if (!confirmed) {
         return;
       }
 
@@ -8855,6 +9043,14 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     // ================= CIERRE DE MODALES AL CLICKEAR AFUERA (BACKDROP) Y CON TECLA ESCAPE =================
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
       overlay.addEventListener('click', (e) => {
+        if (overlay.id === 'modal-app-confirm') {
+          if (e.target === overlay) closeAppConfirmModal(false);
+          return;
+        }
+        if (overlay.id === 'modal-motivo-historico') {
+          if (e.target === overlay) closeMotivoHistoricoModal(null);
+          return;
+        }
         if (overlay.id === 'modal-traspaso-guardia') {
           // Clic exterior en el gatekeeper desbloquea para pruebas
           if (e.target === overlay) closeHandoverModal(true);
@@ -8876,6 +9072,16 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
     // Cerrar con tecla Escape
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
+        const motivoOv = document.getElementById('modal-motivo-historico');
+        if (motivoOv && (motivoOv.style.display === 'flex' || motivoOv.style.display === 'block')) {
+          closeMotivoHistoricoModal(null);
+          return;
+        }
+        const appConfirmOv = document.getElementById('modal-app-confirm');
+        if (appConfirmOv && (appConfirmOv.style.display === 'flex' || appConfirmOv.style.display === 'block')) {
+          closeAppConfirmModal(false);
+          return;
+        }
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
           if (overlay.id === 'modal-traspaso-guardia') {
             closeHandoverModal(true);
@@ -10951,8 +11157,15 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         showToast('⚠️ Ingrese un volumen mayor a 0', 'warning');
         return;
       }
-      if (liqDraftRads.length === 0 && !confirm('No agregó radionucleídos todavía. ¿Continuar guardando el tanque igualmente?')) {
-        return;
+      if (liqDraftRads.length === 0) {
+        const continuarSinRads = await appConfirmModal({
+          title: 'Tanque Sin Radionucleídos Cargados',
+          message: 'No agregó radionucleídos todavía para este tanque. ¿Desea continuar guardándolo igualmente?',
+          detail: 'Puede cancelar para cargar los isótopos medidos antes de guardar, o confirmar para continuar sin radionucleídos.',
+          confirmLabel: '⚠️ CONTINUAR IGUALMENTE',
+          variant: 'warning'
+        });
+        if (!continuarSinRads) return;
       }
 
       const calc = calcLiqMetrics(volRaw, volUnit, liqDraftRads);
@@ -11111,8 +11324,15 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       renderEfluentesLiquidos();
     }
 
-    function cancelLiqPrecarga(precargaId) {
-      if (!confirm('¿Marcar esta Pre-Carga como CANCELADA / NO EMITIDA? No se computará en la emisión.')) return;
+    async function cancelLiqPrecarga(precargaId) {
+      const confirmed = await appConfirmModal({
+        title: 'Cancelar Pre-Carga de Efluente',
+        message: '¿Marcar esta Pre-Carga como CANCELADA / NO EMITIDA?',
+        detail: 'La maniobra no se computará en la emisión de la guardia (podrá restaurarla luego desde el historial de canceladas).',
+        confirmLabel: '❌ SÍ, CANCELAR MANIOBRA',
+        variant: 'danger'
+      });
+      if (!confirmed) return;
       const list = loadLiqPrecargas().map(p => p.id === precargaId ? { ...p, status: 'cancelado' } : p);
       saveLiqPrecargas(list);
       renderEfluentesLiquidos();

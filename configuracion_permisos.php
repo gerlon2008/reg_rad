@@ -271,6 +271,32 @@ $dest_alertas_txt = implode("\n", !empty($cfg_seg['destinatarios_alertas']) ? (a
     .pill.on { background: rgba(16,185,129,0.18); color: #34d399; border: 1px solid rgba(16,185,129,0.45); }
     .pill.off { background: rgba(255,255,255,0.06); color: var(--text-dim); border: 1px solid var(--border-subtle); }
     .mono { font-family: var(--font-mono); }
+    .search-status-bar {
+      display: none; padding: 9px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px;
+      line-height: 1.45; font-weight: 600;
+    }
+    .search-status-bar.ok { background: rgba(16,185,129,0.13); border: 1px solid rgba(16,185,129,0.45); color: #6ee7b7; }
+    .search-status-bar.info { background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.45); color: #7dd3fc; }
+    .search-status-bar.warn { background: rgba(245,158,11,0.13); border: 1px solid rgba(245,158,11,0.45); color: #fde68a; }
+    .search-status-bar.err { background: rgba(239,68,68,0.14); border: 1px solid rgba(239,68,68,0.45); color: #fca5a5; }
+    .modal-overlay {
+      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(2, 8, 7, 0.85); backdrop-filter: blur(4px); z-index: 2000;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-box {
+      background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 10px;
+      width: 100%; max-width: 460px; box-shadow: 0 22px 48px rgba(0,0,0,0.75); overflow: hidden;
+    }
+    .modal-hdr {
+      padding: 13px 16px; background: rgba(0,0,0,0.3); border-bottom: 1px solid var(--border-card);
+      display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 13px;
+    }
+    .modal-body { padding: 16px; font-size: 12.5px; color: var(--text-main); line-height: 1.5; }
+    .modal-ftr {
+      padding: 12px 16px; background: rgba(0,0,0,0.22); border-top: 1px solid var(--border-card);
+      display: flex; justify-content: flex-end; gap: 8px;
+    }
   </style>
 </head>
 <body>
@@ -332,15 +358,17 @@ $dest_alertas_txt = implode("\n", !empty($cfg_seg['destinatarios_alertas']) ? (a
           <div style="display:grid;grid-template-columns:130px 1fr auto;gap:8px;align-items:end;">
             <div>
               <label class="field-lbl">ID Usuario Portal</label>
-              <input type="text" name="usuario_id" id="inp-usuario-id" class="field-ctrl mono" placeholder="Ej: 14" required>
+              <input type="text" name="usuario_id" id="inp-usuario-id" class="field-ctrl mono" placeholder="Ej: 14" required onkeydown="if(event.key==='Enter'){event.preventDefault();buscarNombreUsuario();}">
             </div>
             <div>
               <label class="field-lbl">Nombre / Apellido</label>
               <input type="text" name="usuario_nombre" id="inp-usuario-nombre" class="field-ctrl" placeholder="Se autocompleta o ingrese manual">
             </div>
-            <button type="button" class="btn" onclick="buscarNombreUsuario()" title="Resolver nombre vía nombre_usuario_web()">🔍</button>
+            <button type="button" class="btn" id="btn-buscar-usuario" onclick="buscarNombreUsuario()" title="Buscar usuario y cargar sus permisos actuales">🔍</button>
           </div>
         </div>
+
+        <div id="perm-search-status" class="search-status-bar"></div>
 
         <div class="grid-2" style="margin-bottom: 12px;">
           <label class="check-row">
@@ -422,11 +450,10 @@ $dest_alertas_txt = implode("\n", !empty($cfg_seg['destinatarios_alertas']) ? (a
                 onclick="cargarEnFormulario('<?php echo htmlspecialchars($pm['usuario_id'], ENT_QUOTES, 'UTF-8'); ?>','<?php echo htmlspecialchars($pm['usuario_nombre'], ENT_QUOTES, 'UTF-8'); ?>',<?php echo !empty($pm['editar_planillas_cerradas']) ? 1 : 0; ?>,<?php echo !empty($pm['corregir_fecha_turno']) ? 1 : 0; ?>,<?php echo !empty($pm['ver_auditoria']) ? 1 : 0; ?>,<?php echo !empty($pm['activo']) ? 1 : 0; ?>)">
                 ✏️ Editar
               </button>
-              <form method="POST" onsubmit="return confirm('¿Revocar todos los permisos de este usuario?');" style="display:inline;">
-                <input type="hidden" name="accion_permiso" value="eliminar_usuario">
-                <input type="hidden" name="usuario_id" value="<?php echo htmlspecialchars($pm['usuario_id'], ENT_QUOTES, 'UTF-8'); ?>">
-                <button type="submit" class="btn danger" style="padding:4px 8px;font-size:11px;">🗑️</button>
-              </form>
+              <button type="button" class="btn danger" style="padding:4px 8px;font-size:11px;"
+                onclick="abrirModalRevocar('<?php echo htmlspecialchars($pm['usuario_id'], ENT_QUOTES, 'UTF-8'); ?>', '<?php echo htmlspecialchars($pm['usuario_nombre'], ENT_QUOTES, 'UTF-8'); ?>')" title="Revocar permisos de este usuario">
+                🗑️
+              </button>
             </td>
           </tr>
         <?php endforeach; ?>
@@ -472,42 +499,176 @@ $dest_alertas_txt = implode("\n", !empty($cfg_seg['destinatarios_alertas']) ? (a
   </div>
 </div>
 
+<!-- MODAL DE CONFIRMACIÓN DE REVOCACIÓN DE PERMISOS (PROPIO DE LA PÁGINA) -->
+<div class="modal-overlay" id="modal-confirm-revocar" onclick="if(event.target===this) cerrarModalRevocar();">
+  <div class="modal-box" style="border-left: 4px solid var(--accent-red);">
+    <div class="modal-hdr" style="color: #fca5a5;">
+      <span>⚠️ Confirmar Revocación de Permisos</span>
+      <button type="button" class="btn" style="padding:2px 8px;" onclick="cerrarModalRevocar()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: 10px;">
+        ¿Confirma que desea revocar todos los permisos especiales asignados a:
+      </p>
+      <div style="padding:10px 12px;border-radius:6px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);margin-bottom:10px;">
+        <div style="font-weight:800;color:#fff;" id="revocar-user-nombre">--</div>
+        <div class="mono" style="font-size:11px;color:#fca5a5;">ID Usuario: <span id="revocar-user-id">--</span></div>
+      </div>
+      <div style="font-size:11.5px;color:var(--text-muted);">
+        Esta revocación quedará registrada en <code>regrad_auditoria_log</code>.
+      </div>
+    </div>
+    <div class="modal-ftr">
+      <button type="button" class="btn" onclick="cerrarModalRevocar()">CANCELAR</button>
+      <form method="POST" style="display:inline;">
+        <input type="hidden" name="accion_permiso" value="eliminar_usuario">
+        <input type="hidden" name="usuario_id" id="revocar-input-uid" value="">
+        <button type="submit" class="btn danger" style="background:var(--accent-red);color:#fff;border-color:var(--accent-red);">🗑️ SÍ, REVOCAR PERMISOS</button>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
+  var PERMISOS_ACTUALES_MAP = <?php
+    $pmap = array();
+    foreach ($permisos_lista as $pm_item) {
+      $pmap[(string)$pm_item['usuario_id']] = array(
+        'usuario_id' => (string)$pm_item['usuario_id'],
+        'usuario_nombre' => (string)$pm_item['usuario_nombre'],
+        'editar_planillas_cerradas' => !empty($pm_item['editar_planillas_cerradas']) ? 1 : 0,
+        'corregir_fecha_turno' => !empty($pm_item['corregir_fecha_turno']) ? 1 : 0,
+        'ver_auditoria' => !empty($pm_item['ver_auditoria']) ? 1 : 0,
+        'activo' => !empty($pm_item['activo']) ? 1 : 0
+      );
+    }
+    echo json_encode($pmap);
+  ?>;
+
+  function mostrarEstadoBusqueda(tipo, texto) {
+    var box = document.getElementById('perm-search-status');
+    if (!box) return;
+    box.className = 'search-status-bar ' + (tipo || 'info');
+    box.textContent = texto;
+    box.style.display = 'block';
+  }
+
+  function aplicarPermisosEnCheckboxes(p) {
+    document.getElementById('chk-p-editar').checked = !!(p && p.editar_planillas_cerradas);
+    document.getElementById('chk-p-fecha').checked = !!(p && p.corregir_fecha_turno);
+    document.getElementById('chk-p-ver').checked = !!(p && p.ver_auditoria);
+    document.getElementById('chk-p-activo').checked = (p && typeof p.activo !== 'undefined') ? !!p.activo : true;
+  }
+
+  function resumenPermisosTexto(p) {
+    var items = [];
+    if (p.editar_planillas_cerradas) items.push('Editar Cerradas');
+    if (p.corregir_fecha_turno) items.push('Corregir Fecha/Turno');
+    if (p.ver_auditoria) items.push('Ver Auditoría');
+    var estado = p.activo ? 'ACTIVO' : 'SUSPENDIDO';
+    return (items.length ? items.join(' + ') : 'Ninguno marcado') + ' [' + estado + ']';
+  }
+
   function seleccionarUsuarioConocido() {
     var sel = document.getElementById('sel-usuario-conocido');
     var opt = sel.options[sel.selectedIndex];
-    if (sel.value) {
-      document.getElementById('inp-usuario-id').value = sel.value;
-      document.getElementById('inp-usuario-nombre').value = opt.getAttribute('data-nombre') || '';
+    if (!sel.value) return;
+    var uid = String(sel.value);
+    var nom = opt.getAttribute('data-nombre') || '';
+    document.getElementById('inp-usuario-id').value = uid;
+    document.getElementById('inp-usuario-nombre').value = nom;
+
+    if (PERMISOS_ACTUALES_MAP[uid]) {
+      var rec = PERMISOS_ACTUALES_MAP[uid];
+      aplicarPermisosEnCheckboxes(rec);
+      mostrarEstadoBusqueda('ok', '✔️ ' + (rec.usuario_nombre || nom) + ' (ID ' + uid + ') — Permisos actuales cargados: ' + resumenPermisosTexto(rec));
+    } else {
+      aplicarPermisosEnCheckboxes({ editar_planillas_cerradas: 0, corregir_fecha_turno: 0, ver_auditoria: 0, activo: 1 });
+      mostrarEstadoBusqueda('info', 'ℹ️ ' + nom + ' (ID ' + uid + ') — No posee permisos especiales asignados todavía.');
     }
   }
 
   function cargarEnFormulario(uid, nom, pEd, pFe, pVer, act) {
-    document.getElementById('inp-usuario-id').value = uid;
+    var uidStr = String(uid);
+    document.getElementById('inp-usuario-id').value = uidStr;
     document.getElementById('inp-usuario-nombre').value = nom;
-    document.getElementById('chk-p-editar').checked = !!pEd;
-    document.getElementById('chk-p-fecha').checked = !!pFe;
-    document.getElementById('chk-p-ver').checked = !!pVer;
-    document.getElementById('chk-p-activo').checked = !!act;
+    var sel = document.getElementById('sel-usuario-conocido');
+    if (sel) sel.value = uidStr;
+    var p = { editar_planillas_cerradas: pEd, corregir_fecha_turno: pFe, ver_auditoria: pVer, activo: act };
+    aplicarPermisosEnCheckboxes(p);
+    mostrarEstadoBusqueda('ok', '✔️ Editando permisos actuales de ' + nom + ' (ID ' + uidStr + '): ' + resumenPermisosTexto(p));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function buscarNombreUsuario() {
     var uid = (document.getElementById('inp-usuario-id').value || '').trim();
-    if (!uid) return;
+    if (!uid) {
+      mostrarEstadoBusqueda('warn', '⚠️ Ingrese un ID de usuario o elija uno del desplegable para buscar.');
+      return;
+    }
+
+    var btn = document.getElementById('btn-buscar-usuario');
+    if (btn) btn.disabled = true;
+    mostrarEstadoBusqueda('info', '⏳ Consultando datos y permisos actuales del Usuario ID ' + uid + '...');
+
     fetch('procesos_reg_rad.php?accion=resolver_nombre_usuario&uid=' + encodeURIComponent(uid))
       .then(function(r) { return r.json(); })
       .then(function(data) {
-        if (data && data.ok && data.nombre) {
+        if (btn) btn.disabled = false;
+        if (!data || !data.ok) {
+          mostrarEstadoBusqueda('err', '❌ ' + (data && data.error ? data.error : 'No se pudo consultar el usuario.'));
+          return;
+        }
+        if (data.nombre) {
           document.getElementById('inp-usuario-nombre').value = data.nombre;
+        }
+        var nombreMostrar = data.nombre || document.getElementById('inp-usuario-nombre').value || ('ID ' + uid);
+
+        if (data.es_u0) {
+          aplicarPermisosEnCheckboxes({ editar_planillas_cerradas: 1, corregir_fecha_turno: 1, ver_auditoria: 1, activo: 1 });
+          mostrarEstadoBusqueda('warn', '🛡️ ' + nombreMostrar + ' (ID 0) — Superadmin del sistema: tiene todos los permisos fijos y auditados.');
+          return;
+        }
+
+        if (data.tiene_registro && data.permisos) {
+          aplicarPermisosEnCheckboxes(data.permisos);
+          mostrarEstadoBusqueda('ok', '✔️ ' + nombreMostrar + ' (ID ' + uid + ') — Permisos actuales cargados desde MySQL: ' + resumenPermisosTexto(data.permisos));
         } else {
-          alert('No se encontró un nombre automático para el ID ' + uid + '. Puede ingresarlo manualmente.');
+          aplicarPermisosEnCheckboxes({ editar_planillas_cerradas: 0, corregir_fecha_turno: 0, ver_auditoria: 0, activo: 1 });
+          if (data.nombre) {
+            mostrarEstadoBusqueda('info', 'ℹ️ ' + nombreMostrar + ' (ID ' + uid + ') — Usuario encontrado, sin permisos especiales asignados todavía.');
+          } else {
+            mostrarEstadoBusqueda('warn', '⚠️ No se encontró un nombre automático para el ID ' + uid + ' ni permisos previos. Puede ingresar el nombre manualmente.');
+          }
         }
       })
       .catch(function() {
-        alert('No se pudo consultar el servidor en este momento.');
+        if (btn) btn.disabled = false;
+        if (PERMISOS_ACTUALES_MAP[uid]) {
+          var rec = PERMISOS_ACTUALES_MAP[uid];
+          document.getElementById('inp-usuario-nombre').value = rec.usuario_nombre || '';
+          aplicarPermisosEnCheckboxes(rec);
+          mostrarEstadoBusqueda('ok', '✔️ Permisos cargados desde lista local para ' + rec.usuario_nombre + ' (ID ' + uid + ').');
+        } else {
+          mostrarEstadoBusqueda('err', '❌ No se pudo consultar el servidor en este momento.');
+        }
       });
   }
+
+  function abrirModalRevocar(uid, nombre) {
+    document.getElementById('revocar-user-id').textContent = String(uid);
+    document.getElementById('revocar-user-nombre').textContent = nombre || ('USUARIO #' + uid);
+    document.getElementById('revocar-input-uid').value = String(uid);
+    document.getElementById('modal-confirm-revocar').style.display = 'flex';
+  }
+
+  function cerrarModalRevocar() {
+    document.getElementById('modal-confirm-revocar').style.display = 'none';
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') cerrarModalRevocar();
+  });
 </script>
 </body>
 </html>

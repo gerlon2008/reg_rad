@@ -2510,10 +2510,41 @@ if ($accion == "resolver_nombre_usuario") {
 	if (function_exists('nombre_usuario_web')) {
 		$nom = trim((string)@nombre_usuario_web($uid));
 	}
+
+	$tiene_registro = false;
+	$es_u0_target = ($uid === '0');
+	$permisos_out = array(
+		'editar_planillas_cerradas' => $es_u0_target ? 1 : 0,
+		'corregir_fecha_turno' => $es_u0_target ? 1 : 0,
+		'ver_auditoria' => $es_u0_target ? 1 : 0,
+		'activo' => 1
+	);
+
+	if (!$es_u0_target && $miconex && auditoria_asegurar_tablas($miconex)) {
+		$uid_esc = auditoria_esc($miconex, $uid);
+		$rp = @mysql_query("SELECT * FROM `regrad_permisos_usuarios` WHERE usuario_id = '$uid_esc' LIMIT 1", $miconex);
+		if ($rp && mysql_num_rows($rp) > 0) {
+			$rw_p = mysql_fetch_assoc($rp);
+			$tiene_registro = true;
+			if ($nom === '' && !empty($rw_p['usuario_nombre'])) {
+				$nom = trim((string)$rw_p['usuario_nombre']);
+			}
+			$permisos_out = array(
+				'editar_planillas_cerradas' => !empty($rw_p['editar_planillas_cerradas']) ? 1 : 0,
+				'corregir_fecha_turno' => !empty($rw_p['corregir_fecha_turno']) ? 1 : 0,
+				'ver_auditoria' => !empty($rw_p['ver_auditoria']) ? 1 : 0,
+				'activo' => !empty($rw_p['activo']) ? 1 : 0
+			);
+		}
+	}
+
 	echo json_encode(array(
 		'ok' => true,
 		'uid' => $uid,
-		'nombre' => $nom !== '' ? (function_exists('mb_strtoupper') ? mb_strtoupper($nom, 'UTF-8') : strtoupper($nom)) : ''
+		'nombre' => $nom !== '' ? (function_exists('mb_strtoupper') ? mb_strtoupper($nom, 'UTF-8') : strtoupper($nom)) : '',
+		'es_u0' => $es_u0_target,
+		'tiene_registro' => $tiene_registro,
+		'permisos' => $permisos_out
 	));
 	exit;
 }
