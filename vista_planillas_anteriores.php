@@ -1101,6 +1101,127 @@ if (!$db_connected) {
       cursor: not-allowed;
     }
 
+    /* ================= MENÚ DESPLEGABLE FLOTANTE DE ACCIONES POR FILA ================= */
+    .btn-row-actions-trigger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: rgba(14, 39, 34, 0.9);
+      border: 1px solid var(--border-card);
+      color: var(--text-main);
+      padding: 5px 11px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+
+    .btn-row-actions-trigger:hover,
+    .btn-row-actions-trigger.open {
+      background: rgba(56, 189, 248, 0.14);
+      border-color: var(--accent-cyan);
+      color: #ffffff;
+    }
+
+    .btn-row-actions-trigger .caret {
+      font-size: 10px;
+      color: var(--text-muted);
+      transition: transform 0.15s ease;
+    }
+
+    .btn-row-actions-trigger.open .caret {
+      transform: rotate(180deg);
+      color: var(--accent-cyan);
+    }
+
+    .row-actions-floating-menu {
+      display: none;
+      position: fixed;
+      z-index: 1900;
+      min-width: 248px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 9px;
+      box-shadow: 0 16px 38px rgba(0, 0, 0, 0.72), 0 0 0 1px rgba(56, 189, 248, 0.15);
+      padding: 6px;
+      animation: ramFade 0.14s ease-out;
+    }
+
+    @keyframes ramFade {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .ram-header {
+      padding: 6px 10px 7px;
+      margin-bottom: 4px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 10.5px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .ram-header strong {
+      color: var(--accent-cyan);
+      font-weight: 800;
+    }
+
+    .ram-section {
+      font-size: 9.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-dim);
+      padding: 5px 10px 3px;
+    }
+
+    .ram-divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 5px 4px;
+    }
+
+    .ram-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--text-main);
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+
+    .ram-item:hover {
+      background: rgba(56, 189, 248, 0.13);
+      color: #ffffff;
+    }
+
+    .ram-item.accent-green { color: #34d399; }
+    .ram-item.accent-green:hover { background: rgba(16, 185, 129, 0.16); color: #6ee7b7; }
+    .ram-item.accent-cyan { color: #38bdf8; }
+    .ram-item.accent-cyan:hover { background: rgba(56, 189, 248, 0.16); color: #7dd3fc; }
+    .ram-item.accent-violet { color: #c4b5fd; }
+    .ram-item.accent-violet:hover { background: rgba(167, 139, 250, 0.16); color: #ddd6fe; }
+    .ram-item.accent-amber { color: #fbbf24; }
+    .ram-item.accent-amber:hover { background: rgba(245, 158, 11, 0.16); color: #fde68a; }
+    .ram-item.accent-danger { color: #fb7185; }
+    .ram-item.accent-danger:hover { background: rgba(244, 63, 94, 0.18); color: #fda4af; }
+
     .modal-body {
       padding: 16px;
       overflow-y: auto;
@@ -1690,35 +1811,25 @@ if (!$db_connected) {
     const HIST_PERM_VER_AUD = <?php echo ($perm_ver_aud_hist || $es_u0_hist) ? 'true' : 'false'; ?>;
     const HIST_PERM_CORR_FECHA = <?php echo ($perm_corr_fecha_hist || $es_u0_hist) ? 'true' : 'false'; ?>;
     const HIST_PERM_EDIT_CERR = <?php echo ($perm_edit_cerr_hist || $es_u0_hist) ? 'true' : 'false'; ?>;
+    const histRecordsById = Object.create(null);
 
     function buildRowHtml(r) {
+      const pid = Number(r.id);
+      histRecordsById[pid] = r;
+
       let tClass = 't1';
       if (Number(r.id_turno) === 2) tClass = 't2';
       if (Number(r.id_turno) === 3) tClass = 't3';
       const cierreHtml = r.hora_cierre
         ? `${escHtml(r.hora_cierre)} hs`
         : '<span style="color: var(--accent-amber); font-weight: 700;">Sin cerrar</span>';
-      const jsFecha = JSON.stringify(r.fecha_latam || '');
-      const jsFechaSql = JSON.stringify(r.fecha_sql || '');
-      const jsOficial = JSON.stringify(r.oficial || '');
-      const jsTurno = JSON.stringify(r.horarios || '');
       const postCnt = Number(r.post_cierre_edits || 0);
       const postBadge = postCnt > 0
         ? `<div style="margin-top:3px;"><span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:800;background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.5);color:#fde68a;" title="Esta planilla registra ${postCnt} modificación(es) post-cierre o corrección de fecha/turno en auditoría">✏️ ${postCnt} post-cierre</span></div>`
         : '';
 
-      const btnLog = HIST_PERM_VER_AUD
-        ? `<a href="auditoria_logs.php?id_planilla=${Number(r.id)}" target="_blank" class="btn-action" style="color: #a78bfa; border-color: rgba(167, 139, 250, 0.4);" title="Ver bitácora completa de auditoría de esta planilla"><span>🧾 Log</span></a>`
-        : '';
-      const btnFecha = HIST_PERM_CORR_FECHA
-        ? `<button type="button" class="btn-action" onclick='abrirModalCorregirFechaHist(${Number(r.id)}, ${jsFechaSql}, ${Number(r.id_turno)}, ${jsFecha}, ${jsTurno})' style="color: #fbbf24; border-color: rgba(245, 158, 11, 0.45);" title="Corregir Fecha o Turno de esta planilla (Auditado)"><span>📅 Fecha/Turno</span></button>`
-        : '';
-      const btnEditar = HIST_PERM_EDIT_CERR
-        ? `<a href="demo_planilla.php?editar_planilla=${Number(r.id)}" class="btn-action" style="color: #fb7185; border-color: rgba(244, 63, 94, 0.45);" title="Abrir esta planilla cerrada en Modo Edición Histórica Auditada"><span>✏️ Editar</span></a>`
-        : '';
-
       return `<tr>
-        <td class="mono" style="font-weight: 700; color: var(--accent-cyan);">#${Number(r.id)}${postBadge}</td>
+        <td class="mono" style="font-weight: 700; color: var(--accent-cyan);">#${pid}${postBadge}</td>
         <td class="mono">${escHtml(r.fecha_latam)}</td>
         <td><span class="shift-badge ${tClass}">${escHtml(r.horarios)}</span></td>
         <td style="font-weight: 600; text-transform: uppercase;">${escHtml(r.oficial)}</td>
@@ -1726,25 +1837,12 @@ if (!$db_connected) {
         <td><span class="badge-plant">${escHtml(r.estado_planta)}</span></td>
         <td class="mono" style="text-align: center; color: var(--text-dim); font-size: 11px;">${cierreHtml}</td>
         <td>
-          <div class="row-actions">
-            <a href="planilla_en_curso_visualizacion.php?id_planilla=${Number(r.id)}" target="_blank" class="btn-action" title="Abrir visor completo de la planilla">
-              <span>👁️ Ver Planilla</span>
-            </a>
-            <button type="button" class="btn-action btn-secondary" onclick='abrirNovedadesActas(${Number(r.id)}, ${jsFecha}, ${jsOficial}, ${jsTurno})' title="Ver Novedades del Libro de Actas">
-              <span>📋 Actas</span>
+          <div class="row-actions" style="justify-content: flex-end;">
+            <button type="button" class="btn-row-actions-trigger" data-planilla-id="${pid}" onclick="toggleRowActionsMenu(event, ${pid})" aria-haspopup="menu" aria-expanded="false" title="Opciones disponibles para la Planilla #${pid}">
+              <span>⚙️</span>
+              <span>Acciones</span>
+              <span class="caret">▾</span>
             </button>
-            <a href="pdf_impresion_registro_radiologico_tcpdf.php?id_planilla=${Number(r.id)}" target="_blank" class="btn-action" style="color: #34d399; border-color: rgba(16, 185, 129, 0.4);" title="Descargar o ver PDF Oficial TCPDF (Solo documento, sin enviar correo)">
-              <span>📄 PDF</span>
-            </a>
-            <button type="button" class="btn-action" onclick="enviarMailHistorico(${Number(r.id)}, event)" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.4);" title="Enviar esta planilla histórica por correo institucional a Exchange con el PDF adjunto">
-              <span>✉️</span>
-            </button>
-            <a href="planilla_en_curso_visualizacion.php?id_planilla=${Number(r.id)}&print=1" target="_blank" class="btn-action btn-print" title="Imprimir informe oficial">
-              <span>🖨️</span>
-            </a>
-            ${btnLog}
-            ${btnFecha}
-            ${btnEditar}
           </div>
         </td>
       </tr>`;
@@ -2529,8 +2627,132 @@ if (!$db_connected) {
         });
     }
 
+    let activeRowActionsBtn = null;
+    let activeRowActionsPid = null;
+
+    function closeRowActionsMenu() {
+      const menu = document.getElementById('hist-row-actions-menu');
+      if (menu) menu.style.display = 'none';
+      if (activeRowActionsBtn) {
+        activeRowActionsBtn.classList.remove('open');
+        activeRowActionsBtn.setAttribute('aria-expanded', 'false');
+        activeRowActionsBtn = null;
+      }
+      activeRowActionsPid = null;
+    }
+
+    function toggleRowActionsMenu(ev, pid) {
+      if (ev) ev.stopPropagation();
+      const btn = ev ? ev.currentTarget : null;
+      const menu = document.getElementById('hist-row-actions-menu');
+      if (!menu || !btn) return;
+
+      if (activeRowActionsPid === pid && menu.style.display === 'block') {
+        closeRowActionsMenu();
+        return;
+      }
+
+      closeRowActionsMenu();
+      const r = histRecordsById[pid];
+      if (!r) return;
+
+      const tieneAdmin = (HIST_PERM_VER_AUD || HIST_PERM_CORR_FECHA || HIST_PERM_EDIT_CERR);
+      let adminItems = '';
+      if (tieneAdmin) {
+        adminItems += `<div class="ram-divider"></div><div class="ram-section">Auditoría y Correcciones</div>`;
+        if (HIST_PERM_VER_AUD) {
+          adminItems += `<a href="auditoria_logs.php?id_planilla=${pid}" target="_blank" class="ram-item accent-violet" role="menuitem" onclick="closeRowActionsMenu()"><span>🧾</span><span>Ver Bitácora / Log</span></a>`;
+        }
+        if (HIST_PERM_CORR_FECHA) {
+          adminItems += `<button type="button" class="ram-item accent-amber" role="menuitem" onclick="ejecutarAccionFila('fecha', ${pid}, event)"><span>📅</span><span>Corregir Fecha / Turno</span></button>`;
+        }
+        if (HIST_PERM_EDIT_CERR) {
+          adminItems += `<a href="demo_planilla.php?editar_planilla=${pid}" class="ram-item accent-danger" role="menuitem" onclick="closeRowActionsMenu()"><span>✏️</span><span>Editar Planilla (Auditado)</span></a>`;
+        }
+      }
+
+      menu.innerHTML = `
+        <div class="ram-header">
+          <strong>PLANILLA #${pid}</strong>
+          <span>${escHtml(r.fecha_latam || '')}</span>
+        </div>
+        <div class="ram-section">Consulta y Documentos</div>
+        <a href="planilla_en_curso_visualizacion.php?id_planilla=${pid}" target="_blank" class="ram-item" role="menuitem" onclick="closeRowActionsMenu()">
+          <span>👁️</span><span>Ver Planilla Completa</span>
+        </a>
+        <button type="button" class="ram-item" role="menuitem" onclick="ejecutarAccionFila('actas', ${pid}, event)">
+          <span>📋</span><span>Ver Actas y Novedades</span>
+        </button>
+        <a href="pdf_impresion_registro_radiologico_tcpdf.php?id_planilla=${pid}" target="_blank" class="ram-item accent-green" role="menuitem" onclick="closeRowActionsMenu()">
+          <span>📄</span><span>Descargar PDF Oficial</span>
+        </a>
+        <button type="button" class="ram-item accent-cyan" role="menuitem" onclick="ejecutarAccionFila('mail', ${pid}, event)">
+          <span>✉️</span><span>Enviar por Correo Exchange</span>
+        </button>
+        <a href="planilla_en_curso_visualizacion.php?id_planilla=${pid}&print=1" target="_blank" class="ram-item" role="menuitem" onclick="closeRowActionsMenu()">
+          <span>🖨️</span><span>Imprimir Informe</span>
+        </a>
+        ${adminItems}
+      `;
+
+      menu.style.visibility = 'hidden';
+      menu.style.display = 'block';
+
+      const btnRect = btn.getBoundingClientRect();
+      const menuRect = menu.getBoundingClientRect();
+      const pad = 10;
+
+      let left = btnRect.right - menuRect.width;
+      if (left < pad) left = pad;
+      if (left + menuRect.width > window.innerWidth - pad) {
+        left = window.innerWidth - menuRect.width - pad;
+      }
+
+      let top = btnRect.bottom + 6;
+      if (top + menuRect.height > window.innerHeight - pad) {
+        const upTop = btnRect.top - menuRect.height - 6;
+        if (upTop >= pad) {
+          top = upTop;
+        } else {
+          top = Math.max(pad, window.innerHeight - menuRect.height - pad);
+        }
+      }
+
+      menu.style.left = Math.round(left) + 'px';
+      menu.style.top = Math.round(top) + 'px';
+      menu.style.visibility = 'visible';
+
+      btn.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+      activeRowActionsBtn = btn;
+      activeRowActionsPid = pid;
+    }
+
+    function ejecutarAccionFila(tipo, pid, ev) {
+      const r = histRecordsById[pid];
+      closeRowActionsMenu();
+      if (!r) return;
+      if (tipo === 'actas') {
+        abrirNovedadesActas(pid, r.fecha_latam || '', r.oficial || '', r.horarios || '');
+      } else if (tipo === 'mail') {
+        enviarMailHistorico(pid, ev);
+      } else if (tipo === 'fecha') {
+        abrirModalCorregirFechaHist(pid, r.fecha_sql || '', Number(r.id_turno || 1), r.fecha_latam || '', r.horarios || '');
+      }
+    }
+
+    document.addEventListener('click', function(e) {
+      const menu = document.getElementById('hist-row-actions-menu');
+      if (menu && menu.style.display === 'block' && !menu.contains(e.target)) {
+        closeRowActionsMenu();
+      }
+    });
+    window.addEventListener('scroll', closeRowActionsMenu, true);
+    window.addEventListener('resize', closeRowActionsMenu);
+
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') {
+        closeRowActionsMenu();
         const mCorr = document.getElementById('modal-corregir-fecha-hist');
         if (mCorr && mCorr.style.display === 'flex') cerrarModalCorregirFechaHist();
         const mMail = document.getElementById('modal-enviar-mail-confirm');
@@ -2538,6 +2760,9 @@ if (!$db_connected) {
       }
     });
   </script>
+
+  <!-- MENÚ FLOTANTE REUTILIZABLE DE ACCIONES POR FILA -->
+  <div id="hist-row-actions-menu" class="row-actions-floating-menu" role="menu"></div>
 
 </body>
 </html>
