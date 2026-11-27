@@ -1012,15 +1012,50 @@ $hay_mas_inicial = !empty($lote_actual['hay_mas']);
       font-family: var(--font-mono);
     }
 
+    /* Botón flotante Volver Arriba */
+    .btn-scroll-top {
+      position: fixed;
+      right: 22px;
+      bottom: 24px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid var(--border-card);
+      background: var(--bg-card-subtle);
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(12px);
+      transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+      z-index: 300;
+    }
+    .btn-scroll-top.visible {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    .btn-scroll-top:hover {
+      background: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+      color: #04120f;
+      transform: translateY(-2px);
+    }
+
     @media (max-width: 780px) {
       .params-bar { grid-template-columns: repeat(2, 1fr); }
       .param-cell { border-bottom: 1px solid var(--border-subtle); }
       .limit-group { border-left: none; padding-left: 0; }
+      .btn-scroll-top { right: 14px; bottom: 16px; width: 40px; height: 40px; }
     }
 
     @media print {
       body { background: #fff !important; color: #111 !important; }
-      .topbar-right, .toolbar, .btn-mini, .load-more-bar, .footer-note { display: none !important; }
+      .topbar-right, .toolbar, .btn-mini, .load-more-bar, .footer-note, .btn-scroll-top { display: none !important; }
       .guardia-card, .entry-card, .topbar {
         background: #fff !important;
         color: #111 !important;
@@ -1183,6 +1218,12 @@ $hay_mas_inicial = !empty($lote_actual['hay_mas']);
       <span id="lbl-tiempo-consulta">⚡ Consulta optimizada: <?php echo (int)$tiempo_ms; ?> ms</span>
     </footer>
   </div>
+
+  <button type="button" id="btn-scroll-top" class="btn-scroll-top" onclick="scrollAlTope()" title="Volver arriba" aria-label="Volver al tope de la página">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="18 15 12 9 6 15"></polyline>
+    </svg>
+  </button>
 
   <script>
     var modoFiltroActual = 'all';
@@ -1398,6 +1439,20 @@ $hay_mas_inicial = !empty($lote_actual['hay_mas']);
         if (dd) dd.classList.remove('open');
       }
     });
+
+    function scrollAlTope() {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function actualizarBtnScrollTop() {
+      var btn = document.getElementById('btn-scroll-top');
+      if (!btn) return;
+      var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+      btn.classList.toggle('visible', y > 260);
+    }
+
+    window.addEventListener('scroll', actualizarBtnScrollTop, { passive: true });
+    actualizarBtnScrollTop();
 
     syncThemeUI(document.documentElement.getAttribute('data-theme') || 'petrol');
   </script>
