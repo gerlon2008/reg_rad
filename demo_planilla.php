@@ -11764,16 +11764,23 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         'Sincronizando consola HMI central...'
       ];
 
-      let currentPct = 15;
+      const MIN_DISPLAY_MS = 2200;
+      const loaderStartTime = Date.now();
+      let currentPct = 10;
       let msgIdx = 0;
+      let hideScheduled = false;
+
+      if (bar) bar.style.width = currentPct + '%';
+      if (pct) pct.textContent = currentPct + '%';
+      if (log) log.textContent = messages[0];
 
       const interval = setInterval(() => {
-        if (currentPct < 90) {
-          currentPct += Math.floor(Math.random() * 14) + 8;
-          if (currentPct > 90) currentPct = 90;
+        if (currentPct < 92) {
+          currentPct += Math.floor(Math.random() * 10) + 7;
+          if (currentPct > 92) currentPct = 92;
           if (bar) bar.style.width = currentPct + '%';
           if (pct) pct.textContent = currentPct + '%';
-          
+
           msgIdx = (msgIdx + 1) % messages.length;
           if (log) log.textContent = messages[msgIdx];
           if (phase) {
@@ -11782,20 +11789,26 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             else phase.textContent = 'SINCRONIZANDO';
           }
         }
-      }, 160);
+      }, 280);
 
-      window.hideScadaLoader = function() {
-        clearInterval(interval);
-        if (bar) bar.style.width = '100%';
-        if (pct) pct.textContent = '100%';
-        if (phase) phase.textContent = 'LISTO';
-        if (log) log.textContent = 'Sistema cargado con éxito.';
+      window.hideScadaLoader = function(forceImmediate) {
+        if (hideScheduled && !forceImmediate) return;
+        hideScheduled = true;
+        const elapsed = Date.now() - loaderStartTime;
+        const remaining = forceImmediate ? 0 : Math.max(0, MIN_DISPLAY_MS - elapsed);
         setTimeout(() => {
-          loader.classList.add('loaded');
+          clearInterval(interval);
+          if (bar) bar.style.width = '100%';
+          if (pct) pct.textContent = '100%';
+          if (phase) phase.textContent = 'LISTO';
+          if (log) log.textContent = 'Sistema cargado con éxito.';
           setTimeout(() => {
-            loader.style.display = 'none';
-          }, 450);
-        }, 220);
+            loader.classList.add('loaded');
+            setTimeout(() => {
+              loader.style.display = 'none';
+            }, 450);
+          }, 320);
+        }, remaining);
       };
 
       window.showScadaLoader = function(customMsg) {
@@ -11815,9 +11828,9 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
       }
       setTimeout(() => {
         if (!loader.classList.contains('loaded')) {
-          window.hideScadaLoader();
+          window.hideScadaLoader(true);
         }
-      }, 3500);
+      }, 6000);
 
       // Mostrar loader al hacer clic en enlaces de navegación del sistema
       document.querySelectorAll('a[href]:not([target="_blank"]):not([href^="#"]):not([href^="javascript"])').forEach(a => {
