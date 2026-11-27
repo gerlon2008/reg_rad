@@ -528,6 +528,8 @@ $hay_mas_inicial = !empty($lote_actual['hay_mas']);
       --bg-card: #0e2722;
       --bg-card-subtle: #163630;
       --bg-input: #081a16;
+      --bg-entry: #193e37;
+      --border-entry: #2a6358;
       --border-card: #1f4d43;
       --border-subtle: #12332c;
       --text-main: #edfcf6;
@@ -545,26 +547,30 @@ $hay_mas_inicial = !empty($lote_actual['hay_mas']);
     }
     [data-theme="navy"] {
       --bg-page: #07111e; --bg-card: #10223b; --bg-card-subtle: #172f50; --bg-input: #091626;
+      --bg-entry: #1d3961; --border-entry: #2e558c;
       --border-card: #20416b; --border-subtle: #142a46; --text-main: #f0f6fc;
       --text-muted: #93b0d4; --text-dim: #5b7b9e; --accent-blue: #3b82f6;
       --accent-cyan: #38bdf8; --accent-green: #22c55e; --accent-amber: #f59e0b; --accent-red: #ef4444;
     }
     [data-theme="plum"] {
       --bg-page: #110b17; --bg-card: #21162d; --bg-card-subtle: #2d1f3d; --bg-input: #150e1e;
+      --bg-entry: #342447; --border-entry: #503a6b;
       --border-card: #433157; --border-subtle: #271c33; --text-main: #f5f3ff;
       --text-muted: #c4b5fd; --text-dim: #8572a8; --accent-blue: #8b5cf6;
       --accent-cyan: #38bdf8; --accent-green: #34d399; --accent-amber: #fbbf24; --accent-red: #ef4444;
     }
     [data-theme="titanio"] {
       --bg-page: #0f1319; --bg-card: #1b212c; --bg-card-subtle: #242c3a; --bg-input: #12161f;
+      --bg-entry: #2c3545; --border-entry: #414f66;
       --border-card: #2e3849; --border-subtle: #202733; --text-main: #f1f5f9;
       --text-muted: #94a3b8; --text-dim: #64748b; --accent-blue: #4f86f7;
       --accent-cyan: #38bdf8; --accent-green: #22c55e; --accent-amber: #f59e0b; --accent-red: #ef4444;
     }
     [data-theme="ambar"] {
       --bg-page: #0a0b0d; --bg-card: #16181f; --bg-card-subtle: #22252e; --bg-input: #0e1014;
+      --bg-entry: #33373f; --border-entry: #484d59;
       --border-card: #343744; --border-subtle: #20222a; --text-main: #f8fafc;
-      --text-muted: #a1a1aa; --text-dim: #71717a; --accent-blue: #d97706;
+      --text-muted: #b4b8c2; --text-dim: #838896; --accent-blue: #d97706;
       --accent-cyan: #f59e0b; --accent-green: #10b981; --accent-amber: #f59e0b; --accent-red: #ef4444;
     }
 
@@ -853,11 +859,12 @@ $hay_mas_inicial = !empty($lote_actual['hay_mas']);
     .guardia-body { padding: 13px 16px; display: flex; flex-direction: column; gap: 10px; }
 
     .entry-card {
-      background: var(--bg-input);
-      border: 1px solid var(--border-subtle);
+      background: var(--bg-entry);
+      border: 1px solid var(--border-entry);
       border-left: 4px solid var(--accent-sky);
       border-radius: 7px;
-      padding: 10px 13px;
+      padding: 11px 14px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
     }
     .entry-card.tipo-novedad  { border-left-color: #38bdf8; }
     .entry-card.tipo-diario   { border-left-color: #10b981; }
