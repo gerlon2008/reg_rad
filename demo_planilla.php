@@ -11764,7 +11764,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
         'Sincronizando consola HMI central...'
       ];
 
-      const MIN_DISPLAY_MS = 2200;
+      const MIN_DISPLAY_MS = 1000;
       const loaderStartTime = Date.now();
       let currentPct = 10;
       let msgIdx = 0;
@@ -11776,7 +11776,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
 
       const interval = setInterval(() => {
         if (currentPct < 92) {
-          currentPct += Math.floor(Math.random() * 10) + 7;
+          currentPct += Math.floor(Math.random() * 12) + 10;
           if (currentPct > 92) currentPct = 92;
           if (bar) bar.style.width = currentPct + '%';
           if (pct) pct.textContent = currentPct + '%';
@@ -11789,7 +11789,7 @@ if (isset($_GET['nueva_guardia']) || isset($_GET['desbloquear']) || isset($_GET[
             else phase.textContent = 'SINCRONIZANDO';
           }
         }
-      }, 280);
+      }, 180);
 
       window.hideScadaLoader = function(forceImmediate) {
         if (hideScheduled && !forceImmediate) return;

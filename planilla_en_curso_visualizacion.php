@@ -3716,7 +3716,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
       ];
 
       const isAutoPrint = window.location.search.indexOf('print=1') !== -1;
-      const MIN_DISPLAY_MS = isAutoPrint ? 300 : 2200;
+      const MIN_DISPLAY_MS = isAutoPrint ? 300 : 1000;
       const loaderStartTime = Date.now();
       let currentPct = 10;
       let msgIdx = 0;
@@ -3728,7 +3728,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
 
       const interval = setInterval(() => {
         if (currentPct < 92) {
-          currentPct += Math.floor(Math.random() * 10) + 7;
+          currentPct += Math.floor(Math.random() * 12) + 10;
           if (currentPct > 92) currentPct = 92;
           if (bar) bar.style.width = currentPct + '%';
           if (pct) pct.textContent = currentPct + '%';
@@ -3741,7 +3741,7 @@ $fecha_latam = formafecha_latam($row_planilla['fecha']);
             else phase.textContent = 'SINCRONIZANDO';
           }
         }
-      }, 280);
+      }, 180);
 
       window.hideScadaLoader = function(forceImmediate) {
         if (hideScheduled && !forceImmediate) return;
