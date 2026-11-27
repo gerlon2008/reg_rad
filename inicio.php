@@ -149,19 +149,30 @@ if ($db_connected) {
     }
 
     // 2. Última planilla cerrada
-    $q_last = "SELECT a.id_planilla_diaria, a.fecha, a.turno, a.fecha_hora_cerrado, b.horarios
+    $q_last = "SELECT a.id_planilla_diaria, a.fecha, a.turno, a.fecha_hora_cerrado, b.horarios,
+                      d.of_apellido, d.of_nombre, e.jefe_apellido, e.jefe_nombre
                FROM regrad_planilla_diaria_nueva a
                LEFT JOIN regrad_turnos b ON b.id_turnos = a.turno
+               LEFT JOIN regrad_of_rad d ON d.id_of_rad = a.of_rad
+               LEFT JOIN regrad_jefes_turno e ON e.id_jefes_turno = a.jefe_turno
                WHERE a.fecha_hora_cerrado IS NOT NULL
                ORDER BY a.id_planilla_diaria DESC
                LIMIT 1";
     $r_last = @mysql_query($q_last, $miconex);
     if ($r_last && mysql_num_rows($r_last) > 0) {
         $rw_l = mysql_fetch_assoc($r_last);
+        $of_l_ap = inicio_safe_utf8($rw_l['of_apellido']);
+        $of_l_no = inicio_safe_utf8($rw_l['of_nombre']);
+        $jf_l_ap = inicio_safe_utf8($rw_l['jefe_apellido']);
+        $jf_l_no = inicio_safe_utf8($rw_l['jefe_nombre']);
+        $of_l_str = (!empty($of_l_ap) || !empty($of_l_no)) ? trim($of_l_ap . ', ' . $of_l_no, ', ') : 'SIN ASIGNAR';
+        $jf_l_str = (!empty($jf_l_ap) || !empty($jf_l_no)) ? trim($jf_l_ap . ', ' . $jf_l_no, ', ') : 'SIN ASIGNAR';
         $ultima_cerrada = array(
             'id' => (int)$rw_l['id_planilla_diaria'],
             'fecha' => inicio_fecha_latam($rw_l['fecha']),
-            'horarios' => !empty($rw_l['horarios']) ? inicio_safe_utf8($rw_l['horarios']) : ('Turno ' . $rw_l['turno'])
+            'horarios' => !empty($rw_l['horarios']) ? inicio_safe_utf8($rw_l['horarios']) : ('Turno ' . $rw_l['turno']),
+            'oficial' => function_exists('mb_strtoupper') ? mb_strtoupper($of_l_str, 'UTF-8') : strtoupper($of_l_str),
+            'jefe' => function_exists('mb_strtoupper') ? mb_strtoupper($jf_l_str, 'UTF-8') : strtoupper($jf_l_str)
         );
     }
 
@@ -804,6 +815,12 @@ if ($planilla_abierta !== null) {
           <div class="kpi-sub">
             <?php echo $ultima_cerrada !== null ? (inicio_h($ultima_cerrada['horarios']) . ' • #' . (int)$ultima_cerrada['id']) : 'Sin registros cerrados'; ?>
           </div>
+          <?php if ($ultima_cerrada !== null) { ?>
+          <div class="kpi-sub" style="margin-top: 5px; font-family: var(--font-mono); font-size: 10.5px; line-height: 1.45;">
+            <div>👤 Oficial: <strong style="color: var(--text-main);"><?php echo inicio_h($ultima_cerrada['oficial']); ?></strong></div>
+            <div>📋 Jefe de Turno: <strong style="color: var(--text-main);"><?php echo inicio_h($ultima_cerrada['jefe']); ?></strong></div>
+          </div>
+          <?php } ?>
         </div>
         <span style="font-size: 20px;">🗂️</span>
       </div>
