@@ -568,7 +568,7 @@ $hay_mas_inicial = !empty($lote_actual['hay_mas']);
     }
     [data-theme="ambar"] {
       --bg-page: #0a0b0d; --bg-card: #16181f; --bg-card-subtle: #22252e; --bg-input: #0e1014;
-      --bg-entry: #33373f; --border-entry: #484d59;
+      --bg-entry: #212631; --border-entry: #3a404f;
       --border-card: #343744; --border-subtle: #20222a; --text-main: #f8fafc;
       --text-muted: #b4b8c2; --text-dim: #838896; --accent-blue: #d97706;
       --accent-cyan: #f59e0b; --accent-green: #10b981; --accent-amber: #f59e0b; --accent-red: #ef4444;
